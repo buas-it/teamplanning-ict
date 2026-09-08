@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="nl"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeamPlanning ICT</title>
+<style>
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+body { min-height:100vh; background:linear-gradient(160deg,#0d0d1a 0%,#111827 60%,#0a1628 100%); font-family:'Courier New',monospace; color:#e8e8f0; padding:20px 16px; }
+button { font-family:inherit; cursor:pointer; }
+.header { text-align:center; margin-bottom:20px; }
+.header h1 { font-size:24px; font-weight:700; color:#fff; letter-spacing:-0.5px; }
+.nav { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+.nav-btn { width:34px; height:34px; border-radius:7px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff; font-size:13px; display:flex; align-items:center; justify-content:center; }
+.nav-btn:hover { background:rgba(255,255,255,0.12); }
+.nav-info { font-size:12px; color:#666; text-align:center; min-width:180px; }
+.nav-now { font-size:10px; padding:6px 10px; color:#80cbc4; border:1px solid rgba(128,203,196,0.3); background:rgba(128,203,196,0.06); border-radius:7px; width:auto; }
+.nav-now:hover { background:rgba(128,203,196,0.12); }
+.scroll-wrap { overflow-x:auto; }
+.grid-layout { min-width:640px; max-width:1100px; margin:0 auto; display:flex; gap:10px; }
+.name-col { width:110px; flex-shrink:0; }
+.name-spacer { height:86px; }
+.name-row { height:38px; margin-bottom:3px; display:flex; align-items:center; gap:7px; padding:2px 4px; border-radius:6px; }
+.name-row.alt { background:rgba(255,255,255,0.015); }
+.avatar { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#fff; flex-shrink:0; }
+.name-label { font-size:12px; color:#ffffff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.name-label.self { color:#ffffff; }
+.week-panel { flex:1; min-width:0; border-radius:14px; padding:14px 12px; position:relative; }
+.week-panel.current { background:rgba(255,108,0,0.04); border:1px solid rgba(255,108,0,0.25); }
+.week-panel.other   { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.07); }
+.week-panel.template { background:rgba(0,61,122,0.15); border:1px solid rgba(0,150,255,0.3); }
+.week-header { display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+.week-badge { border-radius:8px; padding:4px 14px; font-size:14px; font-weight:800; letter-spacing:1px; }
+.week-badge.current  { background:rgba(255,108,0,0.2);  border:1px solid rgba(255,108,0,0.5);   color:#FF6C00; }
+.week-badge.other    { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); color:#aaa; }
+.week-badge.template { background:rgba(0,100,220,0.2);  border:1px solid rgba(0,150,255,0.4);   color:#60b0ff; }
+.week-lbl { font-size:10px; letter-spacing:2px; text-transform:uppercase; }
+.week-lbl.current  { color:#FF6C00; opacity:0.7; }
+.week-lbl.other    { color:#555; }
+.week-lbl.template { color:#60b0ff; opacity:0.8; }
+.reset-btn { margin-left:auto; font-size:9px; padding:3px 8px; border-radius:5px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#666; cursor:pointer; letter-spacing:1px; text-transform:uppercase; }
+.reset-btn:hover { color:#aaa; background:rgba(255,255,255,0.1); }
+.day-header { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; margin-bottom:6px; }
+.day-hd { text-align:center; border-radius:6px; padding:4px 2px; }
+.day-hd.today-col { background:rgba(255,213,128,0.08); }
+.day-hd-name { font-size:12px; font-weight:800; color:#fff; letter-spacing:1px; }
+.day-hd-name.today-col { color:#FFD580; font-size:14px; }
+.day-hd-date { font-size:9px; color:#ffffff; margin-top:1px; }
+.day-hd-date.today-col { color:#FFD58099; }
+.today-badge { font-size:8px; letter-spacing:1px; text-transform:uppercase; color:#FFD580; background:rgba(255,213,128,0.12); border-radius:3px; padding:1px 4px; margin-top:2px; display:inline-block; }
+.day-hd-count { margin-top:2px; font-size:9px; font-weight:600; min-height:12px; }
+.person-row { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; margin-bottom:3px; padding:2px 0; border-radius:6px; box-sizing:border-box; }
+.person-row.alt { background:rgba(255,255,255,0.015); }
+.cell-wrap { position:relative; }
+.cell { height:34px; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:2px; flex-wrap:wrap; padding:2px; transition:all 0.12s; user-select:none; position:relative; overflow:hidden; }
+.cell:hover { filter:brightness(1.3); }
+.cell.today-col { }
+.cell-empty-dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.08); }
+.dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+.cross::before,.cross::after { content:""; position:absolute; background:#e53935; border-radius:2px; width:40%; height:2px; top:50%; left:50%; }
+.cross::before { transform:translate(-50%,-50%) rotate(45deg); }
+.cross::after  { transform:translate(-50%,-50%) rotate(-45deg); }
+.half-indicator { display:flex; align-items:center; justify-content:center; gap:2px; width:100%; height:100%; }
+.half-circle-left  { width:13px; height:13px; border-radius:50%; border:1.5px solid #e53935; background:linear-gradient(to right,#e53935 50%,transparent 50%); flex-shrink:0; }
+.half-circle-right { width:13px; height:13px; border-radius:50%; border:1.5px solid #e53935; background:linear-gradient(to left,#e53935 50%,transparent 50%); flex-shrink:0; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+.today-col-overlay {
+  position:absolute; pointer-events:none; z-index:10;
+  border:2.5px solid #FFD580;
+  border-radius:8px;
+  box-shadow:0 0 12px rgba(255,213,128,0.25);
+  background:rgba(255,213,128,0.04);
+}
+.divider { width:1px; background:rgba(255,255,255,0.06); flex-shrink:0; border-radius:1px; }
+.popup { position:fixed; z-index:600; background:#1a1a2e; border:1px solid rgba(255,255,255,0.18); border-radius:10px; padding:8px 6px; min-width:172px; box-shadow:0 8px 32px rgba(0,0,0,0.6); }
+.popup-title { font-size:9px; color:#555; letter-spacing:2px; text-transform:uppercase; text-align:center; margin-bottom:6px; }
+.popup-item { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:7px; cursor:pointer; margin-bottom:2px; transition:all 0.1s; border:1px solid transparent; }
+.popup-item:hover { background:rgba(255,255,255,0.06); }
+.popup-dot { width:13px; height:13px; border-radius:50%; flex-shrink:0; }
+.popup-label { font-size:11px; transition:color 0.1s; }
+.popup-check { margin-left:auto; font-size:12px; }
+.popup-close { margin-top:6px; padding:6px 8px; font-size:10px; color:#555; text-align:center; cursor:pointer; border-top:1px solid rgba(255,255,255,0.06); }
+.popup-close:hover { color:#aaa; }
+.legend { max-width:1100px; margin:16px auto 0; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:12px 16px; display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center; }
+.legend-title { font-size:10px; color:#555; letter-spacing:2px; text-transform:uppercase; }
+.legend-item { display:flex; align-items:center; gap:6px; }
+.legend-dot { width:13px; height:13px; border-radius:50%; flex-shrink:0; }
+.legend-label { font-size:11px; color:#bbb; }
+.legend-hint { font-size:10px; color:#444; margin-left:auto; }
+/* Template modal */
+#tpl-modal { display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); overflow-y:auto; }
+</style>
+</head>
+<body>
+<div class="header"><h1>Aanwezigheid Teams</h1></div>
+<div class="nav">
+  <button class="nav-btn" id="btn-prev">◀◀</button>
+  <button class="nav-btn" id="btn-prev1">◀</button>
+  <div class="nav-info" id="nav-info"><span style="color:#aaa">W26</span><span style="color:#444;margin:0 8px">+</span><span style="color:#aaa">W27</span></div>
+  <button class="nav-btn" id="btn-next1">▶</button>
+  <button class="nav-btn" id="btn-next">▶▶</button>
+  <button class="nav-now nav-btn" id="btn-now">Vandaag</button>
+  <button class="nav-btn" id="btn-refresh" onclick="saveState();setTimeout(()=&gt;location.reload(),300)" title="Ververs" style="font-size:14px;">↻</button>
+  <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span>
+  <span id="save-ind" style="font-size: 11px; opacity: 0; transition: opacity 0.3s; min-width: 20px; text-align: center; color: rgb(128, 203, 196);">✓ opgeslagen</span>
+  <button class="nav-btn" id="btn-geen-beheer" onclick="showGeenBeheerModal()" style="font-size:10px;padding:6px 10px;color:#f48fb1;border-color:rgba(244,143,177,0.4);background:rgba(244,143,177,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚠ Geen Beheer</button>
+  <button class="nav-btn" id="btn-template" style="font-size:10px;padding:6px 10px;color:#60b0ff;border-color:rgba(0,150,255,0.3);background:rgba(0,100,220,0.08);width:auto;letter-spacing:1px;">★ Standaard</button>
+</div>
+
+<div class="scroll-wrap">
+  <div class="grid-layout" id="main-grid"><div class="name-col"><div class="name-spacer"></div></div><div class="divider"></div></div>
+  <div id="health-bar" style="max-width:1100px;margin:10px auto 0;display:flex;align-items:center;gap:12px;padding:8px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;font-family:'Courier New',monospace;font-size:10px;">
+    <span style="color:rgba(255,255,255,0.3);letter-spacing:1.5px;text-transform:uppercase;">Status</span>
+    <span id="health-github" title="GitHub verbinding" style="color:rgba(255,255,255,0.2)">⬤ GitHub</span>
+    <span id="health-data" title="Data integriteit" style="color:rgba(255,255,255,0.2)">⬤ Data</span>
+    <span id="health-sync" title="Laatste sync" style="color:rgba(255,255,255,0.2)">⬤ Sync</span>
+    <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
+    <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
+  </div>
+  <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">K</span></div><span class="legend-label">Kantoor</span></div><div class="legend-item"><div class="legend-dot" style="background:#4caf50;box-shadow:0 0 5px #4caf5066"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:#e53935;box-shadow:0 0 5px #e5393566"></div><span class="legend-label">Vrije dag</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:linear-gradient(to right,rgba(200,200,200,0.45) 50%,rgba(255,255,255,0.04) 50%);border:1.5px solid rgba(200,200,200,0.4);flex-shrink:0"></div><span class="legend-label">'s Ochtends kantoor</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:linear-gradient(to right,rgba(255,255,255,0.04) 50%,rgba(200,200,200,0.45) 50%);border:1.5px solid rgba(200,200,200,0.4);flex-shrink:0"></div><span class="legend-label">'s Middags kantoor</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:linear-gradient(to right,rgba(76,175,80,0.55) 50%,rgba(255,255,255,0.04) 50%);border:1.5px solid rgba(76,175,80,0.5);flex-shrink:0"></div><span class="legend-label">'s Ochtends thuis</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:linear-gradient(to right,rgba(255,255,255,0.04) 50%,rgba(76,175,80,0.55) 50%);border:1.5px solid rgba(76,175,80,0.5);flex-shrink:0"></div><span class="legend-label">'s Middags thuis</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:linear-gradient(to right,#e5393544 50%,transparent 50%);border:1.5px solid rgba(229,57,53,0.4);flex-shrink:0"></div><span class="legend-label">'s Ochtends vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:linear-gradient(to right,transparent 50%,#e5393544 50%);border:1.5px solid rgba(229,57,53,0.4);flex-shrink:0"></div><span class="legend-label">'s Middags vrij</span></div><div class="legend-item"><div class="legend-dot" style="background:#ce93d8;box-shadow:0 0 5px #ce93d866"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
+</div>
+
+<!-- Standaard modal -->
+<div id="tpl-modal" style="display: none;">
+  <div style="max-width:600px;margin:40px auto 40px;background:#111827;border:1px solid rgba(0,150,255,0.35);border-radius:16px;padding:24px 20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <div>
+        <span style="font-size:18px;font-weight:800;color:#60b0ff;letter-spacing:1px;">★ Standaard week</span>
+        <div style="font-size:10px;color:#555;letter-spacing:2px;text-transform:uppercase;margin-top:3px;">Wijzigingen worden direct doorgevoerd in alle komende weken</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="btn-restore-backup" title="Herstel een backup" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.2);border-radius:8px;padding:6px 10px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;" onmouseover="this.style.color='rgba(255,255,255,0.6)';this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.color='rgba(255,255,255,0.2)';this.style.borderColor='rgba(255,255,255,0.07)'">⟳ backup</button>
+        <button id="tpl-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>
+      </div>
+    </div>
+    <div id="tpl-grid"></div>
+  </div>
+</div>
+
+<script id="data-store" type="application/json">{"store":{},"template":{},"manuallyEdited":{},"team":[]}</script>
+
+<script>
+let TEAM    = ["Wim","Wouter","Annies","Bas","Frederique","Bram","Ivor","Sercan","Hans","Marco","Dave"];
+const DAYS    = ["MA","DI","WO","DO","VR"];
+const DAY_LABELS = {MA:"Maandag",DI:"Dinsdag",WO:"Woensdag",DO:"Donderdag",VR:"Vrijdag"};
+const AVATARS = ["#7c5cbf","#3a8a82","#c47a2e","#b54d6a","#8a4db5","#3a7a5c","#5c7ab5","#b54d4d","#FF6C00","#4d7a3a","#5c4d8a"];
+
+const STATUSES = [
+  { key:"kantoor",    label:"Kantoor",                color:"#aaaaaa", border:"#888888", group:"kantoor" },
+  { key:"vm_kantoor", label:"'s Ochtends op kantoor", color:"#aaaaaa", border:"#888888", group:"kantoor" },
+  { key:"nm_kantoor", label:"'s Middags op kantoor",  color:"#aaaaaa", border:"#888888", group:"kantoor" },
+  { key:"thuis",      label:"Thuis",                  color:"#4caf50", border:"#388e3c", group:"thuis"   },
+  { key:"vm_thuis",   label:"'s Ochtends thuis",      color:"#4caf50", border:"#388e3c", group:"thuis"   },
+  { key:"nm_thuis",   label:"'s Middags thuis",       color:"#4caf50", border:"#388e3c", group:"thuis"   },
+  { key:"vrij",       label:"Vrije dag",              color:"#e53935", border:"#e53935", group:"vrij"    },
+  { key:"vm_vrij",    label:"'s Ochtends vrij",       color:"#e53935", border:"#e53935", group:"vrij"    },
+  { key:"nm_vrij",    label:"'s Middags vrij",        color:"#e53935", border:"#e53935", group:"vrij"    },
+  { key:"extern",     label:"Extern",                 color:"#ce93d8", border:"#ab47bc", group:"overig"  },
+];
+const STATUS_MAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
+
+// ── Date helpers ─────────────────────────────────────────────────
+const today = new Date(); today.setHours(0,0,0,0);
+function mondayOf(d){ const x=new Date(d); x.setHours(0,0,0,0); const day=x.getDay()||7; x.setDate(x.getDate()-(day-1)); return x; }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function addWeeks(d,n){ return addDays(d,n*7); }
+function isSameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
+function getWeekNumber(date){ const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate())); const dn=d.getUTCDay()||7; d.setUTCDate(d.getUTCDate()+4-dn); const y1=new Date(Date.UTC(d.getUTCFullYear(),0,1)); return Math.ceil((((d-y1)/86400000)+1)/7); }
+function fmtDate(d){ return d.toLocaleDateString("nl-NL",{day:"numeric",month:"short"}); }
+
+// ── Persistentie ────────────────────────────────────────────────
+
+function serializeState(){
+  const me={};
+  Object.keys(manuallyEdited).forEach(k=>{ me[k]=[...manuallyEdited[k]]; });
+  return {store, template, manuallyEdited:me, team:TEAM};
+}
+function applyState(data){
+  if(data.team) TEAM = data.team.filter(p => p !== "__divider__");
+
+  if(data.store) Object.keys(data.store).forEach(k=>{
+    // Verwijder personen die niet meer in het team zitten
+    const week = data.store[k];
+    Object.keys(week).forEach(p=>{ if(!TEAM.includes(p)) delete week[p]; });
+    store[k] = week;
+  });
+
+  if(data.template){
+    // Verwijder personen die niet meer in het team zitten uit template
+    Object.keys(data.template).forEach(p=>{
+      if(!TEAM.includes(p)) return; // overgeslagen
+      if(!template[p]){ template[p]={}; DAYS.forEach(d=>{ template[p][d]=[]; }); }
+      Object.keys(data.template[p]).forEach(d=>{ template[p][d]=data.template[p][d]; });
+    });
+    // Verwijder ook uit template object zelf als al geladen
+    Object.keys(template).forEach(p=>{ if(!TEAM.includes(p)) delete template[p]; });
+  }
+
+  if(data.manuallyEdited) Object.keys(data.manuallyEdited).forEach(k=>{
+    // Filter ook manuallyEdited entries voor verwijderde personen
+    manuallyEdited[k] = new Set((data.manuallyEdited[k]||[]).filter(e=>TEAM.includes(e.split("-")[0])));
+  });
+
+  // Sync data-store tag in HTML zodat verwijderde personen ook bij volgende laad weg zijn
+  try{
+    const el = document.getElementById("data-store");
+    if(el) el.textContent = JSON.stringify(serializeState());
+  }catch(e){}
+}
+
+
+// localStorage uitgeschakeld — GitHub is de enige bron van waarheid
+
+
+
+// ── GitHub sync ──────────────────────────────────────────────────
+const GH_TOKEN = ["github_pat_11APK53UQ0o2XqUtmlrm", "1N_Z2y634NPt1Sodd391rwFyjChPp97", "sWxuCMSwlO1BNhZ2FRHHZG4riuTkGtJ"].join("");
+
+// ── Beveiliging ──────────────────────────────────────────────────
+// Wachtwoord hash (SHA-256 van het wachtwoord)
+const PW_HASH = "b980ef247db770228acf922dbb07e5a555da45a84d8b8a399246367e0c2f3c08";
+let editUnlocked = false;
+let unlockTimer = null;
+
+async function hashPassword(pw){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+function showLockIndicator(){
+  const ind = document.getElementById("lock-ind");
+  if(!ind) return;
+  if(editUnlocked){
+    ind.textContent = "🔓 bewerken aan";
+    ind.style.color = "#80cbc4";
+    ind.style.cursor = "pointer";
+    ind.title = "Klik om te vergrendelen";
+  } else {
+    ind.textContent = "🔒 alleen lezen";
+    ind.style.color = "rgba(255,255,255,0.3)";
+    ind.style.cursor = "pointer";
+    ind.title = "Klik om te bewerken";
+  }
+}
+
+function lock(){
+  editUnlocked = false;
+  clearTimeout(unlockTimer);
+  showLockIndicator();
+}
+
+async function promptUnlock(){
+  return new Promise(resolve=>{
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+    overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:28px 24px;min-width:280px;text-align:center;">
+      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">🔒 Wachtwoord vereist</div>
+      <div style="font-size:11px;color:#777;margin-bottom:18px;">Voer het wachtwoord in om te bewerken</div>
+      <input id="pw-input" type="password" placeholder="Wachtwoord" autocomplete="off"
+        style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;margin-bottom:8px;outline:none;">
+      <div id="pw-error" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button id="pw-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;">Annuleren</button>
+        <button id="pw-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700;">Ontgrendelen</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector("#pw-input");
+    const error = overlay.querySelector("#pw-error");
+    input.focus();
+
+    async function tryUnlock(){
+      const hash = await hashPassword(input.value);
+      if(hash === PW_HASH){
+        editUnlocked = true;
+        clearTimeout(unlockTimer);
+        // Auto-vergrendel na 15 minuten inactiviteit
+        unlockTimer = setTimeout(lock, 15 * 60 * 1000);
+        showLockIndicator();
+        overlay.remove();
+        resolve(true);
+      } else {
+        error.textContent = "Onjuist wachtwoord";
+        input.value = "";
+        input.focus();
+        resolve(false);
+      }
+    }
+
+    overlay.querySelector("#pw-ok").onclick = tryUnlock;
+    overlay.querySelector("#pw-cancel").onclick = ()=>{ overlay.remove(); resolve(false); };
+    input.addEventListener("keydown", e=>{ if(e.key==="Enter") tryUnlock(); if(e.key==="Escape"){ overlay.remove(); resolve(false); } });
+  });
+}
+
+// Controleer of bewerken is toegestaan, vraag anders wachtwoord
+async function requireUnlock(){
+  if(editUnlocked){
+    // Reset auto-lock timer bij elke actie
+    clearTimeout(unlockTimer);
+    unlockTimer = setTimeout(lock, 15 * 60 * 1000);
+    return true;
+  }
+  return await promptUnlock();
+}
+const GH_REPO   = "hansstobbe2812/teamplanning-ict";
+const GH_BRANCH = "data";   // aparte branch → geen Pages deployment bij elke save
+const GH_FILE   = "state.json";
+const GH_API    = `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}`;
+let ghSha = null;
+let ghSaveTimer = null;
+let ghSaving = false;
+
+// Prefetch: start alle fetches meteen bij script-parse, vóór DOM-init
+// 1. state.json — voor snelle eerste load
+const _prefetchState = fetch(
+  `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
+  {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
+);
+
+// 2. Backup listing — voor directe health bar weergave
+const _prefetchBackupList = fetch(
+  `https://api.github.com/repos/${GH_REPO}/contents/backups?ref=${GH_BRANCH}&t=`+Date.now(),
+  {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
+);
+
+
+async function loadFromGitHub(usePrefetch=false){
+  try{
+    // Gebruik prefetch-promise als die nog loopt (eerste load), anders nieuw verzoek
+    const r = await (usePrefetch ? _prefetchState : fetch(
+      `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
+      {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
+    ));
+    if(!r.ok){ console.warn("GitHub laden HTTP:", r.status); return false; }
+    const d = await r.json();
+    ghSha = d.sha;
+    const text = atob(d.content.replace(/\n/g,""));
+    const data = JSON.parse(text);
+    if(data && data.store && data.team && data.team.length > 0){
+      HEALTH.github = "ok"; HEALTH.data = "ok";
+      HEALTH.lastSync = Date.now(); HEALTH.lastSyncOk = true;
+      updateHealthBar();
+      applyState(data); return true;
+    } else {
+      HEALTH.github = "ok"; HEALTH.data = "error";
+      updateHealthBar();
+      console.warn("GitHub: state leeg of ongeldig, wordt genegeerd");
+    }
+  }catch(e){
+    HEALTH.github = "error";
+    updateHealthBar();
+    console.warn("GitHub laden mislukt:", e);
+  }
+  return false;
+}
+
+// Helper: encode JSON naar base64 (unicode-safe)
+function encodeBase64(str){
+  const bytes = new TextEncoder().encode(str);
+  let binary = "";
+  bytes.forEach(b => binary += String.fromCharCode(b));
+  return btoa(binary);
+}
+
+// Helper: PUT een bestand naar GitHub (maakt aan of overschrijft)
+async function ghPut(path, content, message){
+  const url = `https://api.github.com/repos/${GH_REPO}/contents/${path}`;
+  let sha = undefined;
+  try{
+    const r = await fetch(url + `?ref=${GH_BRANCH}&t=` + Date.now(), {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+    if(r.ok){ const d = await r.json(); sha = d.sha; }
+  }catch(e){}
+  const body = {message, content, branch: GH_BRANCH, ...(sha ? {sha} : {})};
+  return fetch(url, {method:"PUT", headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body:JSON.stringify(body)});
+}
+
+// Backup elke 10 minuten na een wijziging (maximaal 14 dagen bewaard)
+let lastBackupJson = null;   // staat bij vorige backup
+let lastBackupTime = 0;      // timestamp vorige backup
+const BACKUP_INTERVAL = 10 * 60 * 1000; // 10 minuten
+
+async function maybeBackup(stateJson){
+  const now = Date.now();
+  // Sla alleen op als: er iets gewijzigd is én 10 min verstreken zijn
+  if(stateJson === lastBackupJson) return; // niets gewijzigd
+  if(now - lastBackupTime < BACKUP_INTERVAL) return; // nog geen 10 min
+
+  lastBackupJson = stateJson;
+  lastBackupTime = now;
+
+  const now_dt = new Date();
+  const date = now_dt.toISOString().slice(0,10);
+  const time = now_dt.toTimeString().slice(0,5).replace(":","-");
+  const filename = `${date}_${time}`;
+  const content = encodeBase64(stateJson);
+  const backupResult = await ghPut(`backups/${filename}.json`, content, `Auto-backup ${filename}`).catch(()=>null);
+  if(backupResult && backupResult.ok){
+    HEALTH.lastBackup = now;
+    HEALTH.lastBackupOk = true;
+    HEALTH.lastBackupLabel = now_dt.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit"})+" "+
+                             now_dt.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+  } else {
+    HEALTH.lastBackupOk = false;
+  }
+  updateHealthBar();
+  // Verwijder backups ouder dan 14 dagen (fire-and-forget)
+  try{
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 14);
+    const listR = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups?ref=${GH_BRANCH}&t=` + Date.now(), {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+    if(listR.ok){
+      const files = await listR.json();
+      for(const f of files){
+        const d = f.name.replace(".json","").slice(0,10); // YYYY-MM-DD prefix
+        if(d < cutoff.toISOString().slice(0,10)){
+          fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups/${f.name}`, {
+            method:"DELETE",
+            headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
+            body: JSON.stringify({message:`Verwijder oude backup ${d}`, sha: f.sha, branch: GH_BRANCH})
+          }).catch(()=>{});
+        }
+      }
+    }
+  }catch(e){}
+}
+
+async function saveToGitHub(){
+  if(ghSaving) return;
+  ghSaving = true;
+  try{
+    // Haal altijd eerst de actuele SHA op om conflicts te voorkomen
+    const check = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(), {
+      headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}
+    });
+    if(check.ok){ const cd = await check.json(); ghSha = cd.sha; }
+
+    const json = JSON.stringify(serializeState());
+    const content = encodeBase64(json);
+
+    const body = {message:"Update planning", content, sha: ghSha, branch: GH_BRANCH};
+    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`, {
+      method:"PUT",
+      headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
+      body: JSON.stringify(body)
+    });
+    if(r.ok){
+      const d = await r.json();
+      ghSha = d.content.sha;
+      HEALTH.github = "ok"; HEALTH.lastSync = Date.now(); HEALTH.lastSyncOk = true;
+      updateHealthBar();
+      showSaveStatus("ok");
+      // Prefetch SHA alvast voor volgende save (tijdens rustige periode)
+      setTimeout(async ()=>{
+        if(!ghSaving){
+          try{
+            const pre = await fetch(
+              `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
+              {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
+            );
+            if(pre.ok){ const pd = await pre.json(); ghSha = pd.sha; }
+          }catch(e){}
+        }
+      }, 2000);
+      // Backup (silent, na succesvolle save)
+      maybeBackup(json);
+    } else {
+      const err = await r.json().catch(()=>({}));
+      const msg = err.message || err.errors?.[0]?.message || r.status;
+      console.error("GitHub opslaan mislukt:", r.status, msg);
+      HEALTH.github = r.status === 401 || r.status === 403 ? "error" : "warn";
+      HEALTH.lastSync = Date.now(); HEALTH.lastSyncOk = false;
+      updateHealthBar();
+      // Bij 409 conflict: SHA ophalen en opnieuw proberen
+      if(r.status === 409){
+        console.warn("SHA conflict, opnieuw proberen...");
+        ghSha = null;
+        ghSaveTimer = setTimeout(saveToGitHub, 2000);
+      } else {
+        showSaveStatus("error: "+msg);
+      }
+    }
+  }catch(e){
+    console.warn("GitHub opslaan fout:", e);
+    showSaveStatus("error");
+  } finally {
+    ghSaving = false;
+  }
+}
+
+// Alles opslaan
+function saveState(){
+  clearTimeout(ghSaveTimer);
+  ghSaveTimer = setTimeout(saveToGitHub, 1500);
+}
+
+
+
+
+
+function showSaveStatus(state){
+  const ind=document.getElementById("save-ind"); if(!ind) return;
+  if(state==="ok"){
+    ind.textContent="✓ opgeslagen"; ind.style.color="#80cbc4";
+    ind.style.opacity="1";
+    clearTimeout(ind._t);
+    ind._t=setTimeout(()=>{ ind.style.opacity="0"; },3000);
+    // Verberg foutbanner als die nog zichtbaar is
+    hideSyncErrorBanner();
+  } else if(state==="error"||state.startsWith("error:")){
+    const msg = state.startsWith("error:") ? state.slice(6).trim() : "";
+    ind.textContent="✗ mislukt"; ind.style.color="#f48fb1";
+    ind.style.opacity="1";
+    clearTimeout(ind._t);
+    // Toon prominente foutbanner
+    showSyncErrorBanner(msg);
+  } else {
+    ind.textContent="⟳ "+state; ind.style.color="#ffb74d";
+    ind.style.opacity="1";
+    clearTimeout(ind._t);
+  }
+}
+
+function showSyncErrorBanner(detail){
+  let banner = document.getElementById("sync-error-banner");
+  if(!banner){
+    banner = document.createElement("div");
+    banner.id = "sync-error-banner";
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span style="font-size:20px;">⚠️</span>
+      <div>
+        <div style="font-weight:700;font-size:13px;">Opslaan mislukt — wijzigingen zijn NIET bewaard</div>
+        <div style="font-size:11px;opacity:0.8;margin-top:2px;">
+          ${detail ? "Fout: "+detail+" · " : ""}Ververs de pagina of probeer opnieuw.
+        </div>
+      </div>
+      <button onclick="saveToGitHub().then(()=>{}).catch(()=>{})" style="margin-left:auto;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:700;">↺ Opnieuw</button>
+      <button onclick="hideSyncErrorBanner()" style="background:transparent;border:none;color:rgba(255,255,255,0.5);font-size:16px;cursor:pointer;padding:0 4px;">✕</button>
+    </div>`;
+  banner.style.cssText = `
+    position:fixed;bottom:0;left:0;right:0;z-index:900;
+    background:linear-gradient(135deg,#b71c1c,#c62828);
+    color:#fff;padding:14px 20px;
+    box-shadow:0 -4px 24px rgba(183,28,28,0.6);
+    font-family:'Courier New',monospace;
+    animation:slideUp 0.3s ease;
+  `;
+  // Voeg animatie toe als die nog niet bestaat
+  if(!document.getElementById("sync-error-style")){
+    const style = document.createElement("style");
+    style.id = "sync-error-style";
+    style.textContent = "@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}";
+    document.head.appendChild(style);
+  }
+}
+
+function hideSyncErrorBanner(){
+  const b = document.getElementById("sync-error-banner");
+  if(b) b.remove();
+}
+
+// ── Health status ─────────────────────────────────────────────────
+const HEALTH = { github: "unknown", data: "unknown", lastSync: null, lastSyncOk: false, lastBackup: null, lastBackupOk: false, lastBackupLabel: null };
+
+function updateHealthBar(){
+  const el = {
+    github: document.getElementById("health-github"),
+    data:   document.getElementById("health-data"),
+    sync:   document.getElementById("health-sync"),
+    detail: document.getElementById("health-detail"),
+  };
+  if(!el.github) return;
+
+  function dot(state){ return state==="ok"?"#4caf50": state==="warn"?"#ffb74d": state==="error"?"#e53935":"rgba(255,255,255,0.2)"; }
+
+  // GitHub bereikbaarheid
+  el.github.style.color = dot(HEALTH.github);
+  el.github.title = HEALTH.github==="ok" ? "GitHub: verbonden" : HEALTH.github==="error" ? "GitHub: niet bereikbaar" : "GitHub: onbekend";
+
+  // Data integriteit
+  el.data.style.color = dot(HEALTH.data);
+  el.data.title = HEALTH.data==="ok" ? "Data: geldig" : HEALTH.data==="error" ? "Data: leeg of ongeldig!" : "Data: onbekend";
+
+  // Sync timing
+  if(HEALTH.lastSync){
+    const secAgo = Math.round((Date.now()-HEALTH.lastSync)/1000);
+    const syncState = HEALTH.lastSyncOk ? (secAgo < 120 ? "ok" : "warn") : "error";
+    el.sync.style.color = dot(syncState);
+    const ago = secAgo < 60 ? secAgo+"s" : Math.round(secAgo/60)+"m";
+    el.sync.title = (HEALTH.lastSyncOk ? "Sync OK" : "Sync mislukt") + " — "+ago+" geleden";
+    el.detail.textContent = (HEALTH.lastSyncOk ? "sync ✓ " : "sync ✗ ") + ago+" geleden";
+  } else {
+    el.sync.style.color = dot("unknown");
+    el.sync.title = "Nog niet gesynchroniseerd";
+    el.detail.textContent = "";
+  }
+
+  // Backup timing
+  const elBackup = document.getElementById("health-backup");
+  if(elBackup){
+    if(HEALTH.lastBackup){
+      const bSecAgo = Math.round((Date.now()-HEALTH.lastBackup)/1000);
+      const bState = HEALTH.lastBackupOk ? (bSecAgo < 20*60 ? "ok" : "warn") : "error";
+      elBackup.style.color = dot(bState);
+      const bLabel = HEALTH.lastBackupLabel || (() => {
+        const bDt = new Date(HEALTH.lastBackup);
+        return bDt.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit"})+" "+
+               bDt.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+      })();
+      elBackup.title = (HEALTH.lastBackupOk ? "Backup OK" : "Backup mislukt") + ` — ${bLabel}`;
+      el.detail.textContent += (HEALTH.lastBackupOk ? "  backup ✓ " : "  backup ✗ ") + bLabel;
+    } else {
+      elBackup.style.color = dot("unknown");
+      elBackup.title = "Nog geen backup gemaakt";
+      el.detail.textContent += "  backup: nog geen";
+    }
+  }
+}
+
+// Update health bar elke 10 seconden
+setInterval(updateHealthBar, 10000);
+
+// Laad laatste backup-tijd — gebruik prefetch-resultaat
+_prefetchBackupList.then(async r=>{
+  if(!r.ok) return;
+  const files = await r.json();
+  if(!Array.isArray(files) || !files.length) return;
+  const newest = files.filter(f=>f.name.endsWith(".json"))
+                      .sort((a,b)=>b.name.localeCompare(a.name))[0];
+  if(!newest) return;
+  // Gebruik bestandsnaam direct als leesbare string, geen Date-parsing
+  const raw = newest.name.replace(".json",""); // "2026-07-13_12-30" of "2026-07-13"
+  const label = raw.length >= 16
+    ? raw.slice(8,10)+"-"+raw.slice(5,7)+" "+raw.slice(11,16).replace("-",":")
+    : raw.slice(8,10)+"-"+raw.slice(5,7);
+  HEALTH.lastBackupLabel = label;
+  HEALTH.lastBackupOk = true;
+  HEALTH.lastBackup = Date.now(); // voor kleur-berekening (groen)
+  updateHealthBar();
+}).catch(()=>{});
+
+// ── Template ─────────────────────────────────────────────────────
+const template = {};
+TEAM.forEach(p=>{ template[p]={}; DAYS.forEach(d=>{ template[p][d]=[]; }); });
+
+["Wim","Wouter","Annies","Bas","Frederique"].forEach(p=>{ DAYS.forEach(d=>{ template[p][d]=["kantoor"]; }); });
+// Bram: WO thuis, rest kantoor
+template["Bram"]["MA"]=["kantoor"]; template["Bram"]["DI"]=["vrij"]; template["Bram"]["WO"]=["thuis"]; template["Bram"]["DO"]=["kantoor"]; template["Bram"]["VR"]=["kantoor"];
+// Ivor: WO vrij, rest kantoor
+template["Ivor"]["MA"]=["kantoor"]; template["Ivor"]["DI"]=["kantoor"]; template["Ivor"]["WO"]=["vrij"]; template["Ivor"]["DO"]=["kantoor"]; template["Ivor"]["VR"]=["kantoor"];
+// Sercan: DI thuis, VR vrij, rest kantoor
+template["Sercan"]["MA"]=["kantoor"]; template["Sercan"]["DI"]=["thuis"]; template["Sercan"]["WO"]=["kantoor"]; template["Sercan"]["DO"]=["kantoor"]; template["Sercan"]["VR"]=["vrij"];
+// Hans: MA+DO thuis, DI+WO kantoor, VR voormiddag thuis + namiddag vrij
+template["Hans"]["MA"]=["thuis"]; template["Hans"]["DI"]=["kantoor"]; template["Hans"]["WO"]=["kantoor"]; template["Hans"]["DO"]=["thuis"]; template["Hans"]["VR"]=["thuis","nm_vrij"];
+// Marco: MA+DI thuis, rest kantoor
+template["Marco"]["MA"]=["thuis"]; template["Marco"]["DI"]=["thuis"]; template["Marco"]["WO"]=["kantoor"]; template["Marco"]["DO"]=["kantoor"]; template["Marco"]["VR"]=["kantoor"];
+// Dave: altijd kantoor
+DAYS.forEach(d=>{ template["Dave"][d]=["kantoor"]; });
+
+function cloneTemplate(){ const g={}; TEAM.forEach(p=>{ if(!template[p]) template[p]={}; g[p]={}; DAYS.forEach(d=>{ g[p][d]=[...(template[p][d]||[])]; }); }); return g; }
+
+// ── Data store ───────────────────────────────────────────────────
+const store = {};
+const manuallyEdited = {};
+
+function weekKey(monday){ return `${monday.getFullYear()}-W${String(getWeekNumber(monday)).padStart(2,"0")}`; }
+function getMondayFromKey(key){
+  // key = "2026-W29" → find the monday of that ISO week
+  const [yr, wStr] = key.split("-W");
+  const year = parseInt(yr), week = parseInt(wStr);
+  // Jan 4 is always in week 1
+  const jan4 = new Date(year, 0, 4);
+  const jan4Dow = jan4.getDay()||7;
+  const week1Mon = new Date(jan4.getTime() - (jan4Dow-1)*86400000);
+  return new Date(week1Mon.getTime() + (week-1)*7*86400000);
+}
+function weekMondayFromKey(k){ const [yr,wPart]=k.split("-W"); const wk=parseInt(wPart); const jan1=new Date(parseInt(yr),0,1); const j=jan1.getDay()||7; const m=new Date(jan1); m.setDate(jan1.getDate()+(wk-1)*7-(j-1)); return m; }
+
+function getData(monday){
+  const k=weekKey(monday);
+  if(!store[k]) store[k]=cloneTemplate();
+  // Zorg dat alle huidige TEAM-leden data hebben
+  TEAM.forEach(p=>{
+    if(!store[k][p]){
+      if(!template[p]) template[p]={};
+      store[k][p]={};
+      DAYS.forEach(d=>{ store[k][p][d]=[...(template[p][d]||[])]; });
+    }
+  });
+  return store[k];
+}
+
+function pushTemplateCell(person,day){
+  const newVal=[...(template[person][day]||[])];
+  const thisMonday=mondayOf(today);
+  Object.keys(store).forEach(k=>{
+    const wkMonday=weekMondayFromKey(k);
+    const isFuture=wkMonday>thisMonday;
+    const edited=manuallyEdited[k];
+    if(!edited||!edited.has(person+"-"+day)){
+      if(!store[k][person]) store[k][person]={};
+      store[k][person][day]=[...newVal];
+    }
+  });
+}
+
+function toggleStatus(monday,person,day,key,isTemplate){
+  if(isTemplate){
+    const cur=template[person][day];
+    template[person][day]=cur.includes(key)?cur.filter(k=>k!==key):[...cur,key];
+    pushTemplateCell(person,day);
+    saveState();
+    const _p=person,_d=day;
+    render();
+    requestAnimationFrame(()=>{
+      syncNameSpacer();
+      if(document.getElementById("tpl-modal").style.display!=="none"){
+        buildTemplateGrid();
+        const newCell=document.getElementById(cellId("TPL",_p,_d));
+        if(newCell) showPopup(newCell.parentElement,null,_p,_d,true);
+      }
+    });
+  } else {
+    const k=weekKey(monday);
+    if(!manuallyEdited[k]) manuallyEdited[k]=new Set();
+    manuallyEdited[k].add(person+"-"+day);
+    const data=getData(monday);
+    if(!data[person]) data[person]={};
+    const cur=data[person][day]||[];
+    // Multiselect met constraints:
+    // - vrij sluit vm_vrij en nm_vrij uit (en andersom)
+    let next;
+    if(cur.includes(key)){
+      next=cur.filter(k2=>k2!==key); // uitzetten
+    } else {
+      next=[...cur,key];
+      if(key==="vrij") next=next.filter(k2=>k2!=="vm_vrij"&&k2!=="nm_vrij"&&k2!=="vm_kantoor"&&k2!=="nm_kantoor");
+      if(key==="vm_vrij"||key==="nm_vrij") next=next.filter(k2=>k2!=="vrij");
+      // kantoor-heel-dag sluit halve-dag-kantoor uit en andersom
+      if(key==="kantoor") next=next.filter(k2=>k2!=="vm_kantoor"&&k2!=="nm_kantoor");
+      if(key==="vm_kantoor"||key==="nm_kantoor"){
+        next=next.filter(k2=>k2!=="kantoor");
+        if(next.includes("vm_kantoor")&&next.includes("nm_kantoor")){
+          next=next.filter(k2=>k2!=="vm_kantoor"&&k2!=="nm_kantoor");
+          next.push("kantoor");
+        }
+      }
+      if(key==="thuis") next=next.filter(k2=>k2!=="vm_thuis"&&k2!=="nm_thuis");
+      if(key==="vm_thuis"||key==="nm_thuis"){
+        next=next.filter(k2=>k2!=="thuis");
+        if(next.includes("vm_thuis")&&next.includes("nm_thuis")){
+          next=next.filter(k2=>k2!=="vm_thuis"&&k2!=="nm_thuis");
+          next.push("thuis");
+        }
+      }
+    }
+    data[person][day]=next;
+    saveState();
+  }
+}
+
+function resetWeekToTemplate(monday){
+  const k=weekKey(monday);
+  store[k]=cloneTemplate();
+  delete manuallyEdited[k];
+  saveState();
+  renderAndSync();
+}
+
+// ── Prefill week 22 (2026) van whiteboard ────────────────────────
+(function prefill(){
+  function mondayOfWeek(wk,yr){ const jan1=new Date(yr,0,1); const j=jan1.getDay()||7; const m=new Date(jan1); m.setDate(jan1.getDate()+(wk-1)*7-(j-1)); return m; }
+  const m22=mondayOfWeek(22,2026), k22=weekKey(m22), w22=getData(m22);
+  if(!manuallyEdited[k22]) manuallyEdited[k22]=new Set();
+  function setCell(p,d,v){ w22[p][d]=v; manuallyEdited[k22].add(p+"-"+d); }
+  // Iedereen vrij op maandag
+  TEAM.forEach(p=>setCell(p,"MA",["vrij"]));
+  // Wim + Bram hele week vrij
+  ["DI","WO","DO","VR"].forEach(d=>{ setCell("Wim",d,["vrij"]); setCell("Bram",d,["vrij"]); });
+  // Overige dagen week 22
+  setCell("Wouter","DI",["kantoor"]);
+  setCell("Frederique","DI",["thuis"]);
+  setCell("Sercan","DI",["thuis"]); setCell("Sercan","WO",["thuis"]);
+  setCell("Marco","DI",["kantoor"]);
+  setCell("Dave","DI",["kantoor"]);
+})();
+
+// Propageer template naar weken die nog niet handmatig zijn ingesteld
+function propagateTemplateToAll(){
+  const thisMonday=mondayOf(today);
+  Object.keys(store).forEach(k=>{
+    const wkMonday=weekMondayFromKey(k);
+    const isFuture=wkMonday>thisMonday;
+    TEAM.forEach(p=>{ if(!template[p]) template[p]={}; DAYS.forEach(d=>{
+      const edited=manuallyEdited[k];
+      if(!edited||!edited.has(p+"-"+d)){
+        if(!store[k][p]) store[k][p]={};
+        store[k][p][d]=[...(template[p][d]||[])];
+      }
+    });});
+  });
+}
+// Laad staat: GitHub heeft prioriteit, dan localStorage, dan data-store tag
+(async ()=>{
+  // Verberg grid tot state geladen is (voorkomt flikkering met oude namen)
+  const mainGrid = document.getElementById("main-grid");
+  if(mainGrid) mainGrid.style.visibility = "hidden";
+  const ghLoaded = await loadFromGitHub(true); // gebruik prefetch
+  if(!ghLoaded){
+    // Geen localStorage fallback — GitHub is de enige bron van waarheid
+    // Verwijder eventuele oude localStorage data
+    try{ localStorage.clear(); }catch(e){}
+  }
+  TEAM = TEAM.filter(p => p !== "__divider__");
+  propagateTemplateToAll();
+  renderAndSync();
+  // Toon grid nu state geladen is
+  if(mainGrid) mainGrid.style.visibility = "visible";
+  // Achtergrond-sync: herlaad van GitHub elke 60 seconden
+  setInterval(async ()=>{
+    if(ghSaving) return;
+    const beforeJson = JSON.stringify(serializeState());
+    const loaded = await loadFromGitHub();
+    if(loaded && JSON.stringify(serializeState()) !== beforeJson){
+      renderAndSync();
+    }
+  }, 60000);
+})();
+
+// ── Popup ────────────────────────────────────────────────────────
+let openPopup=null;
+function closePopup(){ if(openPopup){ openPopup.el.remove(); openPopup=null; } }
+document.addEventListener("click",e=>{ if(openPopup&&!openPopup.el.contains(e.target)&&!e.target.closest(".cell")) closePopup(); });
+
+async function showPopup(cellWrap,monday,person,day,isTemplate){
+  if(!await requireUnlock()) return;
+  closePopup();
+  const popup=document.createElement("div"); popup.className="popup";
+  const title=document.createElement("div"); title.className="popup-title";
+  title.textContent=(isTemplate?"★ Standaard · ":"")+person+" · "+DAY_LABELS[day];
+  popup.appendChild(title);
+  const closeBtn=document.createElement("div"); closeBtn.className="popup-close"; closeBtn.textContent="Sluiten";
+  closeBtn.addEventListener("click",closePopup);
+  popup.appendChild(closeBtn);
+  function renderItems(){
+    popup.querySelectorAll(".popup-item").forEach(e=>e.remove());
+    const sel=isTemplate?(template[person][day]||[]):(getData(monday)[person][day]||[]);
+    let lastGroup=null;
+    STATUSES.forEach(s=>{
+      // Scheidingslijn tussen groepen
+      if(s.group!==lastGroup){
+        if(lastGroup!==null){
+          const div=document.createElement("div");
+          div.style.cssText="height:1px;background:rgba(255,255,255,0.1);margin:4px 6px;";
+          popup.insertBefore(div,closeBtn);
+        }
+        lastGroup=s.group;
+      }
+      const active=sel.includes(s.key);
+      const item=document.createElement("div"); item.className="popup-item";
+      if(active){ item.style.background=s.color+"22"; item.style.border=`1px solid ${s.border}66`; }
+      item.innerHTML=`<div class="popup-dot" style="background:${active?s.color:"rgba(255,255,255,0.1)"};${active?`box-shadow:0 0 6px ${s.color}88`:""}"></div><span class="popup-label" style="color:${active?"#fff":"#888"}">${s.label}</span>${active?`<span class="popup-check" style="color:${s.color}">✓</span>`:""}`;
+      item.addEventListener("click",e=>{
+        e.stopPropagation();
+        toggleStatus(monday,person,day,s.key,isTemplate);
+        if(!isTemplate){
+          const _m=monday,_p=person,_d=day;
+          render();
+          requestAnimationFrame(()=>{
+            syncNameSpacer();
+            const newWrap=document.getElementById(cellId(weekKey(_m),_p,_d));
+            if(newWrap) showPopup(newWrap.parentElement,_m,_p,_d,false);
+          });
+        }
+      });
+      popup.insertBefore(item,closeBtn);
+    });
+  }
+  renderItems();
+  // Voeg toe aan body zodat position:fixed correct werkt
+  document.body.appendChild(popup);
+  openPopup={el:popup, wrap:cellWrap};
+  // Bereken positie: onder de cel, maar klap omhoog als er te weinig ruimte is
+  const rect = cellWrap.getBoundingClientRect();
+  const ph = popup.offsetHeight || 260; // schatting voor eerste render
+  const spaceBelow = window.innerHeight - rect.bottom - 8;
+  const spaceAbove = rect.top - 8;
+  if(spaceBelow >= ph || spaceBelow >= spaceAbove){
+    popup.style.top = (rect.bottom + 6) + "px";
+  } else {
+    popup.style.top = (rect.top - ph - 6) + "px";
+  }
+  // Horizontaal: gecentreerd op cel, maar binnen venster houden
+  const pw = popup.offsetWidth || 172;
+  let left = rect.left + rect.width/2 - pw/2;
+  left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+  popup.style.left = left + "px";
+}
+
+// ── Cell rendering ───────────────────────────────────────────────
+function cellId(key,person,day){ return `cell-${key}-${person.replace(/\s/g,"_")}-${day}`; }
+
+function renderCellContent(cell,sel){
+  const dots=sel.map(k=>STATUS_MAP[k]).filter(Boolean);
+  cell.innerHTML="";
+
+  // Leeg
+  if(!dots.length){
+    cell.style.background="rgba(255,255,255,0.22)"; cell.style.border="1.5px solid rgba(255,255,255,0.30)";
+    const e=document.createElement("div"); e.className="cell-empty-dot"; cell.appendChild(e); return;
+  }
+
+  const hasKantoor   =dots.some(s=>s.key==="kantoor");
+  const hasThuis     =dots.some(s=>s.key==="thuis");
+  const hasVmVrij    =dots.some(s=>s.key==="vm_vrij");
+  const hasNmVrij    =dots.some(s=>s.key==="nm_vrij");
+  const hasVmKantoor =dots.some(s=>s.key==="vm_kantoor");
+  const hasNmKantoor =dots.some(s=>s.key==="nm_kantoor");
+  const hasVmThuis   =dots.some(s=>s.key==="vm_thuis");
+  const hasNmThuis   =dots.some(s=>s.key==="nm_thuis");
+  const needsSplit   =hasVmVrij||hasNmVrij||hasVmKantoor||hasNmKantoor||hasVmThuis||hasNmThuis;
+
+  // Hulpfunctie: klein label in de cel
+  // side: "left"=linkerhelft, "right"=rechterhelft, "full"=heel vak
+  function addLabel(txt, color, side="full"){
+    const lbl=document.createElement("span");
+    lbl.textContent=txt;
+    if(side==="left"){
+      lbl.style.cssText=`position:absolute;left:0;top:0;width:50%;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${color};letter-spacing:0.5px;pointer-events:none;`;
+    } else if(side==="right"){
+      lbl.style.cssText=`position:absolute;right:0;top:0;width:50%;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${color};letter-spacing:0.5px;pointer-events:none;`;
+    } else {
+      lbl.style.cssText=`font-size:10px;font-weight:700;color:${color};letter-spacing:0.5px;line-height:1;pointer-events:none;`;
+    }
+    cell.appendChild(lbl);
+  }
+
+  if(needsSplit){
+    const leftColor  = hasVmVrij ? "rgba(229,57,53,0.55)" : hasVmKantoor ? "rgba(200,200,200,0.45)" : hasVmThuis ? "rgba(76,175,80,0.55)" : "rgba(255,255,255,0.04)";
+    const rightColor = hasNmVrij ? "rgba(229,57,53,0.55)" : hasNmKantoor ? "rgba(200,200,200,0.45)" : hasNmThuis ? "rgba(76,175,80,0.55)" : "rgba(255,255,255,0.04)";
+    const borderColor = (hasVmKantoor||hasNmKantoor) ? "rgba(200,200,200,0.4)" : (hasVmThuis||hasNmThuis) ? "rgba(76,175,80,0.5)" : "rgba(229,57,53,0.45)";
+    cell.style.background = `linear-gradient(to right, ${leftColor} 50%, ${rightColor} 50%)`;
+    cell.style.border = `1.5px solid ${borderColor}`;
+    // Labels in split-cel
+    if(hasVmVrij)    addLabel("V","rgba(255,255,255,1)","left");
+    if(hasVmKantoor) addLabel("K","rgba(255,255,255,1)","left");
+    if(hasVmThuis)   addLabel("T","rgba(255,255,255,1)","left");
+    if(hasNmVrij)    addLabel("V","rgba(255,255,255,1)","right");
+    if(hasNmKantoor) addLabel("K","rgba(255,255,255,1)","right");
+    if(hasNmThuis)   addLabel("T","rgba(255,255,255,1)","right");
+    // Extra bolletjes voor andere statussen (extern, vrij-heel-dag, etc.)
+    const rest=dots.filter(s=>!["vm_vrij","nm_vrij","vm_kantoor","nm_kantoor","vm_thuis","nm_thuis","kantoor","thuis"].includes(s.key));
+    rest.forEach(s=>{ cell.appendChild(makeDot(s)); });
+  } else {
+    // Achtergrond bepalen op basis van dominant (niet-kantoor) status
+    const hasVrij=dots.some(s=>s.key==="vrij");
+    const dominant=dots.find(s=>s.key!=="kantoor")||dots[0];
+    cell.style.background=`${dominant.color}22`;
+    cell.style.border=`1.5px solid ${dominant.border}66`;
+
+    // Altijd K of T tonen voor kantoor/thuis (hele dag)
+    if(hasVrij && !hasKantoor && !hasThuis && dots.length===1){
+      // Alleen vrij: rode achtergrond + V
+      cell.style.background="rgba(229,57,53,0.55)"; cell.style.border="1.5px solid rgba(229,57,53,0.5)";
+      addLabel("V","rgba(255,255,255,1)","full");
+    } else if(hasKantoor && !hasThuis){
+      // Alleen kantoor: zelfde grijs als halve-dag kantoor
+      cell.style.background="rgba(200,200,200,0.45)"; cell.style.border="1.5px solid rgba(200,200,200,0.4)";
+      addLabel("K","rgba(255,255,255,1)","full");
+      // Extra bolletjes voor andere statussen
+      dots.filter(s=>s.key!=="kantoor").forEach(s=>{ cell.appendChild(makeDot(s)); });
+    } else if(hasThuis && !hasKantoor){
+      // Alleen thuis: groene achtergrond + T
+      cell.style.background="rgba(76,175,80,0.55)"; cell.style.border="1.5px solid rgba(76,175,80,0.5)";
+      addLabel("T","rgba(255,255,255,1)","full");
+      dots.filter(s=>s.key!=="thuis").forEach(s=>{ cell.appendChild(makeDot(s)); });
+    } else {
+      // Overige combinaties: gewone bolletjes
+      dots.forEach(s=>{ cell.appendChild(makeDot(s)); });
+    }
+  }
+}
+
+function makeDot(s){
+  const d=document.createElement("div"); d.className="dot";
+  d.style.background=s.color; d.style.boxShadow=`0 0 6px ${s.color}88`;
+  d.style.display="flex"; d.style.alignItems="center"; d.style.justifyContent="center";
+  const LABELS={"kantoor":"K","thuis":"T","vrij":"V","extern":"E","deel":"D"};
+  if(LABELS[s.key]){
+    const lbl=document.createElement("span"); lbl.textContent=LABELS[s.key];
+    lbl.style.cssText="font-size:8px;font-weight:700;color:rgba(0,0,0,0.45);line-height:1;";
+    d.appendChild(lbl);
+  }
+  return d;
+}
+
+// ── Template panel (modal) ───────────────────────────────────────
+let dragSrcName = null;
+
+function buildDragHandle(){
+  const h = document.createElement("div");
+  h.style.cssText = "cursor:grab;color:rgba(255,255,255,0.25);font-size:14px;padding:0 4px;user-select:none;flex-shrink:0;";
+  h.textContent = "⠿";
+  h.title = "Versleep om volgorde te wijzigen";
+  return h;
+}
+
+function renamePerson(oldName, newName){
+  newName = newName.trim();
+  if(!newName || newName === oldName || TEAM.includes(newName)) return false;
+  const idx = TEAM.indexOf(oldName);
+  if(idx === -1) return false;
+  TEAM[idx] = newName;
+  // Kopieer template data
+  template[newName] = template[oldName];
+  delete template[oldName];
+  // Kopieer store data
+  Object.keys(store).forEach(k=>{
+    if(store[k][oldName]){ store[k][newName]=store[k][oldName]; delete store[k][oldName]; }
+  });
+  // Kopieer manuallyEdited
+  Object.keys(manuallyEdited).forEach(k=>{
+    if(manuallyEdited[k]){
+      DAYS.forEach(d=>{
+        if(manuallyEdited[k].has(oldName+"-"+d)){
+          manuallyEdited[k].delete(oldName+"-"+d);
+          manuallyEdited[k].add(newName+"-"+d);
+        }
+      });
+    }
+  });
+  saveState();
+  buildTemplateGrid();
+  renderAndSync();
+  return true;
+}
+
+function addPerson(name){
+  name = name.trim();
+  if(!name || TEAM.includes(name)) return false;
+  TEAM.push(name);
+  // Voeg toe aan template
+  template[name] = {}; DAYS.forEach(d=>{ template[name][d]=["kantoor"]; });
+  // Voeg toe aan alle weken in store
+  Object.keys(store).forEach(k=>{
+    store[k][name] = {}; DAYS.forEach(d=>{ store[k][name][d]=[...(template[name][d]||[])]; });
+  });
+  saveState();
+  buildTemplateGrid();
+  renderAndSync();
+  return true;
+}
+
+function removePerson(name){
+  const idx = TEAM.indexOf(name);
+  if(idx === -1) return;
+  TEAM.splice(idx, 1);
+  delete template[name];
+  Object.keys(store).forEach(k=>{ delete store[k][name]; });
+  Object.keys(manuallyEdited).forEach(k=>{
+    if(manuallyEdited[k]) DAYS.forEach(d=>{ manuallyEdited[k].delete(name+"-"+d); });
+  });
+  saveState();
+  buildTemplateGrid();
+  renderAndSync();
+}
+
+function buildTemplateGrid(){
+  const container=document.getElementById("tpl-grid"); container.innerHTML="";
+  // Toevoegen-rij bovenaan — altijd zichtbaar
+  // (addRow wordt hieronder aangemaakt en dan direct toegevoegd)
+  // Header row met dag-kolommen
+  const hdrRow=document.createElement("div");
+  hdrRow.style.cssText="display:grid;grid-template-columns:130px repeat(5,1fr) 28px;gap:4px;margin-bottom:8px;align-items:center;";
+  hdrRow.appendChild(document.createElement("div"));
+  DAYS.forEach(day=>{ const d=document.createElement("div"); d.style.cssText="text-align:center;font-size:12px;font-weight:800;color:#fff;letter-spacing:1px;padding:6px 0;"; d.textContent=day; hdrRow.appendChild(d); });
+  hdrRow.appendChild(document.createElement("div")); // lege kolom voor verwijder-knop
+  // Toevoegen-rij bovenaan
+  const addRow=document.createElement("div");
+  addRow.style.cssText="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);";
+  const inp=document.createElement("input");
+  inp.type="text"; inp.placeholder="Naam toevoegen...";
+  inp.style.cssText="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;padding:6px 10px;font-size:12px;font-family:inherit;";
+  const addBtn=document.createElement("button");
+  addBtn.textContent="+ Toevoegen";
+  addBtn.style.cssText="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;border-radius:6px;padding:6px 12px;font-size:11px;font-family:inherit;cursor:pointer;white-space:nowrap;";
+  addBtn.onclick=()=>{ if(inp.value.trim()){ const ok=addPerson(inp.value); if(ok) inp.value=""; else inp.style.borderColor="rgba(229,57,53,0.6)"; } };
+  inp.addEventListener("keydown",e=>{ if(e.key==="Enter") addBtn.click(); });
+  addRow.appendChild(inp);
+  addRow.appendChild(addBtn);
+  container.appendChild(addRow);
+  container.appendChild(hdrRow);
+  TEAM.forEach((person,pi)=>{
+    const row=document.createElement("div");
+    row.style.cssText=`display:grid;grid-template-columns:130px repeat(5,1fr) 28px;gap:4px;margin-bottom:3px;border-radius:6px;align-items:center;background:${pi%2===0?"rgba(255,255,255,0.015)":"transparent"}`;
+    const nameCell=document.createElement("div"); nameCell.style.cssText="display:flex;align-items:center;gap:6px;height:34px;padding:0 4px;";
+    const dragH = buildDragHandle();
+    const avatar = document.createElement("div");
+    avatar.style.cssText=`width:24px;height:24px;border-radius:50%;background:${AVATARS[pi]||"#666"};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0`;
+    avatar.textContent = person[0];
+    const nameSpan = document.createElement("span");
+    nameSpan.style.cssText=`font-size:12px;color:${person==="Hans"?"#FF6C00":"#d0d0d0"};font-weight:${person==="Hans"?700:400}`;
+    nameSpan.textContent = person;
+    const editBtn=document.createElement("button");
+    editBtn.textContent="✏";
+    editBtn.style.cssText="background:transparent;border:none;color:rgba(255,255,255,0.4);font-size:11px;cursor:pointer;padding:0 2px;flex-shrink:0;";
+    editBtn.title="Naam wijzigen";
+    editBtn.addEventListener("click",(e)=>{
+      e.stopPropagation();
+      const inp2=document.createElement("input");
+      inp2.value=person;
+      inp2.style.cssText="font-size:12px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.5);border-radius:4px;color:#fff;padding:2px 6px;width:90px;font-family:inherit;outline:none;";
+      nameCell.replaceChild(inp2,nameSpan);
+      nameCell.removeChild(editBtn);
+      inp2.focus(); inp2.select();
+      const save=()=>{ renamePerson(person, inp2.value); };
+      inp2.addEventListener("blur",save);
+      inp2.addEventListener("keydown",e2=>{
+        if(e2.key==="Enter"){ e2.preventDefault(); inp2.blur(); }
+        if(e2.key==="Escape"){ inp2.removeEventListener("blur",save); nameCell.replaceChild(nameSpan,inp2); nameCell.appendChild(editBtn); }
+      });
+    });
+    nameCell.appendChild(editBtn); nameCell.appendChild(dragH); nameCell.appendChild(avatar); nameCell.appendChild(nameSpan);
+    row.appendChild(nameCell);
+
+    // Drag-and-drop
+    row.draggable = true;
+    row.dataset.person = person;
+    row.style.transition = "opacity 0.15s";
+    row.addEventListener("dragstart", e=>{
+      dragSrcName = person;
+      e.dataTransfer.effectAllowed = "move";
+      setTimeout(()=>{ row.style.opacity="0.4"; }, 0);
+    });
+    row.addEventListener("dragend", ()=>{ row.style.opacity="1"; });
+    row.addEventListener("dragover", e=>{
+      e.preventDefault(); e.dataTransfer.dropEffect="move";
+      row.style.outline = "2px solid rgba(128,203,196,0.6)";
+    });
+    row.addEventListener("dragleave", ()=>{ row.style.outline=""; });
+    row.addEventListener("drop", e=>{
+      e.preventDefault(); row.style.outline="";
+      if(!dragSrcName || dragSrcName===person) return;
+      const fromIdx = TEAM.indexOf(dragSrcName);
+      const toIdx   = TEAM.indexOf(person);
+      if(fromIdx<0||toIdx<0) return;
+      TEAM.splice(fromIdx, 1);
+      TEAM.splice(toIdx, 0, dragSrcName);
+      dragSrcName = null;
+      saveState();
+      buildTemplateGrid();
+      renderAndSync();
+    });
+    DAYS.forEach(day=>{
+      const wrap=document.createElement("div"); wrap.className="cell-wrap";
+      const cell=document.createElement("div"); cell.className="cell"; cell.id=cellId("TPL",person,day);
+      renderCellContent(cell,template[person][day]||[]);
+      cell.addEventListener("click",e=>{ e.stopPropagation(); if(openPopup&&openPopup.wrap===wrap){ closePopup(); return; } showPopup(wrap,null,person,day,true); });
+      wrap.appendChild(cell); row.appendChild(wrap);
+    });
+    // Verwijder-knop
+    const delBtn=document.createElement("button");
+    delBtn.textContent="✕";
+    delBtn.title=`${person} verwijderen`;
+    delBtn.style.cssText="background:transparent;border:1px solid rgba(244,143,177,0.3);color:rgba(244,143,177,0.6);border-radius:5px;width:24px;height:24px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;";
+    delBtn.onmouseenter=()=>{ delBtn.style.color="#f48fb1"; delBtn.style.borderColor="rgba(244,143,177,0.7)"; delBtn.style.background="rgba(244,143,177,0.1)"; };
+    delBtn.onmouseleave=()=>{ delBtn.style.color="rgba(244,143,177,0.6)"; delBtn.style.borderColor="rgba(244,143,177,0.3)"; delBtn.style.background="transparent"; };
+    const _person=person;
+    delBtn.onclick=(e)=>{
+      e.stopPropagation();
+      if(delBtn.dataset.confirm==="1"){
+        removePerson(_person);
+      } else {
+        delBtn.dataset.confirm="1";
+        delBtn.textContent="?";
+        delBtn.style.color="#f48fb1";
+        delBtn.style.background="rgba(244,143,177,0.2)";
+        delBtn.style.borderColor="rgba(244,143,177,0.7)";
+        setTimeout(()=>{
+          delBtn.dataset.confirm="";
+          delBtn.textContent="✕";
+          delBtn.style.color="rgba(244,143,177,0.6)";
+          delBtn.style.background="transparent";
+          delBtn.style.borderColor="rgba(244,143,177,0.3)";
+        }, 2000);
+      }
+    };
+    row.appendChild(delBtn);
+    container.appendChild(row);
+  });
+}
+
+// ── Week panel ───────────────────────────────────────────────────
+function buildWeekPanel(monday){
+  const thisWeekMonday=mondayOf(today);
+  const isCurrent=isSameDay(monday,thisWeekMonday);
+  const wk=getWeekNumber(monday), yr=monday.getFullYear();
+  const panel=document.createElement("div"); panel.className=`week-panel ${isCurrent?"current":"other"}`;
+  const hdr=document.createElement("div"); hdr.className="week-header";
+  const badge=document.createElement("div"); badge.className=`week-badge ${isCurrent?"current":"other"}`; badge.textContent=`Week ${wk}`;
+  const lbl=document.createElement("div"); lbl.className=`week-lbl ${isCurrent?"current":"other"}`;
+  const yearLabel=yr!==today.getFullYear()?` ${yr}`:"";
+  lbl.textContent=isCurrent?"huidige week":(isSameDay(monday,addWeeks(thisWeekMonday,1))?"volgende week":`week ${wk}${yearLabel}`);
+  const resetBtn=document.createElement("button"); resetBtn.className="reset-btn"; resetBtn.textContent="↺ Reset";
+  resetBtn.addEventListener("click",async e=>{ e.stopPropagation(); if(!await requireUnlock()) return; resetWeekToTemplate(monday); });
+  hdr.appendChild(badge); hdr.appendChild(lbl); hdr.appendChild(resetBtn); panel.appendChild(hdr);
+  const dayHdr=document.createElement("div"); dayHdr.className="day-header";
+  // Personen die altijd op kantoor moeten zijn
+  const MUST_KANTOOR = ["Bram","Marco","Hans","Ted","Sercan"];
+
+  DAYS.forEach((day,i)=>{
+    const dayDate=addDays(monday,i), isToday=isSameDay(dayDate,today);
+    const dayData=getData(monday);
+    const SUPPORT_ALL = ["Wim","Wouter","Annies","Bas"];
+    const BEHEER_ALL  = ["Bram","Marco","Hans","Ted","Sercan"];
+    const isK = p => { const s=(dayData[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("vm_kantoor")||s.includes("nm_kantoor"); };
+    const nSupport = SUPPORT_ALL.filter(isK).length;
+    const nBeheer  = BEHEER_ALL.filter(isK).length;
+    const n = nSupport + nBeheer;
+    const col=n>=7?"#f48fb1":n>=4?"#ffb74d":"#80cbc4";
+
+    // Controleer of minstens één van MUST_KANTOOR op kantoor is
+    const isOnKantoor = p => {
+      const sel = (dayData[p]||{})[day]||[];
+      return sel.includes("kantoor") || sel.includes("vm_kantoor") || sel.includes("nm_kantoor");
+    };
+    const SUPPORT_GRP = ["Wim","Wouter","Annies","Bas"];
+    const isPersonOnKantoor = p => { const s=(dayData[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("vm_kantoor")||s.includes("nm_kantoor"); };
+    const isPersonThuis     = p => { const s=(dayData[p]||{})[day]||[]; return s.includes("thuis")||s.includes("vm_thuis")||s.includes("nm_thuis"); };
+    const hasData           = p => ((dayData[p]||{})[day]||[]).length > 0;
+
+    const beheerOpK  = MUST_KANTOOR.filter(isPersonOnKantoor);
+    const beheerHasData = MUST_KANTOOR.some(hasData);
+    // Iemand op kantoor 's ochtends of 's middags?
+    const beheerVmK = MUST_KANTOOR.some(p=>{ const s=(dayData[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("vm_kantoor"); });
+    const beheerNmK = MUST_KANTOOR.some(p=>{ const s=(dayData[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("nm_kantoor"); });
+    const beheerFullyCovered = beheerVmK && beheerNmK;
+    const beheerAlleenThuis = beheerOpK.length===0 && MUST_KANTOOR.some(isPersonThuis) && beheerHasData;
+    const showBeheerWarn = !beheerFullyCovered && beheerHasData;
+
+    const supportOpK = SUPPORT_GRP.filter(isPersonOnKantoor);
+    const supportHasData = SUPPORT_GRP.some(hasData);
+    const supportVmK = SUPPORT_GRP.some(p=>{ const s=(dayData[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("vm_kantoor"); });
+    const supportNmK = SUPPORT_GRP.some(p=>{ const s=(dayData[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("nm_kantoor"); });
+    const supportFullyCovered = supportVmK && supportNmK;
+    const supportAlleenThuis = supportOpK.length===0 && SUPPORT_GRP.some(isPersonThuis) && supportHasData;
+    const showSupportWarn = !supportFullyCovered && supportHasData;
+
+    // Per dagdeel bepalen: op kantoor / thuis / afwezig
+    const thuisAanwezig = (group, vm) => {
+      const key = vm ? ["thuis","vm_thuis"] : ["thuis","nm_thuis"];
+      return group.some(p=>{ const s=(dayData[p]||{})[day]||[]; return key.some(k=>s.includes(k)); });
+    };
+    const geheel_weg = (group) =>
+      group.every(p=>{ const s=(dayData[p]||{})[day]||[]; return s.length===0 || s.every(k=>k.includes("vrij")||k.includes("extern")); });
+
+    // Beheer analyse per dagdeel
+    const beheerVmGeen    = !beheerVmK;
+    const beheerNmGeen    = !beheerNmK;
+    const beheerVmThuis   = beheerVmGeen && thuisAanwezig(MUST_KANTOOR, true);
+    const beheerNmThuis   = beheerNmGeen && thuisAanwezig(MUST_KANTOOR, false);
+    const beheerVmWeg     = beheerVmGeen && !beheerVmThuis;
+    const beheerNmWeg     = beheerNmGeen && !beheerNmThuis;
+
+    // Support analyse per dagdeel
+    const supportVmGeen   = !supportVmK;
+    const supportNmGeen   = !supportNmK;
+    const supportVmThuis  = supportVmGeen && thuisAanwezig(SUPPORT_GRP, true);
+    const supportNmThuis  = supportNmGeen && thuisAanwezig(SUPPORT_GRP, false);
+    const supportVmWeg    = supportVmGeen && !supportVmThuis;
+    const supportNmWeg    = supportNmGeen && !supportNmThuis;
+
+    // Kleur: rood = helemaal weg, oranje = thuis
+    const beheerCritical  = beheerVmWeg || beheerNmWeg;
+    const supportCritical = supportVmWeg || supportNmWeg;
+    const dh=document.createElement("div"); dh.className=`day-hd${isToday?" today-col":""}`;
+    if(showBeheerWarn && showSupportWarn && (beheerCritical||supportCritical))
+      dh.style.cssText="background:rgba(229,57,53,0.15);border-radius:6px;outline:2px solid rgba(229,57,53,0.6);";
+    else if(showBeheerWarn && beheerCritical)
+      dh.style.cssText="background:rgba(229,57,53,0.10);border-radius:6px;outline:1.5px solid rgba(229,57,53,0.5);";
+    else if(showBeheerWarn || showSupportWarn)
+      dh.style.cssText="background:rgba(255,183,77,0.08);border-radius:6px;outline:1.5px solid rgba(255,183,77,0.35);";
+
+    // Bouw waarschuwingstekst per groep
+    const buildWarn = (vmWeg, nmWeg, vmThuis, nmThuis, naam) => {
+      if(!vmWeg && !nmWeg && !vmThuis && !nmThuis) return "";
+      const parts = [];
+      if(vmWeg && nmWeg)   parts.push(`✗ ${naam} hele dag weg`);
+      else if(vmWeg)        parts.push(`✗ ${naam} 's ochtends weg`);
+      else if(nmWeg)        parts.push(`✗ ${naam} 's middags weg`);
+      if(vmThuis && nmThuis) parts.push(`🏠 ${naam} hele dag thuis`);
+      else if(vmThuis)       parts.push(`🏠 ${naam} 's ochtends thuis`);
+      else if(nmThuis)       parts.push(`🏠 ${naam} 's middags thuis`);
+      return parts.map(t=>{
+        const isWeg = t.startsWith("✗");
+        return `<div style="font-size:8px;color:${isWeg?"#f48fb1":"#ffb74d"};font-weight:700;letter-spacing:0.3px;margin-top:1px;">${t}</div>`;
+      }).join("");
+    };
+    const warnHtml = (showBeheerWarn ? buildWarn(beheerVmWeg,beheerNmWeg,beheerVmThuis,beheerNmThuis,"beheer") : "")
+                   + (showSupportWarn ? buildWarn(supportVmWeg,supportNmWeg,supportVmThuis,supportNmThuis,"support") : "");
+    dh.innerHTML=`<div class="day-hd-name${isToday?" today-col":""}">${day}</div><div class="day-hd-date${isToday?" today-col":""}">${fmtDate(dayDate)}</div>${isToday?`<div class="today-badge">vandaag</div>`:""}${warnHtml || `<div class="day-hd-count" id="cnt-${weekKey(monday)}-${day}" style="color:${col};line-height:1.2">${n>0?`<span style="font-size:8px;font-weight:700">B:${nBeheer} S:${nSupport}</span>`:""}` + `</div>` }`;
+    dayHdr.appendChild(dh);
+  });
+  panel.appendChild(dayHdr);
+  TEAM.forEach((person,pi)=>{
+    const row=document.createElement("div"); row.className=`person-row${pi%2===0?" alt":""}`;
+    DAYS.forEach((day,i)=>{
+      const dayDate=addDays(monday,i), isToday=isSameDay(dayDate,today);
+      const wrap=document.createElement("div"); wrap.className="cell-wrap";
+      const cell=document.createElement("div"); cell.className=`cell${isToday?" today-col":""}`; cell.id=cellId(weekKey(monday),person,day);
+      renderCellContent(cell,getData(monday)[person][day]||[]);
+      cell.addEventListener("click",e=>{ e.stopPropagation(); if(openPopup&&openPopup.wrap===wrap){ closePopup(); return; } showPopup(wrap,monday,person,day,false); });
+      wrap.appendChild(cell); row.appendChild(wrap);
+    });
+    panel.appendChild(row);
+  });
+
+  requestAnimationFrame(()=>{
+    const todayHd = panel.querySelector(".day-hd.today-col");
+    const todayCells = Array.from(panel.querySelectorAll(".cell.today-col"));
+    if(!todayHd || !todayCells.length) return;
+    const panelRect = panel.getBoundingClientRect();
+    const hdRect    = todayHd.getBoundingClientRect();
+    const lastRect  = todayCells[todayCells.length-1].getBoundingClientRect();
+    const overlay   = document.createElement("div");
+    overlay.className = "today-col-overlay";
+    overlay.style.left   = (hdRect.left   - panelRect.left   - 3) + "px";
+    overlay.style.top    = (hdRect.top    - panelRect.top    - 3) + "px";
+    overlay.style.width  = (hdRect.width  + 6) + "px";
+    overlay.style.height = (lastRect.bottom - hdRect.top + 6) + "px";
+    panel.querySelectorAll(".today-col-overlay").forEach(e=>e.remove());
+    panel.appendChild(overlay);
+  });
+
+  return panel;
+}
+
+// ── Name column ──────────────────────────────────────────────────
+function buildNameCol(){
+  const col=document.createElement("div"); col.className="name-col";
+  const spacer=document.createElement("div"); spacer.className="name-spacer"; col.appendChild(spacer);
+  TEAM.forEach((person,pi)=>{
+    const row=document.createElement("div"); row.className=`name-row${pi%2===0?" alt":""}`;
+    const av=document.createElement("div"); av.className="avatar"; av.style.background=AVATARS[pi%AVATARS.length]; av.textContent=person[0];
+    const nm=document.createElement("span"); nm.className=`name-label${person==="Hans"?" self":""}`; nm.textContent=person;
+    row.appendChild(av); row.appendChild(nm); col.appendChild(row);
+  });
+  return col;
+}
+
+// ── Legend ───────────────────────────────────────────────────────
+function buildLegend(){
+  const leg=document.getElementById("legend"); leg.innerHTML=`<span class="legend-title">Legenda</span>`;
+  // Kantoor legenda-item (apart, met K-indicator)
+  const kantoorItem=document.createElement("div"); kantoorItem.className="legend-item";
+  kantoorItem.innerHTML=`<div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">K</span></div><span class="legend-label">Kantoor</span>`;
+  leg.appendChild(kantoorItem);
+
+  STATUSES.forEach(s=>{
+    if(s.key==="kantoor") return;
+    const item=document.createElement("div"); item.className="legend-item";
+    if(s.key==="vrij"){
+      item.innerHTML=`<div class="legend-dot" style="background:#e53935;box-shadow:0 0 5px #e5393566"></div><span class="legend-label">${s.label}</span>`;
+    } else if(s.key==="vm_vrij"){
+      item.innerHTML=`<div style="width:13px;height:13px;border-radius:50%;border:1.5px solid #e53935;background:linear-gradient(to right,#e53935 50%,transparent 50%);flex-shrink:0"></div><span class="legend-label">${s.label}</span>`;
+    } else if(s.key==="nm_vrij"){
+      item.innerHTML=`<div style="width:13px;height:13px;border-radius:50%;border:1.5px solid #e53935;background:linear-gradient(to left,#e53935 50%,transparent 50%);flex-shrink:0"></div><span class="legend-label">${s.label}</span>`;
+    } else {
+      item.innerHTML=`<div class="legend-dot" style="background:${s.color};box-shadow:0 0 5px ${s.color}66"></div><span class="legend-label">${s.label}</span>`;
+    }
+    leg.appendChild(item);
+  });
+  const hint=document.createElement("span"); hint.className="legend-hint"; hint.textContent="klik cel → kies status(sen)";
+  leg.appendChild(hint);
+}
+
+// ── Render ───────────────────────────────────────────────────────
+let baseMonday=mondayOf(today);
+
+function render(){
+  closePopup();
+  const mA=baseMonday, mB=addWeeks(baseMonday,1);
+  const wA=getWeekNumber(mA),yrA=mA.getFullYear();
+  const wB=getWeekNumber(mB),yrB=mB.getFullYear();
+  const syA=yrA!==today.getFullYear()?` '${String(yrA).slice(2)}`:"";
+  const syB=yrB!==today.getFullYear()?` '${String(yrB).slice(2)}`:"";
+  document.getElementById("nav-info").innerHTML=`<span style="color:#aaa">W${wA}${syA}</span><span style="color:#444;margin:0 8px">+</span><span style="color:#aaa">W${wB}${syB}</span>`;
+  const grid=document.getElementById("main-grid"); grid.innerHTML="";
+  grid.appendChild(buildNameCol());
+  const d1=document.createElement("div"); d1.className="divider"; grid.appendChild(d1);
+  grid.appendChild(buildWeekPanel(mA));
+  const d2=document.createElement("div"); d2.className="divider"; grid.appendChild(d2);
+  grid.appendChild(buildWeekPanel(mB));
+  buildLegend();
+}
+
+function syncNameSpacer(){
+  const panels=Array.from(document.querySelectorAll(".week-panel"));
+  const nameCol=document.querySelector(".name-col");
+  const spacer=document.querySelector(".name-spacer");
+  if(!panels.length||!nameCol||!spacer) return;
+  panels.forEach(p=>{ const wh=p.querySelector(".week-header"); const dh=p.querySelector(".day-header"); if(wh) wh.style.height=""; if(dh) dh.style.height=""; });
+  const maxWH=Math.max(...panels.map(p=>{ const el=p.querySelector(".week-header"); return el?el.offsetHeight:0; }));
+  const maxDH=Math.max(...panels.map(p=>{ const el=p.querySelector(".day-header"); return el?el.offsetHeight:0; }));
+  panels.forEach(p=>{ const wh=p.querySelector(".week-header"); const dh=p.querySelector(".day-header"); if(wh) wh.style.height=maxWH+"px"; if(dh) dh.style.height=maxDH+"px"; });
+  const firstRow=panels[0].querySelector(".person-row");
+  if(!firstRow) return;
+  spacer.style.height=(firstRow.getBoundingClientRect().top-nameCol.getBoundingClientRect().top)+"px";
+}
+
+function renderAndSync(){
+  render();
+  // Dubbele rAF zodat de layout volledig gesetteld is voor meting
+  requestAnimationFrame(()=>requestAnimationFrame(syncNameSpacer));
+}
+
+// ── Nav & modal ──────────────────────────────────────────────────
+window.addEventListener("resize", ()=>requestAnimationFrame(syncNameSpacer));
+
+document.getElementById("btn-prev1").addEventListener("click",()=>{ baseMonday=addWeeks(baseMonday,-1); renderAndSync(); });
+document.getElementById("btn-next1").addEventListener("click",()=>{ baseMonday=addWeeks(baseMonday, 1); renderAndSync(); });
+document.getElementById("btn-prev").addEventListener("click",()=>{ baseMonday=addWeeks(baseMonday,-4); renderAndSync(); });
+document.getElementById("btn-next").addEventListener("click",()=>{ baseMonday=addWeeks(baseMonday, 4); renderAndSync(); });
+// ── Geen Beheer modal ────────────────────────────────────────────
+function showGeenBeheerModal(){
+  const MUST = ["Bram","Marco","Hans","Ted","Sercan"];
+  const SUPPORT = ["Wim","Wouter","Annies","Bas"];
+  const DAYS_LIST = ["MA","DI","WO","DO","VR"];
+  const DAY_NAMES = {MA:"Maandag",DI:"Dinsdag",WO:"Woensdag",DO:"Donderdag",VR:"Vrijdag"};
+
+  // Verzamel alle dagen zonder beheer uit alle zichtbare weken
+  const results = [];
+  const isOnKantoor = (monday, person, day) => {
+    const sel = (getData(monday)[person]||{})[day]||[];
+    return sel.includes("kantoor")||sel.includes("vm_kantoor")||sel.includes("nm_kantoor");
+  };
+  const isThuis = (monday, person, day) => {
+    const sel = (getData(monday)[person]||{})[day]||[];
+    return sel.includes("thuis")||sel.includes("vm_thuis")||sel.includes("nm_thuis");
+  };
+  const hasStatus = (monday, person, day) => ((getData(monday)[person]||{})[day]||[]).length > 0;
+
+  // Kijk alle weken vooruit waarvoor data beschikbaar is
+  const thisMonday = mondayOf(today);
+  const allMondays = Object.keys(store||{}).map(k=>{
+    const m=getMondayFromKey(k); return m >= thisMonday ? m : null;
+  }).filter(Boolean).sort((a,b)=>a-b);
+  const weeksToCheck = allMondays.length > 0 ? allMondays : [thisMonday];
+  for(const monday of weeksToCheck){
+    DAYS_LIST.forEach((day, i) => {
+      const dayDate = addDays(monday, i);
+      if(dayDate < today) return;
+      const dayData = getData(monday);
+      const mustHasData = MUST.some(p => hasStatus(monday,p,day));
+      const supportHasData = SUPPORT.some(p => hasStatus(monday,p,day));
+      if(!mustHasData && !supportHasData) return;
+
+      // Beheer analyse
+      const beheerOpKantoor = MUST.filter(p => isOnKantoor(monday,p,day));
+      const beheerThuis     = MUST.filter(p => !isOnKantoor(monday,p,day) && isThuis(monday,p,day) && hasStatus(monday,p,day));
+      const geenBeheer      = beheerOpKantoor.length === 0 && mustHasData;
+      const alleenThuis     = beheerOpKantoor.length === 0 && beheerThuis.length > 0;
+
+      // Support analyse
+      const supportOpKantoor = SUPPORT.filter(p => isOnKantoor(monday,p,day));
+      const supportThuis     = SUPPORT.filter(p => !isOnKantoor(monday,p,day) && isThuis(monday,p,day) && hasStatus(monday,p,day));
+      const geenSupport      = supportOpKantoor.length === 0 && supportHasData;
+      const supportAlleenThuis = supportOpKantoor.length === 0 && supportThuis.length > 0;
+
+      if(geenBeheer || geenSupport){
+        const d = addDays(monday, i);
+        // Tijdstip bepalen
+        const whenAbsentModal = (group, onK) => {
+          const dayD = getData(monday);
+          const vmKantoor = group.some(p=>{ const s=(dayD[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("vm_kantoor"); });
+          const nmKantoor = group.some(p=>{ const s=(dayD[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("nm_kantoor"); });
+          if(!vmKantoor && !nmKantoor) return "hele dag";
+          if(!vmKantoor) return "'s ochtends";
+          if(!nmKantoor) return "'s middags";
+          return "";
+        };
+        results.push({
+          label: `${DAY_NAMES[day]} ${d.getDate()} ${["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"][d.getMonth()]}`,
+          geenBeheer,   alleenThuis,   beheerThuis,
+          beheerWhen: whenAbsentModal(MUST, beheerOpKantoor),
+          geenSupport,  supportAlleenThuis, supportThuis,
+          supportWhen: whenAbsentModal(SUPPORT, supportOpKantoor),
+          severity: (geenBeheer && !alleenThuis) || (geenSupport && !supportAlleenThuis) ? "critical" : "warn"
+        });
+      }
+    });
+  }
+
+  // Bouw modal
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+  const box = document.createElement("div");
+  box.style.cssText = "background:#111827;border:1px solid rgba(244,143,177,0.3);border-radius:14px;padding:24px 22px;min-width:320px;max-width:420px;max-height:80vh;overflow-y:auto;";
+
+  let html_inner = `<div style="font-size:14px;font-weight:700;color:#f48fb1;margin-bottom:14px;">⚠ Geen Systeembeheer</div>`;
+
+  if(results.length === 0){
+    html_inner += `<div style="color:#80cbc4;font-size:12px;padding:12px 0;">✓ Alle komende dagen is er iemand van Systeembeheer aanwezig.</div>`;
+  } else {
+    html_inner += `<div style="font-size:10px;color:#777;margin-bottom:12px;letter-spacing:1px;text-transform:uppercase;">Dagen zonder beheer/support (alle komende weken)</div>`;
+    results.forEach(r => {
+      const borderCol = r.severity==="critical" ? "rgba(229,57,53,0.3)" : "rgba(255,183,77,0.2)";
+      html_inner += `<div style="padding:8px 0;border-bottom:1px solid ${borderCol};">
+        <div style="font-size:12px;color:#fff;font-weight:600;margin-bottom:4px;">${r.label}</div>
+        ${r.geenBeheer ? (r.alleenThuis
+          ? `<div style="font-size:10px;color:#ffb74d;margin-bottom:2px;">🏠 Beheer thuis (${r.beheerWhen}): ${r.beheerThuis.join(", ")}</div>`
+          : `<div style="font-size:10px;color:#f48fb1;margin-bottom:2px;">✗ Geen beheer op kantoor (${r.beheerWhen})</div>`)
+          : ""}
+        ${r.geenSupport ? (r.supportAlleenThuis
+          ? `<div style="font-size:10px;color:#ffb74d;margin-bottom:2px;">🏠 Support thuis (${r.supportWhen}): ${r.supportThuis.join(", ")}</div>`
+          : `<div style="font-size:10px;color:#f48fb1;margin-bottom:2px;">✗ Geen support op kantoor (${r.supportWhen})</div>`)
+          : ""}
+      </div>`;
+    });
+  }
+
+  html_inner += `<div style="margin-top:16px;text-align:right;">
+    <button onclick="this.closest('[style*=fixed]').remove()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:7px 16px;font-size:12px;cursor:pointer;font-family:inherit;">Sluiten</button>
+  </div>`;
+
+  box.innerHTML = html_inner;
+  overlay.appendChild(box);
+  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+document.getElementById("btn-now").addEventListener("click",()=>{ baseMonday=mondayOf(today); renderAndSync(); });
+
+const tplModal=document.getElementById("tpl-modal");
+document.getElementById("btn-template").addEventListener("click",async ()=>{ if(!await requireUnlock()) return; buildTemplateGrid(); tplModal.style.display="block"; });
+
+// Slot-indicator klikbaar maken
+showLockIndicator();
+document.getElementById("lock-ind").addEventListener("click", async ()=>{
+  if(editUnlocked){ lock(); } else { await promptUnlock(); }
+});
+document.getElementById("tpl-close").addEventListener("click",()=>{ closePopup(); tplModal.style.display="none"; });
+tplModal.addEventListener("click",e=>{ if(e.target===tplModal){ closePopup(); tplModal.style.display="none"; } });
+
+// ── Backup herstellen ────────────────────────────────────────────
+document.getElementById("btn-restore-backup").addEventListener("click", async ()=>{
+  const btn = document.getElementById("btn-restore-backup");
+  btn.textContent = "⟳ laden...";
+  btn.disabled = true;
+  try{
+    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups?ref=${GH_BRANCH}&t=`+Date.now(),
+      {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+    if(!r.ok){ alert("Kon backups niet laden ("+r.status+")"); return; }
+    const files = await r.json();
+    const sorted = files.filter(f=>f.name.endsWith(".json")).sort((a,b)=>b.name.localeCompare(a.name));
+    if(!sorted.length){ alert("Geen backups gevonden."); return; }
+
+    // Bouw keuze-overlay
+    const overlay = document.createElement("div");
+    overlay.style.cssText="position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+    const box = document.createElement("div");
+    box.style.cssText="background:#111827;border:1px solid rgba(255,165,0,0.4);border-radius:14px;padding:24px 22px;min-width:280px;max-width:340px;";
+    // Maak-backup knop bovenaan
+    const makeBtn = document.createElement("button");
+    makeBtn.textContent = "＋ Maak nu een backup";
+    makeBtn.style.cssText = "width:100%;background:rgba(100,200,100,0.1);border:1px solid rgba(100,200,100,0.3);color:#80cbc4;border-radius:8px;padding:8px 12px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:700;margin-bottom:14px;letter-spacing:0.5px;";
+    makeBtn.onclick = async ()=>{
+      makeBtn.textContent = "⟳ Bezig..."; makeBtn.disabled=true;
+      const now = new Date();
+      const today = now.toISOString().slice(0,10);
+      const time = now.toTimeString().slice(0,5).replace(":","-");
+      const filename = `${today}_${time}`;
+      const json = JSON.stringify(serializeState());
+      const content = encodeBase64(json);
+      const r = await ghPut(`backups/${filename}.json`, content, `Handmatige backup ${filename}`).catch(e=>null);
+      if(r && r.ok){
+        makeBtn.textContent = "✓ Backup gemaakt: " + filename.replace("_"," ");
+        makeBtn.style.color = "#80cbc4";
+      } else {
+        makeBtn.textContent = "✗ Mislukt";
+        makeBtn.style.color = "#f48fb1";
+      }
+      setTimeout(()=>{ makeBtn.textContent="＋ Maak nu een backup"; makeBtn.disabled=false; }, 2500);
+    };
+    box.appendChild(makeBtn);
+
+    // Rest van modal via DOM (niet innerHTML om makeBtn te behouden)
+    const sep = document.createElement("div");
+    sep.style.cssText = "height:1px;background:rgba(255,255,255,0.08);margin-bottom:14px;";
+    box.appendChild(sep);
+
+    const restoreTitle = document.createElement("div");
+    restoreTitle.style.cssText = "font-size:14px;font-weight:700;color:#ffb74d;margin-bottom:10px;";
+    restoreTitle.textContent = "⟳ Backup herstellen";
+    box.appendChild(restoreTitle);
+
+    const selectLbl = document.createElement("div");
+    selectLbl.style.cssText = "font-size:10px;color:#777;margin-bottom:10px;letter-spacing:1px;text-transform:uppercase;";
+    selectLbl.textContent = "Kies een datum";
+    box.appendChild(selectLbl);
+
+    const sel = document.createElement("select");
+    sel.id = "backup-select";
+    sel.style.cssText = "width:100%;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:12px;margin-bottom:16px;";
+    sorted.forEach(f=>{ const o=document.createElement("option"); o.value=f.download_url; o.textContent=f.name.replace(".json",""); sel.appendChild(o); });
+    box.appendChild(sel);
+
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "display:flex;gap:8px;justify-content:flex-end;";
+    btnRow.innerHTML = `<button id="backup-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;">Annuleren</button>
+      <button id="backup-confirm" style="background:rgba(255,165,0,0.15);border:1px solid rgba(255,165,0,0.4);color:#ffb74d;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700;">Terugzetten</button>`;
+    box.appendChild(btnRow);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    document.getElementById("backup-cancel").onclick = ()=>overlay.remove();
+    overlay.onclick = e=>{ if(e.target===overlay) overlay.remove(); };
+
+    document.getElementById("backup-confirm").onclick = async ()=>{
+      const url = document.getElementById("backup-select").value;
+      const confirmBtn = document.getElementById("backup-confirm");
+      confirmBtn.textContent = "Bezig..."; confirmBtn.disabled = true;
+      try{
+        const dr = await fetch(url+"?t="+Date.now());
+        const data = await dr.json();
+        if(data && data.store){
+          applyState(data);
+          await saveToGitHub();
+          renderAndSync();
+          buildTemplateGrid();
+          overlay.remove();
+          showSaveStatus("ok");
+        } else { alert("Ongeldige backup."); }
+      }catch(e){ alert("Fout bij herstellen: "+e.message); }
+      finally{ confirmBtn.textContent="Terugzetten"; confirmBtn.disabled=false; }
+    };
+  }catch(e){ alert("Fout: "+e.message); }
+  finally{ btn.textContent="⟳ backup"; btn.disabled=false; }
+});
+
+// Ververs het rooster elke minuut (vandaag-markering) — wordt al gedaan door de GitHub sync interval
+
+// Elk uur: vergelijk lokale staat met GitHub, merge onopgeslagen wijzigingen, herlaad dan
+setInterval(async ()=>{
+  if(ghSaving) return;
+
+  try{
+    // 1. Haal huidige staat van GitHub op
+    const r = await fetch(
+      `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
+      {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
+    );
+    if(!r.ok){ location.reload(); return; }
+    const d = await r.json();
+    const remoteJson = atob(d.content.replace(/\n/g,""));
+    const remoteState = JSON.parse(remoteJson);
+
+    // 2. Vergelijk met lokale staat
+    const localState = serializeState();
+    const localJson = JSON.stringify(localState);
+    const remoteJsonNorm = JSON.stringify(remoteState);
+
+    if(localJson === remoteJsonNorm){
+      // Geen verschil — gewoon herladen
+      location.reload();
+      return;
+    }
+
+    // 3. Er zijn lokale wijzigingen — merge: lokale store wint per cel
+    console.log("Uurlijkse refresh: lokale wijzigingen gevonden, worden opgeslagen voor reload...");
+    const merged = JSON.parse(remoteJsonNorm); // start vanuit remote
+
+    // Voeg lokale store-entries toe die ontbreken of nieuwer zijn
+    const localStore = localState.store || {};
+    const remoteStore = remoteState.store || {};
+    for(const monday of Object.keys(localStore)){
+      if(!merged.store[monday]) merged.store[monday] = {};
+      for(const person of Object.keys(localStore[monday])){
+        // Lokale waarde overschrijft remote als ze verschillen
+        const localVal = JSON.stringify(localStore[monday][person]||[]);
+        const remoteVal = JSON.stringify((remoteStore[monday]||{})[person]||[]);
+        if(localVal !== remoteVal){
+          merged.store[monday][person] = localStore[monday][person];
+          console.log(`  Merge: ${person} ${monday} → lokale waarde behouden`);
+        }
+      }
+    }
+
+    // 4. Sla de gemergde staat op
+    applyState(merged);
+    await saveToGitHub();
+    console.log("Merge opgeslagen, pagina wordt herladen...");
+  }catch(e){
+    console.warn("Uurlijkse refresh fout:", e);
+  }
+
+  location.reload();
+}, 60 * 60 * 1000);
+</script>
+
+
+</body></html>
