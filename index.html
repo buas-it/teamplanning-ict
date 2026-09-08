@@ -213,7 +213,7 @@ function applyState(data){
 
 
 // ── GitHub sync ──────────────────────────────────────────────────
-const GH_TOKEN = ["github_pat_11APK53UQ0o2XqUtmlrm", "1N_Z2y634NPt1Sodd391rwFyjChPp97", "sWxuCMSwlO1BNhZ2FRHHZG4riuTkGtJ"].join("");
+const GH_TOKEN = ["github_pat_11AWVCIPQ0AIakeamzqF", "45_3ZlBcrlc8WOcANxLNPsYrOeWyytq", "AQTMPh30I2sUSufJQPBIKYDKbVZXvgg"].join("");
 
 // ── Beveiliging ──────────────────────────────────────────────────
 // Wachtwoord hash (SHA-256 van het wachtwoord)
@@ -302,7 +302,7 @@ async function requireUnlock(){
   }
   return await promptUnlock();
 }
-const GH_REPO   = "hansstobbe2812/teamplanning-ict";
+const GH_REPO   = "buas-it/teamplanning-ict";
 const GH_BRANCH = "data";   // aparte branch → geen Pages deployment bij elke save
 const GH_FILE   = "state.json";
 const GH_API    = `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}`;
