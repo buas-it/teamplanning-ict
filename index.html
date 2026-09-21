@@ -956,12 +956,17 @@ function renderCellContent(cell,sel){
   } else {
     // Achtergrond bepalen op basis van dominant (niet-kantoor) status
     const hasVrij=dots.some(s=>s.key==="vrij");
+    const hasZiek=dots.some(s=>s.key==="ziek");
     const dominant=dots.find(s=>s.key!=="kantoor")||dots[0];
     cell.style.background=`${dominant.color}22`;
     cell.style.border=`1.5px solid ${dominant.border}66`;
 
     // Altijd K of T tonen voor kantoor/thuis (hele dag)
-    if(hasVrij && !hasKantoor && !hasThuis && dots.length===1){
+    if(hasZiek && dots.length===1){
+      // Alleen ziek: oranje achtergrond + Z
+      cell.style.background="rgba(255,112,67,0.55)"; cell.style.border="1.5px solid rgba(255,112,67,0.5)";
+      addLabel("Z","rgba(255,255,255,1)","full");
+    } else if(hasVrij && !hasKantoor && !hasThuis && dots.length===1){
       // Alleen vrij: rode achtergrond + V
       cell.style.background="rgba(229,57,53,0.55)"; cell.style.border="1.5px solid rgba(229,57,53,0.5)";
       addLabel("V","rgba(255,255,255,1)","full");
