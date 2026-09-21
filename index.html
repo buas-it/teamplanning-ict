@@ -755,6 +755,10 @@ function toggleStatus(monday,person,day,key,isTemplate){
           next.push("thuis");
         }
       }
+      // Extern sluit kantoor, ziek (en halve varianten) uit — en andersom
+      if(key==="extern") next=next.filter(k2=>!["kantoor","vm_kantoor","nm_kantoor","ziek"].includes(k2));
+      if(key==="kantoor"||key==="vm_kantoor"||key==="nm_kantoor") next=next.filter(k2=>k2!=="extern");
+      if(key==="ziek") next=next.filter(k2=>k2!=="extern");
     }
     data[person][day]=next;
     saveState();
