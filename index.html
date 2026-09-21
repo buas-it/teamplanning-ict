@@ -1381,18 +1381,11 @@ function buildLegend(){
   kantoorItem.innerHTML=`<div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">K</span></div><span class="legend-label">Kantoor</span>`;
   leg.appendChild(kantoorItem);
 
-  STATUSES.forEach(s=>{
-    if(s.key==="kantoor") return;
+  // Toon alleen hoofd-statussen in legenda (geen halve varianten)
+  const LEGEND_KEYS = ["thuis","vrij","ziek","extern"];
+  STATUSES.filter(s=>LEGEND_KEYS.includes(s.key)).forEach(s=>{
     const item=document.createElement("div"); item.className="legend-item";
-    if(s.key==="vrij"){
-      item.innerHTML=`<div class="legend-dot" style="background:#e53935;box-shadow:0 0 5px #e5393566"></div><span class="legend-label">${s.label}</span>`;
-    } else if(s.key==="vm_vrij"){
-      item.innerHTML=`<div style="width:13px;height:13px;border-radius:50%;border:1.5px solid #e53935;background:linear-gradient(to right,#e53935 50%,transparent 50%);flex-shrink:0"></div><span class="legend-label">${s.label}</span>`;
-    } else if(s.key==="nm_vrij"){
-      item.innerHTML=`<div style="width:13px;height:13px;border-radius:50%;border:1.5px solid #e53935;background:linear-gradient(to left,#e53935 50%,transparent 50%);flex-shrink:0"></div><span class="legend-label">${s.label}</span>`;
-    } else {
-      item.innerHTML=`<div class="legend-dot" style="background:${s.color};box-shadow:0 0 5px ${s.color}66"></div><span class="legend-label">${s.label}</span>`;
-    }
+    item.innerHTML=`<div class="legend-dot" style="background:${s.color};box-shadow:0 0 5px ${s.color}66"></div><span class="legend-label">${s.label}</span>`;
     leg.appendChild(item);
   });
   const hint=document.createElement("span"); hint.className="legend-hint"; hint.textContent="klik cel → kies status(sen)";
