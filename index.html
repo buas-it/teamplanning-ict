@@ -928,11 +928,11 @@ function renderCellContent(cell,sel){
     const lbl=document.createElement("span");
     lbl.textContent=txt;
     if(side==="left"){
-      lbl.style.cssText=`position:absolute;left:0;top:0;width:50%;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${color};letter-spacing:0.5px;pointer-events:none;`;
+      lbl.style.cssText=`position:absolute;left:0;top:0;width:50%;height:100%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:${color};letter-spacing:0.5px;pointer-events:none;`;
     } else if(side==="right"){
-      lbl.style.cssText=`position:absolute;right:0;top:0;width:50%;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${color};letter-spacing:0.5px;pointer-events:none;`;
+      lbl.style.cssText=`position:absolute;right:0;top:0;width:50%;height:100%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:${color};letter-spacing:0.5px;pointer-events:none;`;
     } else {
-      lbl.style.cssText=`font-size:10px;font-weight:700;color:${color};letter-spacing:0.5px;line-height:1;pointer-events:none;`;
+      lbl.style.cssText=`font-size:15px;font-weight:700;color:${color};letter-spacing:0.5px;line-height:1;pointer-events:none;`;
     }
     cell.appendChild(lbl);
   }
@@ -995,7 +995,7 @@ function makeDot(s){
   const LABELS={"kantoor":"K","thuis":"T","vrij":"V","ziek":"Z","extern":"E"};
   if(LABELS[s.key]){
     const lbl=document.createElement("span"); lbl.textContent=LABELS[s.key];
-    lbl.style.cssText="font-size:8px;font-weight:700;color:" + (s.key==="ziek"?"rgba(255,255,255,1)":"rgba(0,0,0,0.45)") + ";line-height:1;";
+    lbl.style.cssText="font-size:12px;font-weight:700;color:" + (s.key==="ziek"?"rgba(255,255,255,1)":"rgba(0,0,0,0.45)") + ";line-height:1;";
     d.appendChild(lbl);
   }
   return d;
