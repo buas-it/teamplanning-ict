@@ -990,7 +990,7 @@ function makeDot(s){
   const LABELS={"kantoor":"K","thuis":"T","vrij":"V","ziek":"Z","extern":"E"};
   if(LABELS[s.key]){
     const lbl=document.createElement("span"); lbl.textContent=LABELS[s.key];
-    lbl.style.cssText="font-size:8px;font-weight:700;color:rgba(0,0,0,0.45);line-height:1;";
+    lbl.style.cssText="font-size:8px;font-weight:700;color:" + (s.key==="ziek"?"rgba(255,255,255,1)":"rgba(0,0,0,0.45)") + ";line-height:1;";
     d.appendChild(lbl);
   }
   return d;
