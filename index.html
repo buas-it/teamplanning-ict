@@ -740,9 +740,12 @@ function toggleStatus(monday,person,day,key,isTemplate){
       if(key==="vrij") next=["vrij"];
       // Als iets anders geselecteerd wordt, zet vrije dag uit
       if(key!=="vrij") next=next.filter(k2=>k2!=="vrij");
-      // vm_vrij / nm_vrij sluiten halve kantoor/thuis varianten uit
+      // vm_vrij sluit ochtend kantoor/thuis uit — en andersom
       if(key==="vm_vrij") next=next.filter(k2=>k2!=="vm_kantoor"&&k2!=="vm_thuis");
+      if(key==="vm_kantoor"||key==="vm_thuis") next=next.filter(k2=>k2!=="vm_vrij");
+      // nm_vrij sluit middag kantoor/thuis uit — en andersom
       if(key==="nm_vrij") next=next.filter(k2=>k2!=="nm_kantoor"&&k2!=="nm_thuis");
+      if(key==="nm_kantoor"||key==="nm_thuis") next=next.filter(k2=>k2!=="nm_vrij");
       // kantoor-heel-dag sluit halve-dag-kantoor uit en andersom
       if(key==="kantoor") next=next.filter(k2=>k2!=="vm_kantoor"&&k2!=="nm_kantoor");
       if(key==="vm_kantoor"||key==="nm_kantoor"){
