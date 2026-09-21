@@ -759,6 +759,12 @@ function toggleStatus(monday,person,day,key,isTemplate){
       if(key==="extern") next=next.filter(k2=>!["kantoor","vm_kantoor","nm_kantoor","ziek"].includes(k2));
       if(key==="kantoor"||key==="vm_kantoor"||key==="nm_kantoor") next=next.filter(k2=>k2!=="extern");
       if(key==="ziek") next=next.filter(k2=>k2!=="extern");
+      // Ochtend kantoor en ochtend thuis sluiten elkaar uit
+      if(key==="vm_kantoor") next=next.filter(k2=>k2!=="vm_thuis");
+      if(key==="vm_thuis") next=next.filter(k2=>k2!=="vm_kantoor");
+      // Middag kantoor en middag thuis sluiten elkaar uit
+      if(key==="nm_kantoor") next=next.filter(k2=>k2!=="nm_thuis");
+      if(key==="nm_thuis") next=next.filter(k2=>k2!=="nm_kantoor");
     }
     data[person][day]=next;
     saveState();
