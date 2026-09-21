@@ -736,8 +736,13 @@ function toggleStatus(monday,person,day,key,isTemplate){
       next=cur.filter(k2=>k2!==key); // uitzetten
     } else {
       next=[...cur,key];
-      if(key==="vrij") next=next.filter(k2=>k2!=="vm_vrij"&&k2!=="nm_vrij"&&k2!=="vm_kantoor"&&k2!=="nm_kantoor");
-      if(key==="vm_vrij"||key==="nm_vrij") next=next.filter(k2=>k2!=="vrij");
+      // Vrije dag sluit alles uit behalve zichzelf
+      if(key==="vrij") next=["vrij"];
+      // Als iets anders geselecteerd wordt, zet vrije dag uit
+      if(key!=="vrij") next=next.filter(k2=>k2!=="vrij");
+      // vm_vrij / nm_vrij sluiten halve kantoor/thuis varianten uit
+      if(key==="vm_vrij") next=next.filter(k2=>k2!=="vm_kantoor"&&k2!=="vm_thuis");
+      if(key==="nm_vrij") next=next.filter(k2=>k2!=="nm_kantoor"&&k2!=="nm_thuis");
       // kantoor-heel-dag sluit halve-dag-kantoor uit en andersom
       if(key==="kantoor") next=next.filter(k2=>k2!=="vm_kantoor"&&k2!=="nm_kantoor");
       if(key==="vm_kantoor"||key==="nm_kantoor"){
