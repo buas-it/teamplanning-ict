@@ -1240,7 +1240,8 @@ function buildWeekPanel(monday){
     const dayData=getData(monday);
     const SUPPORT_ALL = ["Wim","Wouter","Annies","Bas"];
     const BEHEER_ALL  = ["Bram","Marco","Hans","Ted","Sercan"];
-    const isK = p => { const s=(dayData[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("vm_kantoor")||s.includes("nm_kantoor"); };
+    const isZiek = p => { const s=(dayData[p]||{})[day]||[]; return s.includes("ziek"); };
+    const isK = p => !isZiek(p) && (()=>{ const s=(dayData[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("vm_kantoor")||s.includes("nm_kantoor"); })();
     const nSupport = SUPPORT_ALL.filter(isK).length;
     const nBeheer  = BEHEER_ALL.filter(isK).length;
     const n = nSupport + nBeheer;
@@ -1252,8 +1253,9 @@ function buildWeekPanel(monday){
       return sel.includes("kantoor") || sel.includes("vm_kantoor") || sel.includes("nm_kantoor");
     };
     const SUPPORT_GRP = ["Wim","Wouter","Annies","Bas"];
-    const isPersonOnKantoor = p => { const s=(dayData[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("vm_kantoor")||s.includes("nm_kantoor"); };
-    const isPersonThuis     = p => { const s=(dayData[p]||{})[day]||[]; return s.includes("thuis")||s.includes("vm_thuis")||s.includes("nm_thuis"); };
+    const isPersonZiek      = p => { const s=(dayData[p]||{})[day]||[]; return s.includes("ziek"); };
+    const isPersonOnKantoor = p => !isPersonZiek(p) && (()=>{ const s=(dayData[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("vm_kantoor")||s.includes("nm_kantoor"); })();
+    const isPersonThuis     = p => !isPersonZiek(p) && (()=>{ const s=(dayData[p]||{})[day]||[]; return s.includes("thuis")||s.includes("vm_thuis")||s.includes("nm_thuis"); })();
     const hasData           = p => ((dayData[p]||{})[day]||[]).length > 0;
 
     const beheerOpK  = MUST_KANTOOR.filter(isPersonOnKantoor);
@@ -1452,11 +1454,11 @@ function showGeenBeheerModal(){
   const results = [];
   const isOnKantoor = (monday, person, day) => {
     const sel = (getData(monday)[person]||{})[day]||[];
-    return sel.includes("kantoor")||sel.includes("vm_kantoor")||sel.includes("nm_kantoor");
+    return !sel.includes("ziek") && (sel.includes("kantoor")||sel.includes("vm_kantoor")||sel.includes("nm_kantoor"));
   };
   const isThuis = (monday, person, day) => {
     const sel = (getData(monday)[person]||{})[day]||[];
-    return sel.includes("thuis")||sel.includes("vm_thuis")||sel.includes("nm_thuis");
+    return !sel.includes("ziek") && (sel.includes("thuis")||sel.includes("vm_thuis")||sel.includes("nm_thuis"));
   };
   const hasStatus = (monday, person, day) => ((getData(monday)[person]||{})[day]||[]).length > 0;
 
