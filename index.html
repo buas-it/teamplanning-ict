@@ -116,7 +116,7 @@ button { font-family:inherit; cursor:pointer; }
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
   </div>
-  <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">K</span></div><span class="legend-label">Kantoor</span></div><div class="legend-item"><div class="legend-dot" style="background:#4caf50;box-shadow:0 0 5px #4caf5066"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:#e53935;box-shadow:0 0 5px #e5393566"></div><span class="legend-label">Vrije dag</span></div><div class="legend-item"><div class="legend-dot" style="background:#ff7043;box-shadow:0 0 5px #ff704366"></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:#ce93d8;box-shadow:0 0 5px #ce93d866"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
+  <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">K</span></div><span class="legend-label">Kantoor</span></div><div class="legend-item"><div class="legend-dot" style="background:#4caf50;box-shadow:0 0 5px #4caf5066"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:#e53935;box-shadow:0 0 5px #e5393566"></div><span class="legend-label">Vrije dag</span></div><div class="legend-item"><div class="legend-dot" style="background:#888888;box-shadow:0 0 5px #88888866"></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:#ce93d8;box-shadow:0 0 5px #ce93d866"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
 
 <!-- Standaard modal -->
@@ -154,7 +154,7 @@ const STATUSES = [
   { key:"vrij",       label:"Vrije dag",              color:"#e53935", border:"#e53935", group:"vrij"    },
   { key:"vm_vrij",    label:"'s Ochtends vrij",       color:"#e53935", border:"#e53935", group:"vrij"    },
   { key:"nm_vrij",    label:"'s Middags vrij",        color:"#e53935", border:"#e53935", group:"vrij"    },
-  { key:"ziek",       label:"Ziek",                   color:"#ff7043", border:"#e64a19", group:"overig"  },
+  { key:"ziek",       label:"Ziek",                   color:"#888888", border:"#666666", group:"overig"  },
   { key:"extern",     label:"Extern",                 color:"#ce93d8", border:"#ab47bc", group:"overig"  },
 ];
 const STATUS_MAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
@@ -983,9 +983,9 @@ function renderCellContent(cell,sel){
 
     // Altijd K of T tonen voor kantoor/thuis (hele dag)
     if(hasZiek && dots.length===1){
-      // Alleen ziek: oranje achtergrond + Z
-      cell.style.background="rgba(255,112,67,0.55)"; cell.style.border="1.5px solid rgba(255,112,67,0.5)";
-      addLabel("Z","rgba(255,255,255,1)","full");
+      // Alleen ziek: lichtgrijs + streepje
+      cell.style.background="rgba(150,150,150,0.18)"; cell.style.border="1.5px solid rgba(150,150,150,0.35)";
+      addLabel("—","rgba(180,180,180,0.8)","full");
     } else if(hasVrij && !hasKantoor && !hasThuis && dots.length===1){
       // Alleen vrij: rode achtergrond + V
       cell.style.background="rgba(229,57,53,0.55)"; cell.style.border="1.5px solid rgba(229,57,53,0.5)";
@@ -1015,7 +1015,7 @@ function makeDot(s){
   const LABELS={"kantoor":"K","thuis":"T","vrij":"V","ziek":"Z","extern":"E"};
   if(LABELS[s.key]){
     const lbl=document.createElement("span"); lbl.textContent=LABELS[s.key];
-    lbl.style.cssText="font-size:12px;font-weight:700;color:" + (s.key==="ziek"?"rgba(255,255,255,1)":"rgba(0,0,0,0.45)") + ";line-height:1;";
+    lbl.style.cssText="font-size:12px;font-weight:700;color:rgba(0,0,0,0.45);line-height:1;";
     d.appendChild(lbl);
   }
   return d;
