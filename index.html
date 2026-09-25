@@ -116,7 +116,7 @@ button { font-family:inherit; cursor:pointer; }
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
   </div>
-  <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">K</span></div><span class="legend-label">Kantoor</span></div><div class="legend-item"><div class="legend-dot" style="background:#4caf50;box-shadow:0 0 5px #4caf5066"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:#e53935;box-shadow:0 0 5px #e5393566"></div><span class="legend-label">Vrije dag</span></div><div class="legend-item"><div class="legend-dot" style="background:#888888;box-shadow:0 0 5px #88888866"></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:#ce93d8;box-shadow:0 0 5px #ce93d866"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
+  <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">K</span></div><span class="legend-label">Kantoor</span></div><div class="legend-item"><div class="legend-dot" style="background:#4caf50;box-shadow:0 0 5px #4caf5066"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:#e53935;box-shadow:0 0 5px #e5393566"></div><span class="legend-label">Vrije dag</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:#ce93d8;box-shadow:0 0 5px #ce93d866"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
 
 <!-- Standaard modal -->
@@ -1389,7 +1389,11 @@ function buildLegend(){
   const LEGEND_KEYS = ["thuis","vrij","ziek","extern"];
   STATUSES.filter(s=>LEGEND_KEYS.includes(s.key)).forEach(s=>{
     const item=document.createElement("div"); item.className="legend-item";
-    item.innerHTML=`<div class="legend-dot" style="background:${s.color};box-shadow:0 0 5px ${s.color}66"></div><span class="legend-label">${s.label}</span>`;
+    if(s.key==="ziek"){
+      item.innerHTML=`<div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">${s.label}</span>`;
+    } else {
+      item.innerHTML=`<div class="legend-dot" style="background:${s.color};box-shadow:0 0 5px ${s.color}66"></div><span class="legend-label">${s.label}</span>`;
+    }
     leg.appendChild(item);
   });
   const hint=document.createElement("span"); hint.className="legend-hint"; hint.textContent="klik cel → kies status(sen)";
