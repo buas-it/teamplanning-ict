@@ -40,7 +40,7 @@ button { font-family:inherit; cursor:pointer; }
 .reset-btn { margin-left:auto; font-size:9px; padding:3px 8px; border-radius:5px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#666; cursor:pointer; letter-spacing:1px; text-transform:uppercase; }
 .reset-btn:hover { color:#aaa; background:rgba(255,255,255,0.1); }
 .day-header { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; margin-bottom:6px; }
-.day-hd { text-align:center; border-radius:6px; padding:4px 0; box-sizing:border-box; }
+.day-hd { text-align:center; border-radius:6px; padding:4px 0; box-sizing:border-box; overflow:hidden; min-width:0; }
 .day-hd.today-col { background:rgba(255,213,128,0.08); }
 .day-hd-name { font-size:12px; font-weight:800; color:#fff; letter-spacing:1px; }
 .day-hd-name.today-col { color:#FFD580; font-size:14px; }
@@ -1353,12 +1353,11 @@ function buildWeekPanel(monday){
     const lastRect  = todayCells[todayCells.length-1].getBoundingClientRect();
     const overlay   = document.createElement("div");
     overlay.className = "today-col-overlay";
-    const cellW = todayCells[0].getBoundingClientRect().width;
-    const diffL = (hdRect.width - cellW) / 2;
-    overlay.style.left   = (hdRect.left - panelRect.left + diffL) + "px";
-    overlay.style.top    = (hdRect.top  - panelRect.top)          + "px";
-    overlay.style.width  =  cellW                                  + "px";
-    overlay.style.height = (lastRect.bottom - hdRect.top)          + "px";
+    const cellRect2 = todayCells[0].getBoundingClientRect();
+    overlay.style.left   = (cellRect2.left   - panelRect.left) + "px";
+    overlay.style.top    = (hdRect.top       - panelRect.top)  + "px";
+    overlay.style.width  =  cellRect2.width                    + "px";
+    overlay.style.height = (lastRect.bottom  - hdRect.top)     + "px";
     panel.querySelectorAll(".today-col-overlay").forEach(e=>e.remove());
     panel.appendChild(overlay);
   });
