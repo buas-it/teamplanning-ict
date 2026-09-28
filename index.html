@@ -1353,13 +1353,10 @@ function buildWeekPanel(monday){
     const lastRect  = todayCells[todayCells.length-1].getBoundingClientRect();
     const overlay   = document.createElement("div");
     overlay.className = "today-col-overlay";
-    // Gebruik de cel-breedte voor exacte uitlijning zonder overlap
-    const firstCell = todayCells[0];
-    const cellRect = firstCell.getBoundingClientRect();
-    overlay.style.left   = (cellRect.left  - panelRect.left  - 1) + "px";
-    overlay.style.top    = (hdRect.top     - panelRect.top   - 1) + "px";
-    overlay.style.width  = (cellRect.width + 2) + "px";
-    overlay.style.height = (lastRect.bottom - hdRect.top + 2) + "px";
+    overlay.style.left   = (hdRect.left   - panelRect.left) + "px";
+    overlay.style.top    = (hdRect.top    - panelRect.top)  + "px";
+    overlay.style.width  =  hdRect.width                    + "px";
+    overlay.style.height = (lastRect.bottom - hdRect.top)   + "px";
     panel.querySelectorAll(".today-col-overlay").forEach(e=>e.remove());
     panel.appendChild(overlay);
   });
