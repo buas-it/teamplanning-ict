@@ -1353,10 +1353,12 @@ function buildWeekPanel(monday){
     const lastRect  = todayCells[todayCells.length-1].getBoundingClientRect();
     const overlay   = document.createElement("div");
     overlay.className = "today-col-overlay";
-    overlay.style.left   = (hdRect.left   - panelRect.left) + "px";
-    overlay.style.top    = (hdRect.top    - panelRect.top)  + "px";
-    overlay.style.width  =  hdRect.width                    + "px";
-    overlay.style.height = (lastRect.bottom - hdRect.top)   + "px";
+    const cellW = todayCells[0].getBoundingClientRect().width;
+    const diffL = (hdRect.width - cellW) / 2;
+    overlay.style.left   = (hdRect.left - panelRect.left + diffL) + "px";
+    overlay.style.top    = (hdRect.top  - panelRect.top)          + "px";
+    overlay.style.width  =  cellW                                  + "px";
+    overlay.style.height = (lastRect.bottom - hdRect.top)          + "px";
     panel.querySelectorAll(".today-col-overlay").forEach(e=>e.remove());
     panel.appendChild(overlay);
   });
