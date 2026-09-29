@@ -775,6 +775,7 @@ function toggleStatus(monday,person,day,key,isTemplate){
       if(key==="nm_extern") next=next.filter(k2=>!["nm_kantoor","nm_thuis","nm_vrij","kantoor","thuis","vrij","ziek","vm_extern"].includes(k2));
       if(["nm_kantoor","nm_thuis","nm_vrij"].includes(key)) next=next.filter(k2=>k2!=="nm_extern");
       if(key==="kantoor"||key==="thuis"||key==="vrij") next=next.filter(k2=>k2!=="vm_extern"&&k2!=="nm_extern");
+      if(key==="vm_extern"||key==="nm_extern") next=next.filter(k2=>k2!=="kantoor"&&k2!=="thuis"&&k2!=="vrij");
       // Ziek sluit alles uit en andersom
       if(key==="ziek") next=["ziek"];
       if(key!=="ziek") next=next.filter(k2=>k2!=="ziek");
