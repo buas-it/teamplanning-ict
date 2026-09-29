@@ -156,6 +156,8 @@ const STATUSES = [
   { key:"nm_vrij",    label:"'s Middags vrij",        color:"#e53935", border:"#e53935", group:"vrij"    },
   { key:"ziek",       label:"Ziek",                   color:"#888888", border:"#666666", group:"overig"  },
   { key:"extern",     label:"Extern",                 color:"#ce93d8", border:"#ab47bc", group:"overig"  },
+  { key:"vm_extern",  label:"'s Ochtends extern",     color:"#ce93d8", border:"#ab47bc", group:"overig"  },
+  { key:"nm_extern",  label:"'s Middags extern",       color:"#ce93d8", border:"#ab47bc", group:"overig"  },
 ];
 const STATUS_MAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
 
@@ -763,9 +765,16 @@ function toggleStatus(monday,person,day,key,isTemplate){
           next.push("thuis");
         }
       }
-      // Extern sluit kantoor, ziek (en halve varianten) uit — en andersom
-      if(key==="extern") next=next.filter(k2=>!["kantoor","vm_kantoor","nm_kantoor","ziek"].includes(k2));
-      if(key==="kantoor"||key==="vm_kantoor"||key==="nm_kantoor") next=next.filter(k2=>k2!=="extern");
+      // Extern sluit alles uit en andersom
+      if(key==="extern") next=["extern"];
+      if(key!=="extern"&&key!=="vm_extern"&&key!=="nm_extern") next=next.filter(k2=>k2!=="extern");
+      // vm_extern sluit ochtend kantoor/thuis/vrij uit en andersom
+      if(key==="vm_extern") next=next.filter(k2=>!["vm_kantoor","vm_thuis","vm_vrij","kantoor","thuis","vrij","ziek","nm_extern"].includes(k2));
+      if(["vm_kantoor","vm_thuis","vm_vrij"].includes(key)) next=next.filter(k2=>k2!=="vm_extern");
+      // nm_extern sluit middag kantoor/thuis/vrij uit en andersom
+      if(key==="nm_extern") next=next.filter(k2=>!["nm_kantoor","nm_thuis","nm_vrij","kantoor","thuis","vrij","ziek","vm_extern"].includes(k2));
+      if(["nm_kantoor","nm_thuis","nm_vrij"].includes(key)) next=next.filter(k2=>k2!=="nm_extern");
+      if(key==="kantoor"||key==="thuis"||key==="vrij") next=next.filter(k2=>k2!=="vm_extern"&&k2!=="nm_extern");
       // Ziek sluit alles uit en andersom
       if(key==="ziek") next=["ziek"];
       if(key!=="ziek") next=next.filter(k2=>k2!=="ziek");
@@ -940,7 +949,9 @@ function renderCellContent(cell,sel){
   const hasNmKantoor =dots.some(s=>s.key==="nm_kantoor");
   const hasVmThuis   =dots.some(s=>s.key==="vm_thuis");
   const hasNmThuis   =dots.some(s=>s.key==="nm_thuis");
-  const needsSplit   =hasVmVrij||hasNmVrij||hasVmKantoor||hasNmKantoor||hasVmThuis||hasNmThuis;
+  const hasVmExtern  =dots.some(s=>s.key==="vm_extern");
+  const hasNmExtern  =dots.some(s=>s.key==="nm_extern");
+  const needsSplit   =hasVmVrij||hasNmVrij||hasVmKantoor||hasNmKantoor||hasVmThuis||hasNmThuis||hasVmExtern||hasNmExtern;
 
   // Hulpfunctie: klein label in de cel
   // side: "left"=linkerhelft, "right"=rechterhelft, "full"=heel vak
@@ -958,8 +969,8 @@ function renderCellContent(cell,sel){
   }
 
   if(needsSplit){
-    const leftColor  = hasVmVrij ? "rgba(229,57,53,0.55)" : hasVmKantoor ? "rgba(200,200,200,0.45)" : hasVmThuis ? "rgba(76,175,80,0.55)" : "rgba(255,255,255,0.04)";
-    const rightColor = hasNmVrij ? "rgba(229,57,53,0.55)" : hasNmKantoor ? "rgba(200,200,200,0.45)" : hasNmThuis ? "rgba(76,175,80,0.55)" : "rgba(255,255,255,0.04)";
+    const leftColor  = hasVmVrij ? "rgba(229,57,53,0.55)" : hasVmKantoor ? "rgba(200,200,200,0.45)" : hasVmThuis ? "rgba(76,175,80,0.55)" : hasVmExtern ? "rgba(206,147,216,0.55)" : "rgba(255,255,255,0.04)";
+    const rightColor = hasNmVrij ? "rgba(229,57,53,0.55)" : hasNmKantoor ? "rgba(200,200,200,0.45)" : hasNmThuis ? "rgba(76,175,80,0.55)" : hasNmExtern ? "rgba(206,147,216,0.55)" : "rgba(255,255,255,0.04)";
     const borderColor = (hasVmKantoor||hasNmKantoor) ? "rgba(200,200,200,0.4)" : (hasVmThuis||hasNmThuis) ? "rgba(76,175,80,0.5)" : "rgba(229,57,53,0.45)";
     cell.style.background = `linear-gradient(to right, ${leftColor} 50%, ${rightColor} 50%)`;
     cell.style.border = `1.5px solid ${borderColor}`;
@@ -967,9 +978,11 @@ function renderCellContent(cell,sel){
     if(hasVmVrij)    addLabel("V","rgba(255,255,255,1)","left");
     if(hasVmKantoor) addLabel("K","rgba(255,255,255,1)","left");
     if(hasVmThuis)   addLabel("T","rgba(255,255,255,1)","left");
+    if(hasVmExtern)  addLabel("E","rgba(255,255,255,1)","left");
     if(hasNmVrij)    addLabel("V","rgba(255,255,255,1)","right");
     if(hasNmKantoor) addLabel("K","rgba(255,255,255,1)","right");
     if(hasNmThuis)   addLabel("T","rgba(255,255,255,1)","right");
+    if(hasNmExtern)  addLabel("E","rgba(255,255,255,1)","right");
     // Extra bolletjes voor andere statussen (extern, vrij-heel-dag, etc.)
     const rest=dots.filter(s=>!["vm_vrij","nm_vrij","vm_kantoor","nm_kantoor","vm_thuis","nm_thuis","kantoor","thuis"].includes(s.key));
     rest.forEach(s=>{ cell.appendChild(makeDot(s)); });
@@ -1012,7 +1025,7 @@ function makeDot(s){
   const d=document.createElement("div"); d.className="dot";
   d.style.background=s.color; d.style.boxShadow=`0 0 6px ${s.color}88`;
   d.style.display="flex"; d.style.alignItems="center"; d.style.justifyContent="center";
-  const LABELS={"kantoor":"K","thuis":"T","vrij":"V","ziek":"Z","extern":"E"};
+  const LABELS={"kantoor":"K","thuis":"T","vrij":"V","ziek":"Z","extern":"E","vm_extern":"E","nm_extern":"E"};
   if(LABELS[s.key]){
     const lbl=document.createElement("span"); lbl.textContent=LABELS[s.key];
     lbl.style.cssText="font-size:12px;font-weight:700;color:rgba(0,0,0,0.45);line-height:1;";
