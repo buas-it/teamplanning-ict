@@ -155,9 +155,9 @@ const STATUSES = [
   { key:"vm_vrij",    label:"'s Ochtends vrij",       color:"#e53935", border:"#e53935", group:"vrij"    },
   { key:"nm_vrij",    label:"'s Middags vrij",        color:"#e53935", border:"#e53935", group:"vrij"    },
   { key:"ziek",       label:"Ziek",                   color:"#888888", border:"#666666", group:"overig"  },
-  { key:"extern",     label:"Extern",                 color:"#ce93d8", border:"#ab47bc", group:"overig"  },
-  { key:"vm_extern",  label:"'s Ochtends extern",     color:"#ce93d8", border:"#ab47bc", group:"overig"  },
-  { key:"nm_extern",  label:"'s Middags extern",       color:"#ce93d8", border:"#ab47bc", group:"overig"  },
+  { key:"extern",     label:"Extern",                 color:"#ffd54f", border:"#ffb300", group:"overig"  },
+  { key:"vm_extern",  label:"'s Ochtends extern",     color:"#ffd54f", border:"#ffb300", group:"overig"  },
+  { key:"nm_extern",  label:"'s Middags extern",       color:"#ffd54f", border:"#ffb300", group:"overig"  },
 ];
 const STATUS_MAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
 
@@ -970,8 +970,8 @@ function renderCellContent(cell,sel){
   }
 
   if(needsSplit){
-    const leftColor  = hasVmVrij ? "rgba(229,57,53,0.55)" : hasVmKantoor ? "rgba(200,200,200,0.45)" : hasVmThuis ? "rgba(76,175,80,0.55)" : hasVmExtern ? "rgba(206,147,216,0.55)" : "rgba(255,255,255,0.04)";
-    const rightColor = hasNmVrij ? "rgba(229,57,53,0.55)" : hasNmKantoor ? "rgba(200,200,200,0.45)" : hasNmThuis ? "rgba(76,175,80,0.55)" : hasNmExtern ? "rgba(206,147,216,0.55)" : "rgba(255,255,255,0.04)";
+    const leftColor  = hasVmVrij ? "rgba(229,57,53,0.55)" : hasVmKantoor ? "rgba(200,200,200,0.45)" : hasVmThuis ? "rgba(76,175,80,0.55)" : hasVmExtern ? "rgba(255,213,79,0.55)" : "rgba(255,255,255,0.04)";
+    const rightColor = hasNmVrij ? "rgba(229,57,53,0.55)" : hasNmKantoor ? "rgba(200,200,200,0.45)" : hasNmThuis ? "rgba(76,175,80,0.55)" : hasNmExtern ? "rgba(255,213,79,0.55)" : "rgba(255,255,255,0.04)";
     const borderColor = (hasVmKantoor||hasNmKantoor) ? "rgba(200,200,200,0.4)" : (hasVmThuis||hasNmThuis) ? "rgba(76,175,80,0.5)" : "rgba(229,57,53,0.45)";
     cell.style.background = `linear-gradient(to right, ${leftColor} 50%, ${rightColor} 50%)`;
     cell.style.border = `1.5px solid ${borderColor}`;
