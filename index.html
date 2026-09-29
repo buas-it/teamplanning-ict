@@ -1327,7 +1327,7 @@ function buildWeekPanel(monday){
     };
     const warnHtml = (showBeheerWarn ? buildWarn(beheerVmWeg,beheerNmWeg,beheerVmThuis,beheerNmThuis,"beheer") : "")
                    + (showSupportWarn ? buildWarn(supportVmWeg,supportNmWeg,supportVmThuis,supportNmThuis,"support") : "");
-    dh.innerHTML=`<div class="day-hd-name${isToday?" today-col":""}">${day}</div><div class="day-hd-date${isToday?" today-col":""}">${fmtDate(dayDate)}</div>${isToday?`<div class="today-badge">vandaag</div>`:""}${warnHtml || `<div class="day-hd-count" id="cnt-${weekKey(monday)}-${day}" style="color:${col};line-height:1.2">${n>0?`<span style="font-size:8px;font-weight:700">B:${nBeheer} S:${nSupport}</span>`:""}` + `</div>` }`;
+    dh.innerHTML=`<div class="day-hd-name${isToday?" today-col":""}">${day}</div><div class="day-hd-date${isToday?" today-col":""}">${fmtDate(dayDate)}</div>${isToday?"":""}${warnHtml || `<div class="day-hd-count" id="cnt-${weekKey(monday)}-${day}" style="color:${col};line-height:1.2">${n>0?`<span style="font-size:8px;font-weight:700">B:${nBeheer} S:${nSupport}</span>`:""}` + `</div>` }`;
     dayHdr.appendChild(dh);
   });
   panel.appendChild(dayHdr);
