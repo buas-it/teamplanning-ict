@@ -985,7 +985,7 @@ function renderCellContent(cell,sel){
     if(hasNmThuis)   addLabel("T","rgba(255,255,255,1)","right");
     if(hasNmExtern)  addLabel("E","rgba(255,255,255,1)","right");
     // Extra bolletjes voor andere statussen (extern, vrij-heel-dag, etc.)
-    const rest=dots.filter(s=>!["vm_vrij","nm_vrij","vm_kantoor","nm_kantoor","vm_thuis","nm_thuis","kantoor","thuis"].includes(s.key));
+    const rest=dots.filter(s=>!["vm_vrij","nm_vrij","vm_kantoor","nm_kantoor","vm_thuis","nm_thuis","vm_extern","nm_extern","kantoor","thuis"].includes(s.key));
     rest.forEach(s=>{ cell.appendChild(makeDot(s)); });
   } else {
     // Achtergrond bepalen op basis van dominant (niet-kantoor) status
