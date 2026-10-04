@@ -248,6 +248,7 @@ function showLockIndicator(){
 function lock(){
   editUnlocked = false;
   clearTimeout(unlockTimer);
+  try{ localStorage.removeItem("tp_unlocked"); }catch(e){}
   showLockIndicator();
 }
 
@@ -276,6 +277,8 @@ async function promptUnlock(){
       if(hash === PW_HASH){
         editUnlocked = true;
         clearTimeout(unlockTimer);
+        // Onthoud op dit apparaat (30 dagen geldig)
+        try{ localStorage.setItem("tp_unlocked", Date.now().toString()); }catch(e){}
         // Auto-vergrendel na 15 minuten inactiviteit
         unlockTimer = setTimeout(lock, 15 * 60 * 1000);
         showLockIndicator();
@@ -1577,6 +1580,21 @@ document.getElementById("btn-now").addEventListener("click",()=>{ baseMonday=mon
 const tplModal=document.getElementById("tpl-modal");
 document.getElementById("btn-template").addEventListener("click",async ()=>{ if(!await requireUnlock()) return; buildTemplateGrid(); tplModal.style.display="block"; });
 
+// Herstel unlock-status van dit apparaat (geldig 30 dagen)
+try{
+  const saved = localStorage.getItem("tp_unlocked");
+  if(saved){
+    const age = Date.now() - parseInt(saved);
+    if(age < 30 * 24 * 60 * 60 * 1000){
+      editUnlocked = true;
+      // Reset auto-lock timer
+      clearTimeout(unlockTimer);
+      unlockTimer = setTimeout(lock, 15 * 60 * 1000);
+    } else {
+      localStorage.removeItem("tp_unlocked"); // verlopen
+    }
+  }
+}catch(e){}
 // Slot-indicator klikbaar maken
 showLockIndicator();
 document.getElementById("lock-ind").addEventListener("click", async ()=>{
