@@ -1416,7 +1416,9 @@ function buildLegend(){
 }
 
 // ── Render ───────────────────────────────────────────────────────
-let baseMonday=mondayOf(today);
+// Weekend: toon alvast volgende week
+const todayDay = today.getDay(); // 0=zo, 6=za
+let baseMonday = (todayDay === 0 || todayDay === 6) ? addWeeks(mondayOf(today), 1) : mondayOf(today);
 
 function render(){
   closePopup();
