@@ -116,7 +116,7 @@ button { font-family:inherit; cursor:pointer; }
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
   </div>
-  <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">K</span></div><span class="legend-label">Kantoor</span></div><div class="legend-item"><div class="legend-dot" style="background:#4caf50;box-shadow:0 0 5px #4caf5066"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:#e53935;box-shadow:0 0 5px #e5393566"></div><span class="legend-label">Vrije dag</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:#ce93d8;box-shadow:0 0 5px #ce93d866"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
+  <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:#4caf50;box-shadow:0 0 5px #4caf5066"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:#e53935;box-shadow:0 0 5px #e5393566"></div><span class="legend-label">Vrije dag</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:#ce93d8;box-shadow:0 0 5px #ce93d866"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
 
 <!-- Standaard modal -->
@@ -145,9 +145,9 @@ const DAY_LABELS = {MA:"Maandag",DI:"Dinsdag",WO:"Woensdag",DO:"Donderdag",VR:"V
 const AVATARS = ["#7c5cbf","#3a8a82","#c47a2e","#b54d6a","#8a4db5","#3a7a5c","#5c7ab5","#b54d4d","#FF6C00","#4d7a3a","#5c4d8a"];
 
 const STATUSES = [
-  { key:"kantoor",    label:"Kantoor",                color:"#aaaaaa", border:"#888888", group:"kantoor" },
-  { key:"vm_kantoor", label:"'s Ochtends op kantoor", color:"#aaaaaa", border:"#888888", group:"kantoor" },
-  { key:"nm_kantoor", label:"'s Middags op kantoor",  color:"#aaaaaa", border:"#888888", group:"kantoor" },
+  { key:"kantoor",    label:"Campus",                color:"#aaaaaa", border:"#888888", group:"kantoor" },
+  { key:"vm_kantoor", label:"'s Ochtends op campus", color:"#aaaaaa", border:"#888888", group:"kantoor" },
+  { key:"nm_kantoor", label:"'s Middags op campus",  color:"#aaaaaa", border:"#888888", group:"kantoor" },
   { key:"thuis",      label:"Thuis",                  color:"#4caf50", border:"#388e3c", group:"thuis"   },
   { key:"vm_thuis",   label:"'s Ochtends thuis",      color:"#4caf50", border:"#388e3c", group:"thuis"   },
   { key:"nm_thuis",   label:"'s Middags thuis",       color:"#4caf50", border:"#388e3c", group:"thuis"   },
@@ -977,11 +977,11 @@ function renderCellContent(cell,sel){
     cell.style.border = `1.5px solid ${borderColor}`;
     // Labels in split-cel
     if(hasVmVrij)    addLabel("V","rgba(255,255,255,1)","left");
-    if(hasVmKantoor) addLabel("K","rgba(255,255,255,1)","left");
+    if(hasVmKantoor) addLabel("C","rgba(255,255,255,1)","left");
     if(hasVmThuis)   addLabel("T","rgba(255,255,255,1)","left");
     if(hasVmExtern)  addLabel("E","rgba(255,255,255,1)","left");
     if(hasNmVrij)    addLabel("V","rgba(255,255,255,1)","right");
-    if(hasNmKantoor) addLabel("K","rgba(255,255,255,1)","right");
+    if(hasNmKantoor) addLabel("C","rgba(255,255,255,1)","right");
     if(hasNmThuis)   addLabel("T","rgba(255,255,255,1)","right");
     if(hasNmExtern)  addLabel("E","rgba(255,255,255,1)","right");
     // Extra bolletjes voor andere statussen (extern, vrij-heel-dag, etc.)
@@ -1007,7 +1007,7 @@ function renderCellContent(cell,sel){
     } else if(hasKantoor && !hasThuis){
       // Alleen kantoor: zelfde grijs als halve-dag kantoor
       cell.style.background="rgba(200,200,200,0.45)"; cell.style.border="1.5px solid rgba(200,200,200,0.4)";
-      addLabel("K","rgba(255,255,255,1)","full");
+      addLabel("C","rgba(255,255,255,1)","full");
       // Extra bolletjes voor andere statussen
       dots.filter(s=>s.key!=="kantoor").forEach(s=>{ cell.appendChild(makeDot(s)); });
     } else if(hasThuis && !hasKantoor){
@@ -1026,7 +1026,7 @@ function makeDot(s){
   const d=document.createElement("div"); d.className="dot";
   d.style.background=s.color; d.style.boxShadow=`0 0 6px ${s.color}88`;
   d.style.display="flex"; d.style.alignItems="center"; d.style.justifyContent="center";
-  const LABELS={"kantoor":"K","thuis":"T","vrij":"V","ziek":"Z","extern":"E","vm_extern":"E","nm_extern":"E"};
+  const LABELS={"kantoor":"C","thuis":"T","vrij":"V","ziek":"Z","extern":"E","vm_extern":"E","nm_extern":"E"};
   if(LABELS[s.key]){
     const lbl=document.createElement("span"); lbl.textContent=LABELS[s.key];
     lbl.style.cssText="font-size:12px;font-weight:700;color:rgba(0,0,0,0.45);line-height:1;";
@@ -1397,7 +1397,7 @@ function buildLegend(){
   const leg=document.getElementById("legend"); leg.innerHTML=`<span class="legend-title">Legenda</span>`;
   // Kantoor legenda-item (apart, met K-indicator)
   const kantoorItem=document.createElement("div"); kantoorItem.className="legend-item";
-  kantoorItem.innerHTML=`<div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">K</span></div><span class="legend-label">Kantoor</span>`;
+  kantoorItem.innerHTML=`<div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span>`;
   leg.appendChild(kantoorItem);
 
   // Toon alleen hoofd-statussen in legenda (geen halve varianten)
