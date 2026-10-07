@@ -1010,7 +1010,7 @@ function renderCellContent(cell,sel){
       addLabel("V","rgba(255,255,255,1)","full");
     } else if(hasKantoor && !hasThuis){
       // Alleen kantoor: zelfde grijs als halve-dag kantoor
-      cell.style.background="rgba(200,200,200,0.45)"; cell.style.border="1.5px solid rgba(200,200,200,0.4)";
+      cell.style.background="rgba(180,180,180,0.6)"; cell.style.border="1.5px solid rgba(180,180,180,0.5)";
       addLabel("C","rgba(255,255,255,1)","full");
       // Extra bolletjes voor andere statussen
       dots.filter(s=>s.key!=="kantoor").forEach(s=>{ cell.appendChild(makeDot(s)); });
