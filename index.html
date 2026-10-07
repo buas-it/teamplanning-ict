@@ -1607,11 +1607,39 @@ function showMaandOverzicht(){
             }
             if(editUnlocked && inMo){
               td.style.cursor = "pointer";
-              td.addEventListener("click",()=>{
-                const wrap=document.createElement("div");
-                overlay.remove();
-                showPopup(wrap,monday,person,dayKey,false);
-                document.body.appendChild(wrap);
+              td.title = "Klik om te bewerken";
+              td.addEventListener("click", async (e)=>{
+                e.stopPropagation();
+                if(!await requireUnlock()) return;
+                // Sluit maand overlay tijdelijk, open popup, heropend daarna
+                overlay.style.display = "none";
+                const tempWrap = document.createElement("div");
+                tempWrap.style.cssText = "position:fixed;left:0;top:0;";
+                document.body.appendChild(tempWrap);
+                // Wacht op popup sluiting via een patch op closePopup
+                const origClose = window._maandPopupDone;
+                let resolved = false;
+                const onDone = ()=>{
+                  if(resolved) return;
+                  resolved = true;
+                  tempWrap.remove();
+                  overlay.style.display = "";
+                  renderAndSync();
+                  // Herrender maand overlay
+                  const newOverlay = document.createElement("div");
+                  newOverlay.style.cssText = overlay.style.cssText;
+                  document.body.removeChild(overlay);
+                };
+                showPopup(tempWrap, monday, person, dayKey, false);
+                // Detecteer wanneer popup gesloten wordt
+                const checkClosed = setInterval(()=>{
+                  if(!openPopup || openPopup.wrap !== tempWrap){
+                    clearInterval(checkClosed);
+                    tempWrap.remove();
+                    overlay.style.display = "";
+                    renderAndSync();
+                  }
+                }, 100);
               });
             }
           }
