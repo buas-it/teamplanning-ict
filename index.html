@@ -1502,11 +1502,7 @@ function showMaandOverzicht(){
 
   function buildWeekTable(weeksSlice){
     const tbl = document.createElement("table");
-    const isCurrentWeek = weeksSlice.some(w => {
-      const fri = addDays(w.monday, 4);
-      return today >= w.monday && today <= fri;
-    });
-    tbl.style.cssText = "border-collapse:separate;border-spacing:2px;width:100%;table-layout:fixed;margin-bottom:12px;" + (isCurrentWeek ? "outline:2px solid rgba(255,183,77,0.7);border-radius:6px;background:rgba(255,183,77,0.03);" : "");
+    tbl.style.cssText = "border-collapse:separate;border-spacing:2px;width:100%;table-layout:fixed;margin-bottom:12px;";
 
     // Maand-balk: groepeer weken per maand
     const maandHdr = document.createElement("tr");
@@ -1538,11 +1534,21 @@ function showMaandOverzicht(){
       th.style.cssText = "text-align:center;font-size:8px;color:rgba(255,255,255,0.25);font-weight:400;padding-bottom:2px;border-bottom:1px solid rgba(255,255,255,0.06);";
       // Toon maanden als week over maandgrens loopt
       const fri = addDays(w.monday, 4);
+      const isCurWeek = today >= w.monday && today <= addDays(w.monday, 6);
       const moMo = w.monday.getMonth(), moFr = fri.getMonth();
       const maandLabel = moMo !== moFr
         ? `<span style="font-size:7px;color:rgba(255,255,255,0.35)">${MAAND_KORT[moMo]}/${MAAND_KORT[moFr]}</span>`
         : "";
       th.innerHTML = `W${getWeekNumber(w.monday)}${maandLabel ? "<br>"+maandLabel : ""}`;
+      if(isCurWeek){
+        th.style.color = "#ffb74d";
+        th.style.borderBottom = "2px solid rgba(255,183,77,0.8)";
+        th.style.background = "rgba(255,183,77,0.06)";
+        th.style.borderLeft = "2px solid rgba(255,183,77,0.5)";
+        th.style.borderRight = "2px solid rgba(255,183,77,0.5)";
+        th.style.borderTop = "2px solid rgba(255,183,77,0.5)";
+        th.style.borderRadius = "4px 4px 0 0";
+      }
       hdr1.appendChild(th);
     });
     tbl.appendChild(hdr1);
@@ -1554,7 +1560,10 @@ function showMaandOverzicht(){
       w.days.forEach((dd,i)=>{
         const th = document.createElement("th");
         const isToday = dd.toDateString()===today.toDateString();
-        th.style.cssText = `text-align:center;font-size:7px;padding:1px;color:${isToday?"#ffb74d":"rgba(255,255,255,0.35)"};font-weight:${isToday?"700":"400"};`;
+        const isCurW = today >= w.monday && today <= addDays(w.monday, 6);
+        th.style.cssText = `text-align:center;font-size:7px;padding:1px;color:${isToday?"#ffb74d":"rgba(255,255,255,0.35)"};font-weight:${isToday?"700":"400"};` +
+          (isCurW && i===0 ? "border-left:2px solid rgba(255,183,77,0.5);" : "") +
+          (isCurW && i===4 ? "border-right:2px solid rgba(255,183,77,0.5);" : "");
         th.innerHTML = `${DAGNAMEN[i]}<br>${dd.getDate()}`;
         hdr2.appendChild(th);
       });
@@ -1582,6 +1591,11 @@ function showMaandOverzicht(){
           const sel = (getData(w.monday)[person]||{})[dayKey]||[];
           if(sel.length===0){ td.style.background="rgba(255,255,255,0.05)"; }
           else { const m=sel[0]; td.style.background=STATUS_COLORS[m]||"rgba(255,255,255,0.1)"; td.style.color=(m==="extern"||m==="vm_extern"||m==="nm_extern")?"rgba(0,0,0,0.7)":"#fff"; td.textContent=STATUS_LABELS[m]||""; }
+          const isCurW2 = today >= w.monday && today <= addDays(w.monday, 6);
+          if(isCurW2){
+            if(i===0) td.style.borderLeft="2px solid rgba(255,183,77,0.5)";
+            if(i===4) td.style.borderRight="2px solid rgba(255,183,77,0.5)";
+          }
           if(editUnlocked){
             td.style.cursor="pointer";
             td.addEventListener("click", async (e)=>{
@@ -1633,6 +1647,16 @@ function showMaandOverzicht(){
         tdWE.style.cssText="height:22px;border-radius:3px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);";
         tr.appendChild(tdWE);
       });
+      // Bottom border op laatste rij voor huidige week
+      if(person===TEAM[TEAM.length-1]){
+        weeksSlice.forEach((w,wi)=>{
+          if(today >= w.monday && today <= addDays(w.monday,6)){
+            Array.from(tr.cells).slice(1+wi*6, 1+wi*6+5).forEach(td=>{
+              td.style.borderBottom="2px solid rgba(255,183,77,0.5)";
+            });
+          }
+        });
+      }
       tbl.appendChild(tr);
     });
     return tbl;
