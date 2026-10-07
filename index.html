@@ -1660,6 +1660,7 @@ function showMaandOverzicht(){
         const right  = lastDag.getBoundingClientRect().right;
         const bottom = lastTr.getBoundingClientRect().bottom;
         const frame = document.createElement("div");
+        frame.className = "mo-week-frame";
         frame.style.cssText = `position:fixed;pointer-events:none;z-index:810;`+
           `left:${left-2}px;top:${top-2}px;`+
           `width:${right-left+4}px;height:${bottom-top+4}px;`+
@@ -1675,6 +1676,8 @@ function showMaandOverzicht(){
   }
 
   function render(){
+    // Verwijder eventuele oude week-kaders
+    document.querySelectorAll(".mo-week-frame").forEach(f=>f.remove());
     overlay.innerHTML="";
     const box=document.createElement("div");
     box.style.cssText="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;max-width:99vw;width:1100px;font-family:'Courier New',monospace;";
