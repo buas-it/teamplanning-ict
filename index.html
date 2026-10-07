@@ -1493,40 +1493,35 @@ function showMaandOverzicht(){
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
 
-  function render(){
-    overlay.innerHTML = "";
-    const box = document.createElement("div");
-    box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;min-width:320px;max-width:98vw;width:900px;font-family:'Courier New',monospace;";
-
-    // Header
-    const hdr = document.createElement("div");
-    hdr.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;";
-    hdr.innerHTML = `
-      <button id="mo-prev" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">◀</button>
-      <span style="font-size:16px;font-weight:700;color:#80cbc4;">${MAANDEN[viewMonth]} ${viewYear}</span>
-      <button id="mo-next" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">▶</button>
-      <button id="mo-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>`;
-    box.appendChild(hdr);
-
-    // Werkdagen van de maand bepalen
+  function buildMonthGrid(yr, mo){
+    // Werkdagen van de maand
     const workdays = [];
-    const d = new Date(viewYear, viewMonth, 1);
-    while(d.getMonth() === viewMonth){
+    const d = new Date(yr, mo, 1);
+    while(d.getMonth() === mo){
       const dow = d.getDay();
       if(dow >= 1 && dow <= 5) workdays.push(new Date(d));
       d.setDate(d.getDate()+1);
     }
 
-    // Grid: naam-kolom + een kolom per werkdag
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "margin-bottom:20px;";
+
+    // Maandtitel
+    const mtitle = document.createElement("div");
+    mtitle.style.cssText = "font-size:13px;font-weight:700;color:#80cbc4;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(128,203,196,0.3);";
+    mtitle.textContent = `${MAANDEN[mo]} ${yr}`;
+    wrapper.appendChild(mtitle);
+
+    // Grid
     const grid = document.createElement("div");
     grid.style.cssText = `display:grid;grid-template-columns:80px repeat(${workdays.length},1fr);gap:2px;align-items:center;`;
 
-    // Header rij: lege cel + dag-headers
+    // Header rij
     const emptyHdr = document.createElement("div");
     grid.appendChild(emptyHdr);
     workdays.forEach(wd=>{
       const dh = document.createElement("div");
-      dh.style.cssText = "text-align:center;font-size:8px;color:rgba(255,255,255,0.4);padding-bottom:2px;";
+      dh.style.cssText = "text-align:center;font-size:7px;color:rgba(255,255,255,0.4);padding-bottom:2px;";
       const isToday = wd.toDateString()===today.toDateString();
       dh.innerHTML = `<div style="color:${isToday?"#ffb74d":"rgba(255,255,255,0.4)"};font-weight:${isToday?"700":"400"}">${DAGNAMEN[wd.getDay()-1]}</div><div style="color:${isToday?"#ffb74d":"rgba(255,255,255,0.3)"}">${wd.getDate()}</div>`;
       grid.appendChild(dh);
@@ -1534,33 +1529,25 @@ function showMaandOverzicht(){
 
     // Persoon-rijen
     TEAM.forEach(person=>{
-      // Naam
       const namCell = document.createElement("div");
       namCell.style.cssText = "font-size:10px;color:#fff;padding-right:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
       namCell.textContent = person;
       grid.appendChild(namCell);
 
-      // Cel per werkdag
       workdays.forEach(wd=>{
         const monday = mondayOf(wd);
         const dayKey = ["MA","DI","WO","DO","VR"][wd.getDay()-1];
         const sel = (getData(monday)[person]||{})[dayKey]||[];
-
         const cell = document.createElement("div");
-        cell.style.cssText = "height:22px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;cursor:pointer;";
-
+        cell.style.cssText = "height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;cursor:pointer;";
         if(sel.length === 0){
           cell.style.background = "rgba(255,255,255,0.05)";
-          cell.style.color = "rgba(255,255,255,0.15)";
-          cell.textContent = "";
         } else {
           const main = sel[0];
           cell.style.background = STATUS_COLORS[main] || "rgba(255,255,255,0.1)";
           cell.style.color = "#fff";
           cell.textContent = STATUS_LABELS[main] || "";
         }
-
-        // Klik om te bewerken (alleen als unlocked)
         if(editUnlocked){
           cell.title = "Klik om te bewerken";
           cell.addEventListener("click", ()=>{
@@ -1570,12 +1557,35 @@ function showMaandOverzicht(){
             document.body.appendChild(wrap);
           });
         }
-
         grid.appendChild(cell);
       });
     });
 
-    box.appendChild(grid);
+    wrapper.appendChild(grid);
+    return wrapper;
+  }
+
+  function render(){
+    overlay.innerHTML = "";
+    const box = document.createElement("div");
+    box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;min-width:320px;max-width:98vw;width:960px;font-family:'Courier New',monospace;";
+
+    // Header
+    const hdr = document.createElement("div");
+    hdr.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;";
+    hdr.innerHTML = `
+      <button id="mo-prev" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">◀</button>
+      <span style="font-size:14px;font-weight:700;color:#80cbc4;">${MAANDEN[viewMonth]} ${viewYear} — ${MAANDEN[(viewMonth+2)%12]} ${viewMonth>=10?viewYear+1:viewYear}</span>
+      <button id="mo-next" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">▶</button>
+      <button id="mo-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>`;
+    box.appendChild(hdr);
+
+    // 3 maanden
+    for(let i=0; i<3; i++){
+      const mo = (viewMonth + i) % 12;
+      const yr = viewYear + Math.floor((viewMonth + i) / 12);
+      box.appendChild(buildMonthGrid(yr, mo));
+    }
 
     // Legenda
     const leg = document.createElement("div");
