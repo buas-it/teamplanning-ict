@@ -1564,8 +1564,11 @@ function showMaandOverzicht(){
         const dd = w.days[i];
         const inMo = dd.getMonth()===mo;
         const isToday = dd.toDateString()===today.toDateString();
-        th.style.cssText = `text-align:center;font-size:7px;padding:1px;color:${isToday?"#ffb74d":inMo?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)"};font-weight:${isToday?"700":"400"};`;
-        th.innerHTML = `${dag}<br>${dd.getDate()}`;
+        // Toon maand-afkorting bij overschrijdende dagen
+        const MAAND_KORT = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+        const extraLabel = !inMo ? `<div style="font-size:6px;color:rgba(255,183,77,0.6)">${MAAND_KORT[dd.getMonth()]}</div>` : "";
+        th.style.cssText = `text-align:center;font-size:7px;padding:1px;color:${isToday?"#ffb74d":inMo?"rgba(255,255,255,0.4)":"rgba(255,183,77,0.5)"};font-weight:${isToday?"700":"400"};`;
+        th.innerHTML = `${dag}<br>${dd.getDate()}${extraLabel}`;
         hdr2.appendChild(th);
       });
       // Weekend kolom header
@@ -1593,7 +1596,8 @@ function showMaandOverzicht(){
           const td = document.createElement("td");
           td.style.cssText = `height:20px;border-radius:3px;text-align:center;vertical-align:middle;font-size:9px;font-weight:700;`;
           if(!inMo){
-            td.style.background = "rgba(255,255,255,0.01)";
+            td.style.background = "rgba(255,183,77,0.04)";
+            td.style.outline = "1px solid rgba(255,183,77,0.15)";
           } else {
             const monday = w.monday;
             const sel = (getData(monday)[person]||{})[dayKey]||[];
