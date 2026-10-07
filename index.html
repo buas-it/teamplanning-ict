@@ -1528,7 +1528,13 @@ function showMaandOverzicht(){
       const th = document.createElement("th");
       th.colSpan = 6;
       th.style.cssText = "text-align:center;font-size:8px;color:rgba(255,255,255,0.25);font-weight:400;padding-bottom:2px;border-bottom:1px solid rgba(255,255,255,0.06);";
-      th.textContent = `W${getWeekNumber(w.monday)}`;
+      // Toon maanden als week over maandgrens loopt
+      const fri = addDays(w.monday, 4);
+      const moMo = w.monday.getMonth(), moFr = fri.getMonth();
+      const maandLabel = moMo !== moFr
+        ? `<span style="font-size:7px;color:rgba(255,255,255,0.35)">${MAAND_KORT[moMo]}/${MAAND_KORT[moFr]}</span>`
+        : "";
+      th.innerHTML = `W${getWeekNumber(w.monday)}${maandLabel ? "<br>"+maandLabel : ""}`;
       hdr1.appendChild(th);
     });
     tbl.appendChild(hdr1);
