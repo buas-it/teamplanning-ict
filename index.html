@@ -1502,7 +1502,11 @@ function showMaandOverzicht(){
 
   function buildWeekTable(weeksSlice){
     const tbl = document.createElement("table");
-    tbl.style.cssText = "border-collapse:separate;border-spacing:2px;width:100%;table-layout:fixed;margin-bottom:12px;";
+    const isCurrentWeek = weeksSlice.some(w => {
+      const fri = addDays(w.monday, 4);
+      return today >= w.monday && today <= fri;
+    });
+    tbl.style.cssText = "border-collapse:separate;border-spacing:2px;width:100%;table-layout:fixed;margin-bottom:12px;" + (isCurrentWeek ? "outline:2px solid rgba(255,183,77,0.7);border-radius:6px;background:rgba(255,183,77,0.03);" : "");
 
     // Maand-balk: groepeer weken per maand
     const maandHdr = document.createElement("tr");
