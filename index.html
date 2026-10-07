@@ -1640,36 +1640,39 @@ function showMaandOverzicht(){
       tbl.appendChild(tr);
     });
 
-    // Oranje kader om huidige week via positioned overlay
+    // Oranje kader om huidige week via position:absolute in tabel-container
     requestAnimationFrame(()=>{
       weeksSlice.forEach((w, wi)=>{
         if(!(today >= w.monday && today <= addDays(w.monday, 6))) return;
         const allTrs = Array.from(tbl.querySelectorAll("tr"));
         if(allTrs.length < 3) return;
-        // Rij 2 = weeknummer rij, kolom 1+wi = deze week
-        const wnCell = allTrs[1].querySelectorAll("th")[1 + wi];
-        // Eerste dag th in rij 3
+        const wnCell  = allTrs[1].querySelectorAll("th")[1 + wi];
         const dagCells = allTrs[2].querySelectorAll("th");
         const firstDag = dagCells[1 + wi*6];
         const lastDag  = dagCells[1 + wi*6 + 4];
         const lastTr   = allTrs[allTrs.length - 1];
         if(!wnCell || !firstDag || !lastDag) return;
-        const wnRect = wnCell.getBoundingClientRect();
-        const top    = wnRect.top;
-        const left   = firstDag.getBoundingClientRect().left;
-        const right  = lastDag.getBoundingClientRect().right;
-        const bottom = lastTr.getBoundingClientRect().bottom;
+
+        // Gebruik positie relatief aan de tabel zelf
+        const tblRect  = tbl.getBoundingClientRect();
+        const wnRect   = wnCell.getBoundingClientRect();
+        const fRect    = firstDag.getBoundingClientRect();
+        const lRect    = lastDag.getBoundingClientRect();
+        const btmRect  = lastTr.getBoundingClientRect();
+
+        // Maak container relatief
+        tbl.style.position = "relative";
         const frame = document.createElement("div");
         frame.className = "mo-week-frame";
-        frame.style.cssText = `position:fixed;pointer-events:none;z-index:810;`+
-          `left:${left-2}px;top:${top-2}px;`+
-          `width:${right-left+4}px;height:${bottom-top+4}px;`+
+        frame.style.cssText =
+          `position:absolute;pointer-events:none;z-index:2;`+
+          `left:${fRect.left - tblRect.left - 2}px;`+
+          `top:${wnRect.top  - tblRect.top  - 2}px;`+
+          `width:${lRect.right - fRect.left + 4}px;`+
+          `height:${btmRect.bottom - wnRect.top + 4}px;`+
           `border:2px solid rgba(255,183,77,0.75);border-radius:5px;`+
           `box-shadow:0 0 10px rgba(255,183,77,0.2);`;
-        document.body.appendChild(frame);
-        // Verwijder als overlay verdwijnt
-        const obs = new MutationObserver(()=>{ if(!document.body.contains(tbl)){ frame.remove(); obs.disconnect(); }});
-        obs.observe(document.body, {childList:true, subtree:false});
+        tbl.appendChild(frame);
       });
     });
     return tbl;
