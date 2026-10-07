@@ -1670,7 +1670,14 @@ function showMaandOverzicht(){
 
     box.querySelector("#mo-prev").onclick=()=>{ startWeek=addWeeks(startWeek,-NUM_WEEKS); render(); };
     box.querySelector("#mo-next").onclick=()=>{ startWeek=addWeeks(startWeek, NUM_WEEKS); render(); };
-    box.querySelector("#mo-refresh").onclick=async()=>{ await loadFromGitHub(); renderAndSync(); render(); };
+    box.querySelector("#mo-refresh").onclick=async()=>{
+      const btn=box.querySelector("#mo-refresh");
+      if(btn){ btn.textContent="⟳"; btn.style.opacity="0.4"; btn.disabled=true; }
+      await loadFromGitHub();
+      renderAndSync();
+      if(btn){ btn.textContent="↻"; btn.style.opacity="1"; btn.disabled=false; }
+      render();
+    };
     box.querySelector("#mo-lock").onclick=async()=>{ if(editUnlocked){ lock(); render(); } else { const ok=await promptUnlock(); if(ok) render(); } };
     box.querySelector("#mo-close").onclick=()=>overlay.remove();
   }
