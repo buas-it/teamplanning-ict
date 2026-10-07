@@ -1542,12 +1542,7 @@ function showMaandOverzicht(){
       th.innerHTML = `W${getWeekNumber(w.monday)}${maandLabel ? "<br>"+maandLabel : ""}`;
       if(isCurWeek){
         th.style.color = "#ffb74d";
-        th.style.borderBottom = "2px solid rgba(255,183,77,0.8)";
-        th.style.background = "rgba(255,183,77,0.06)";
-        th.style.borderLeft = "2px solid rgba(255,183,77,0.5)";
-        th.style.borderRight = "2px solid rgba(255,183,77,0.5)";
-        th.style.borderTop = "2px solid rgba(255,183,77,0.5)";
-        th.style.borderRadius = "4px 4px 0 0";
+        th.style.borderBottom = "2px solid rgba(255,183,77,0.4)";
       }
       hdr1.appendChild(th);
     });
@@ -1560,10 +1555,7 @@ function showMaandOverzicht(){
       w.days.forEach((dd,i)=>{
         const th = document.createElement("th");
         const isToday = dd.toDateString()===today.toDateString();
-        const isCurW = today >= w.monday && today <= addDays(w.monday, 6);
-        th.style.cssText = `text-align:center;font-size:7px;padding:1px;color:${isToday?"#ffb74d":"rgba(255,255,255,0.35)"};font-weight:${isToday?"700":"400"};` +
-          (isCurW && i===0 ? "border-left:2px solid rgba(255,183,77,0.5);" : "") +
-          (isCurW && i===4 ? "border-right:2px solid rgba(255,183,77,0.5);" : "");
+        th.style.cssText = `text-align:center;font-size:7px;padding:1px;color:${isToday?"#ffb74d":"rgba(255,255,255,0.35)"};font-weight:${isToday?"700":"400"};`;
         th.innerHTML = `${DAGNAMEN[i]}<br>${dd.getDate()}`;
         hdr2.appendChild(th);
       });
@@ -1591,11 +1583,6 @@ function showMaandOverzicht(){
           const sel = (getData(w.monday)[person]||{})[dayKey]||[];
           if(sel.length===0){ td.style.background="rgba(255,255,255,0.05)"; }
           else { const m=sel[0]; td.style.background=STATUS_COLORS[m]||"rgba(255,255,255,0.1)"; td.style.color=(m==="extern"||m==="vm_extern"||m==="nm_extern")?"rgba(0,0,0,0.7)":"#fff"; td.textContent=STATUS_LABELS[m]||""; }
-          const isCurW2 = today >= w.monday && today <= addDays(w.monday, 6);
-          if(isCurW2){
-            if(i===0) td.style.borderLeft="2px solid rgba(255,183,77,0.5)";
-            if(i===4) td.style.borderRight="2px solid rgba(255,183,77,0.5)";
-          }
           if(editUnlocked){
             td.style.cursor="pointer";
             td.addEventListener("click", async (e)=>{
@@ -1647,17 +1634,39 @@ function showMaandOverzicht(){
         tdWE.style.cssText="height:22px;border-radius:3px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);";
         tr.appendChild(tdWE);
       });
-      // Bottom border op laatste rij voor huidige week
-      if(person===TEAM[TEAM.length-1]){
-        weeksSlice.forEach((w,wi)=>{
-          if(today >= w.monday && today <= addDays(w.monday,6)){
-            Array.from(tr.cells).slice(1+wi*6, 1+wi*6+5).forEach(td=>{
-              td.style.borderBottom="2px solid rgba(255,183,77,0.5)";
-            });
-          }
-        });
-      }
+
       tbl.appendChild(tr);
+    });
+
+    // Oranje kader om huidige week via positioned overlay
+    requestAnimationFrame(()=>{
+      weeksSlice.forEach((w, wi)=>{
+        if(!(today >= w.monday && today <= addDays(w.monday, 6))) return;
+        const allTrs = Array.from(tbl.querySelectorAll("tr"));
+        if(allTrs.length < 3) return;
+        // Rij 2 = weeknummer rij, kolom 1+wi = deze week
+        const wnCell = allTrs[1].querySelectorAll("th")[1 + wi];
+        // Eerste dag th in rij 3
+        const dagCells = allTrs[2].querySelectorAll("th");
+        const firstDag = dagCells[1 + wi*6];
+        const lastDag  = dagCells[1 + wi*6 + 4];
+        const lastTr   = allTrs[allTrs.length - 1];
+        if(!wnCell || !firstDag || !lastDag) return;
+        const top    = wnCell.getBoundingClientRect().top;
+        const left   = firstDag.getBoundingClientRect().left;
+        const right  = lastDag.getBoundingClientRect().right;
+        const bottom = lastTr.getBoundingClientRect().bottom;
+        const frame = document.createElement("div");
+        frame.style.cssText = `position:fixed;pointer-events:none;z-index:810;`+
+          `left:${left-2}px;top:${top-2}px;`+
+          `width:${right-left+4}px;height:${bottom-top+4}px;`+
+          `border:2px solid rgba(255,183,77,0.75);border-radius:5px;`+
+          `box-shadow:0 0 10px rgba(255,183,77,0.2);`;
+        document.body.appendChild(frame);
+        // Verwijder als overlay verdwijnt
+        const obs = new MutationObserver(()=>{ if(!document.body.contains(tbl)){ frame.remove(); obs.disconnect(); }});
+        obs.observe(document.body, {childList:true, subtree:false});
+      });
     });
     return tbl;
   }
