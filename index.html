@@ -1587,9 +1587,10 @@ function showMaandOverzicht(){
 
     overlay.appendChild(box);
 
-    document.getElementById("mo-prev").onclick = ()=>{ if(viewMonth===0){viewMonth=11;viewYear--;}else{viewMonth--;} render(); };
-    document.getElementById("mo-next").onclick = ()=>{ if(viewMonth===11){viewMonth=0;viewYear++;}else{viewMonth++;} render(); };
-    document.getElementById("mo-close").onclick = ()=>overlay.remove();
+    // Gebruik directe referenties via box.querySelector ipv getElementById
+    box.querySelector("#mo-prev").onclick = ()=>{ if(viewMonth===0){viewMonth=11;viewYear--;}else{viewMonth--;} render(); };
+    box.querySelector("#mo-next").onclick = ()=>{ if(viewMonth===11){viewMonth=0;viewYear++;}else{viewMonth++;} render(); };
+    box.querySelector("#mo-close").onclick = ()=>overlay.remove();
   }
 
   render();
