@@ -1667,10 +1667,13 @@ function showMaandOverzicht(){
     // Header
     const hdr = document.createElement("div");
     hdr.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;";
+    const moLockLabel = editUnlocked ? "🔓 Bewerken aan" : "🔒 Alleen lezen";
+    const moLockColor = editUnlocked ? "rgba(128,203,196,0.3)" : "rgba(255,255,255,0.1)";
     hdr.innerHTML = `
       <button id="mo-prev" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">◀</button>
       <span style="font-size:14px;font-weight:700;color:#80cbc4;">${MAANDEN[viewMonth]} ${viewYear} — ${MAANDEN[(viewMonth+2)%12]} ${viewMonth>=10?viewYear+1:viewYear}</span>
       <button id="mo-next" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">▶</button>
+      <button id="mo-lock" style="background:rgba(255,255,255,0.04);border:1px solid ${moLockColor};color:${editUnlocked?"#80cbc4":"rgba(255,255,255,0.35)"};border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">${moLockLabel}</button>
       <button id="mo-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>`;
     box.appendChild(hdr);
 
@@ -1694,6 +1697,10 @@ function showMaandOverzicht(){
     // Gebruik directe referenties via box.querySelector ipv getElementById
     box.querySelector("#mo-prev").onclick = ()=>{ if(viewMonth===0){viewMonth=11;viewYear--;}else{viewMonth--;} render(); };
     box.querySelector("#mo-next").onclick = ()=>{ if(viewMonth===11){viewMonth=0;viewYear++;}else{viewMonth++;} render(); };
+    box.querySelector("#mo-lock").onclick = async ()=>{
+      if(editUnlocked){ lock(); render(); }
+      else { const ok = await promptUnlock(); if(ok) render(); }
+    };
     box.querySelector("#mo-close").onclick = ()=>overlay.remove();
   }
 
