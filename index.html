@@ -1615,7 +1615,7 @@ function showMaandOverzicht(){
               clrBtn.addEventListener("click", async ev=>{ ev.stopPropagation(); const d=getData(w.monday); if(d[person]) d[person][dayKey]=[]; saveState(); menu.remove(); td.style.background="rgba(255,255,255,0.05)"; td.style.color=""; td.textContent=""; });
               menu.appendChild(clrBtn);
               document.body.appendChild(menu);
-              setTimeout(()=>document.addEventListener("click",function h(ev){ if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener("click",h); }}),0);
+              setTimeout(()=>document.addEventListener("click",function h(ev){ if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener("click",h); }},true),0);
             });
           }
           tr.appendChild(td);
