@@ -1494,17 +1494,40 @@ function showMaandOverzicht(){
   overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
 
   function buildMonthGrid(yr, mo){
-    // Alle dagen van de maand (inclusief weekend)
-    const alldays = [];
+    // Bouw werkweken op: elke week = {weekNr, ma, di, wo, do, vr, weekend(za+zo)}
+    const weeks = [];
     const d = new Date(yr, mo, 1);
-    while(d.getMonth() === mo){
-      alldays.push(new Date(d));
-      d.setDate(d.getDate()+1);
+    // Ga terug naar maandag van de eerste week
+    const startDay = new Date(d);
+    const dow = startDay.getDay() || 7; // zo=7
+    startDay.setDate(startDay.getDate() - (dow - 1));
+
+    while(true){
+      const weekDays = [];
+      for(let i=0; i<5; i++){
+        const dd = new Date(startDay);
+        dd.setDate(startDay.getDate() + i);
+        weekDays.push(dd);
+      }
+      const za = new Date(startDay); za.setDate(startDay.getDate()+5);
+      const zo = new Date(startDay); zo.setDate(startDay.getDate()+6);
+
+      // Voeg week toe als er minstens 1 dag in de doelmaand zit
+      const inMonth = weekDays.some(dd=>dd.getMonth()===mo) || za.getMonth()===mo || zo.getMonth()===mo;
+      if(!inMonth && startDay > new Date(yr, mo+1, 0)) break;
+      if(inMonth) weeks.push({days:weekDays, za, zo, monday:new Date(weekDays[0])});
+
+      startDay.setDate(startDay.getDate()+7);
+      if(startDay.getMonth() > mo && startDay.getFullYear() >= yr) break;
     }
-    const ALLE_DAGNAMEN = ["Zo","Ma","Di","Wo","Do","Vr","Za"];
+
+    // Kolommen: weeknr-label + Ma Di Wo Do Vr + Za/Zo
+    // Per week: 1 weeknr-kolom + 5 dagkolommen + 1 weekend-kolom
+    const COLS_PER_WEEK = 7; // weeknr + 5 werkdagen + 1 weekend
+    const totalCols = 80 + weeks.length * COLS_PER_WEEK; // px naam + weken
 
     const wrapper = document.createElement("div");
-    wrapper.style.cssText = "margin-bottom:20px;";
+    wrapper.style.cssText = "margin-bottom:24px;overflow-x:auto;";
 
     // Maandtitel
     const mtitle = document.createElement("div");
@@ -1512,65 +1535,99 @@ function showMaandOverzicht(){
     mtitle.textContent = `${MAANDEN[mo]} ${yr}`;
     wrapper.appendChild(mtitle);
 
-    // Grid
-    const grid = document.createElement("div");
-    grid.style.cssText = `display:grid;grid-template-columns:80px repeat(${alldays.length},1fr);gap:2px;align-items:center;`;
+    // Bouw de tabel als HTML-table voor overzichtelijkheid
+    const tbl = document.createElement("table");
+    tbl.style.cssText = "border-collapse:separate;border-spacing:2px;width:100%;table-layout:fixed;";
 
-    // Header rij
-    const emptyHdr = document.createElement("div");
-    grid.appendChild(emptyHdr);
-    alldays.forEach(wd=>{
-      const dh = document.createElement("div");
-      const isWeekend = wd.getDay()===0 || wd.getDay()===6;
-      const isToday = wd.toDateString()===today.toDateString();
-      dh.style.cssText = `text-align:center;font-size:7px;padding-bottom:2px;color:${isToday?"#ffb74d":isWeekend?"rgba(255,255,255,0.2)":"rgba(255,255,255,0.4)"};`;
-      dh.innerHTML = `<div style="font-weight:${isToday?"700":"400"}">${ALLE_DAGNAMEN[wd.getDay()]}</div><div>${wd.getDate()}</div>`;
-      grid.appendChild(dh);
+    // Header rij 1: weeknummers
+    const hdr1 = document.createElement("tr");
+    const nameTh = document.createElement("th");
+    nameTh.style.cssText = "width:80px;";
+    hdr1.appendChild(nameTh);
+    weeks.forEach(w=>{
+      const wn = getWeekNumber(w.monday);
+      const th = document.createElement("th");
+      th.colSpan = 6; // 5 werkdagen + 1 weekend
+      th.style.cssText = "text-align:center;font-size:8px;color:rgba(255,255,255,0.3);font-weight:400;padding-bottom:2px;border-bottom:1px solid rgba(255,255,255,0.08);";
+      th.textContent = `W${wn}`;
+      hdr1.appendChild(th);
     });
+    tbl.appendChild(hdr1);
+
+    // Header rij 2: dag-afkortingen
+    const hdr2 = document.createElement("tr");
+    const nameEmpty = document.createElement("th");
+    hdr2.appendChild(nameEmpty);
+    weeks.forEach(w=>{
+      ["Ma","Di","Wo","Do","Vr"].forEach((dag,i)=>{
+        const th = document.createElement("th");
+        const dd = w.days[i];
+        const inMo = dd.getMonth()===mo;
+        const isToday = dd.toDateString()===today.toDateString();
+        th.style.cssText = `text-align:center;font-size:7px;padding:1px;color:${isToday?"#ffb74d":inMo?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)"};font-weight:${isToday?"700":"400"};`;
+        th.innerHTML = `${dag}<br>${dd.getDate()}`;
+        hdr2.appendChild(th);
+      });
+      // Weekend kolom header
+      const thWE = document.createElement("th");
+      const zaInMo = w.za.getMonth()===mo, zoInMo = w.zo.getMonth()===mo;
+      thWE.style.cssText = `text-align:center;font-size:6px;color:rgba(255,255,255,0.2);padding:1px;`;
+      thWE.innerHTML = `Za/Zo<br>${(zaInMo?w.za.getDate():"")+(zaInMo&&zoInMo?"/":"")+(zoInMo?w.zo.getDate():"")}`;
+      hdr2.appendChild(thWE);
+    });
+    tbl.appendChild(hdr2);
 
     // Persoon-rijen
     TEAM.forEach(person=>{
-      const namCell = document.createElement("div");
-      namCell.style.cssText = "font-size:10px;color:#fff;padding-right:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
-      namCell.textContent = person;
-      grid.appendChild(namCell);
+      const tr = document.createElement("tr");
+      const nameTd = document.createElement("td");
+      nameTd.style.cssText = "font-size:10px;color:#fff;padding-right:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px;";
+      nameTd.textContent = person;
+      tr.appendChild(nameTd);
 
-      alldays.forEach(wd=>{
-        const isWeekend = wd.getDay()===0 || wd.getDay()===6;
-        const cell = document.createElement("div");
-        cell.style.cssText = "height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;";
-
-        if(isWeekend){
-          cell.style.background = "rgba(255,255,255,0.02)";
-          cell.style.borderLeft = "1px solid rgba(255,255,255,0.06)";
-        } else {
-          const monday = mondayOf(wd);
-          const dayKey = ["MA","DI","WO","DO","VR"][wd.getDay()-1];
-          const sel = (getData(monday)[person]||{})[dayKey]||[];
-          if(sel.length === 0){
-            cell.style.background = "rgba(255,255,255,0.05)";
+      weeks.forEach(w=>{
+        // 5 werkdag cellen
+        ["MA","DI","WO","DO","VR"].forEach((dayKey,i)=>{
+          const dd = w.days[i];
+          const inMo = dd.getMonth()===mo;
+          const td = document.createElement("td");
+          td.style.cssText = `height:20px;border-radius:3px;text-align:center;vertical-align:middle;font-size:9px;font-weight:700;`;
+          if(!inMo){
+            td.style.background = "rgba(255,255,255,0.01)";
           } else {
-            const main = sel[0];
-            cell.style.background = STATUS_COLORS[main] || "rgba(255,255,255,0.1)";
-            cell.style.color = "#fff";
-            cell.textContent = STATUS_LABELS[main] || "";
+            const monday = w.monday;
+            const sel = (getData(monday)[person]||{})[dayKey]||[];
+            if(sel.length===0){
+              td.style.background = "rgba(255,255,255,0.05)";
+            } else {
+              const main = sel[0];
+              td.style.background = STATUS_COLORS[main]||"rgba(255,255,255,0.1)";
+              td.style.color = "#fff";
+              td.textContent = STATUS_LABELS[main]||"";
+            }
+            if(editUnlocked && inMo){
+              td.style.cursor = "pointer";
+              td.addEventListener("click",()=>{
+                const wrap=document.createElement("div");
+                overlay.remove();
+                showPopup(wrap,monday,person,dayKey,false);
+                document.body.appendChild(wrap);
+              });
+            }
           }
-          if(editUnlocked){
-            cell.style.cursor = "pointer";
-            cell.title = "Klik om te bewerken";
-            cell.addEventListener("click", ()=>{
-              const wrap = document.createElement("div");
-              overlay.remove();
-              showPopup(wrap, monday, person, dayKey, false);
-              document.body.appendChild(wrap);
-            });
-          }
-        }
-        grid.appendChild(cell);
+          tr.appendChild(td);
+        });
+
+        // Weekend cel (Za+Zo gecombineerd)
+        const tdWE = document.createElement("td");
+        tdWE.style.cssText = "height:20px;border-radius:3px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);";
+        tr.appendChild(tdWE);
       });
+
+      tbl.appendChild(tr);
     });
 
-    wrapper.appendChild(grid);
+    wrapper.appendChild(tbl);
     return wrapper;
   }
 
