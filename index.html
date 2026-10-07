@@ -983,11 +983,11 @@ function renderCellContent(cell,sel){
     if(hasVmVrij)    addLabel("V","rgba(255,255,255,1)","left");
     if(hasVmKantoor) addLabel("C","rgba(255,255,255,1)","left");
     if(hasVmThuis)   addLabel("T","rgba(255,255,255,1)","left");
-    if(hasVmExtern)  addLabel("E","rgba(255,255,255,1)","left");
+    if(hasVmExtern)  addLabel("E","rgba(0,0,0,0.7)","left");
     if(hasNmVrij)    addLabel("V","rgba(255,255,255,1)","right");
     if(hasNmKantoor) addLabel("C","rgba(255,255,255,1)","right");
     if(hasNmThuis)   addLabel("T","rgba(255,255,255,1)","right");
-    if(hasNmExtern)  addLabel("E","rgba(255,255,255,1)","right");
+    if(hasNmExtern)  addLabel("E","rgba(0,0,0,0.7)","right");
     // Extra bolletjes voor andere statussen (extern, vrij-heel-dag, etc.)
     const rest=dots.filter(s=>!["vm_vrij","nm_vrij","vm_kantoor","nm_kantoor","vm_thuis","nm_thuis","vm_extern","nm_extern","kantoor","thuis"].includes(s.key));
     rest.forEach(s=>{ cell.appendChild(makeDot(s)); });
@@ -1019,6 +1019,10 @@ function renderCellContent(cell,sel){
       cell.style.background="rgba(76,175,80,0.55)"; cell.style.border="1.5px solid rgba(76,175,80,0.5)";
       addLabel("T","rgba(255,255,255,1)","full");
       dots.filter(s=>s.key!=="thuis").forEach(s=>{ cell.appendChild(makeDot(s)); });
+    } else if(dots.length===1 && dots[0].key==="extern"){
+      // Alleen extern: gele achtergrond + zwarte E
+      cell.style.background="rgba(255,213,79,0.75)"; cell.style.border="1.5px solid rgba(255,213,79,0.6)";
+      addLabel("E","rgba(0,0,0,0.7)","full");
     } else {
       // Overige combinaties: gewone bolletjes
       dots.forEach(s=>{ cell.appendChild(makeDot(s)); });
