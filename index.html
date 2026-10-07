@@ -1494,31 +1494,33 @@ function showMaandOverzicht(){
   overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
 
   function buildMonthGrid(yr, mo){
-    // Bouw werkweken op: toon alleen weken waarvan MAANDAG in deze maand valt
-    // Zo heeft de werkweek prioriteit over de maandgrens
+    // Bouw werkweken op: week hoort bij de maand waarin de meeste dagen (ma-zo) vallen
     const weeks = [];
-    const d = new Date(yr, mo, 1);
-    // Zoek de eerste maandag in of na de 1e van de maand
-    const startDay = new Date(d);
-    const dow = startDay.getDay() || 7;
-    if(dow !== 1) startDay.setDate(startDay.getDate() - (dow - 1));
-    // Als die maandag vóór de maand valt, ga naar volgende week
-    if(startDay.getMonth() < mo || (startDay.getMonth() === 11 && mo === 0 && startDay.getFullYear() < yr)){
-      startDay.setDate(startDay.getDate() + 7);
-    }
+    // Vind de eerste maandag van of voor 1e van de maand
+    const firstDay = new Date(yr, mo, 1);
+    const firstMon = new Date(firstDay);
+    const fdow = firstMon.getDay() || 7;
+    firstMon.setDate(firstMon.getDate() - (fdow - 1));
 
-    const cur = new Date(startDay);
-    while(cur.getMonth() === mo || (mo === 11 && cur.getMonth() === 0)){
-      if(cur.getMonth() !== mo) break;
+    const cur = new Date(firstMon);
+    // Loop over alle weken die overlappen met deze maand
+    while(true){
       const weekDays = [];
-      for(let i=0; i<5; i++){
+      for(let i=0; i<7; i++){
         const dd = new Date(cur); dd.setDate(cur.getDate()+i);
         weekDays.push(dd);
       }
-      const za = new Date(cur); za.setDate(cur.getDate()+5);
-      const zo = new Date(cur); zo.setDate(cur.getDate()+6);
-      weeks.push({days:weekDays, za, zo, monday:new Date(cur)});
+      // Tel hoeveel dagen in deze maand vallen
+      const daysInMonth = weekDays.filter(dd=>dd.getMonth()===mo && dd.getFullYear()===yr).length;
+      // Week hoort bij deze maand als meer dan helft (>=4) van de 7 dagen erin valt
+      if(daysInMonth >= 4){
+        const workDays = weekDays.slice(0,5);
+        const za = weekDays[5], zo = weekDays[6];
+        weeks.push({days:workDays, za, zo, monday:new Date(cur)});
+      }
       cur.setDate(cur.getDate()+7);
+      // Stop als we voorbij de maand zijn
+      if(cur > new Date(yr, mo+1, 7)) break;
     }
 
     // Kolommen: weeknr-label + Ma Di Wo Do Vr + Za/Zo
@@ -1565,10 +1567,8 @@ function showMaandOverzicht(){
         const inMo = dd.getMonth()===mo;
         const isToday = dd.toDateString()===today.toDateString();
         // Toon maand-afkorting bij overschrijdende dagen
-        const MAAND_KORT = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
-        const extraLabel = !inMo ? `<div style="font-size:6px;color:rgba(255,183,77,0.6)">${MAAND_KORT[dd.getMonth()]}</div>` : "";
-        th.style.cssText = `text-align:center;font-size:7px;padding:1px;color:${isToday?"#ffb74d":inMo?"rgba(255,255,255,0.4)":"rgba(255,183,77,0.5)"};font-weight:${isToday?"700":"400"};`;
-        th.innerHTML = `${dag}<br>${dd.getDate()}${extraLabel}`;
+        th.style.cssText = `text-align:center;font-size:7px;padding:1px;color:${isToday?"#ffb74d":inMo?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.2)"};font-weight:${isToday?"700":"400"};`;
+        th.innerHTML = `${dag}<br>${dd.getDate()}`;
         hdr2.appendChild(th);
       });
       // Weekend kolom header
@@ -1596,8 +1596,8 @@ function showMaandOverzicht(){
           const td = document.createElement("td");
           td.style.cssText = `height:20px;border-radius:3px;text-align:center;vertical-align:middle;font-size:9px;font-weight:700;`;
           if(!inMo){
-            td.style.background = "rgba(255,183,77,0.04)";
-            td.style.outline = "1px solid rgba(255,183,77,0.15)";
+            td.style.background = "rgba(255,255,255,0.02)";
+            td.style.color = "rgba(255,255,255,0.2)";
           } else {
             const monday = w.monday;
             const sel = (getData(monday)[person]||{})[dayKey]||[];
