@@ -1470,8 +1470,6 @@ document.getElementById("btn-prev").addEventListener("click",()=>{ baseMonday=ad
 document.getElementById("btn-next").addEventListener("click",()=>{ baseMonday=addWeeks(baseMonday, 4); renderAndSync(); });
 // ── Maand Overzicht ──────────────────────────────────────────────
 function showMaandOverzicht(){
-  const MAANDEN = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
-  const DAGNAMEN = ["Ma","Di","Wo","Do","Vr"];
   const STATUS_COLORS = {
     "kantoor":"#aaaaaa","vm_kantoor":"#aaaaaa","nm_kantoor":"#aaaaaa",
     "thuis":"#4caf50","vm_thuis":"#4caf50","nm_thuis":"#4caf50",
@@ -1485,97 +1483,77 @@ function showMaandOverzicht(){
     "vrij":"V","vm_vrij":"V","nm_vrij":"V",
     "ziek":"—","extern":"E","vm_extern":"E","nm_extern":"E",
   };
+  const DAGNAMEN = ["Ma","Di","Wo","Do","Vr"];
+  const MAANDEN = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
 
-  // Huidige maand als startpunt
-  let viewYear = today.getFullYear();
-  let viewMonth = today.getMonth();
+  // Startpunt: maandag van huidige week, toon 12 weken
+  let startWeek = mondayOf(today);
+  const NUM_WEEKS = 12;
 
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
 
-  function buildMonthGrid(yr, mo){
-    // Bouw werkweken op: week hoort bij de maand waarin de meeste dagen (ma-zo) vallen
-    const weeks = [];
-    // Vind de eerste maandag van of voor 1e van de maand
-    const firstDay = new Date(yr, mo, 1);
-    const firstMon = new Date(firstDay);
-    const fdow = firstMon.getDay() || 7;
-    firstMon.setDate(firstMon.getDate() - (fdow - 1));
+  function render(){
+    overlay.innerHTML = "";
+    const box = document.createElement("div");
+    box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;min-width:320px;max-width:99vw;width:1100px;font-family:'Courier New',monospace;";
 
-    const cur = new Date(firstMon);
-    // Loop over alle weken die overlappen met deze maand
-    while(true){
-      const weekDays = [];
-      for(let i=0; i<7; i++){
-        const dd = new Date(cur); dd.setDate(cur.getDate()+i);
-        weekDays.push(dd);
+    // Header
+    const hdr = document.createElement("div");
+    hdr.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;";
+    hdr.innerHTML = `
+      <button id="mo-prev" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">◀</button>
+      <button id="mo-next" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">▶</button>
+      <button id="mo-refresh" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-family:inherit;" title="Ververs">↻</button>
+      <button id="mo-lock" style="background:rgba(255,255,255,0.04);border:1px solid ${editUnlocked?"rgba(128,203,196,0.3)":"rgba(255,255,255,0.1)"};color:${editUnlocked?"#80cbc4":"rgba(255,255,255,0.35)"};border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">${editUnlocked?"🔓 Bewerken aan":"🔒 Alleen lezen"}</button>
+      <span style="flex:1"></span>
+      <button id="mo-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>`;
+    box.appendChild(hdr);
+
+    // Bouw weeklijst
+    const weeks = [];
+    for(let i=0; i<NUM_WEEKS; i++){
+      const mon = addWeeks(startWeek, i);
+      const days = [];
+      for(let d=0; d<5; d++){
+        const dd = addDays(mon, d);
+        days.push(dd);
       }
-      // Tel hoeveel dagen in deze maand vallen
-      // Week hoort bij deze maand als de MAANDAG in deze maand valt
-      if(weekDays[0].getMonth()===mo && weekDays[0].getFullYear()===yr){
-        const workDays = weekDays.slice(0,5);
-        const za = weekDays[5], zo = weekDays[6];
-        weeks.push({days:workDays, za, zo, monday:new Date(cur)});
-      }
-      cur.setDate(cur.getDate()+7);
-      // Stop als we voorbij de maand zijn
-      if(cur > new Date(yr, mo+1, 7)) break;
+      weeks.push({monday: mon, days});
     }
 
-    // Kolommen: weeknr-label + Ma Di Wo Do Vr + Za/Zo
-    // Per week: 1 weeknr-kolom + 5 dagkolommen + 1 weekend-kolom
-    const COLS_PER_WEEK = 7; // weeknr + 5 werkdagen + 1 weekend
-    const totalCols = 80 + weeks.length * COLS_PER_WEEK; // px naam + weken
-
-    const wrapper = document.createElement("div");
-    wrapper.style.cssText = "margin-bottom:24px;overflow-x:auto;";
-
-    // Maandtitel
-    const mtitle = document.createElement("div");
-    mtitle.style.cssText = "font-size:13px;font-weight:700;color:#80cbc4;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(128,203,196,0.3);";
-    mtitle.textContent = `${MAANDEN[mo]} ${yr}`;
-    wrapper.appendChild(mtitle);
-
-    // Bouw de tabel als HTML-table voor overzichtelijkheid
+    // Tabel
     const tbl = document.createElement("table");
-    tbl.style.cssText = "border-collapse:separate;border-spacing:2px;width:100%;table-layout:fixed;";
+    tbl.style.cssText = "border-collapse:separate;border-spacing:3px;width:100%;table-layout:fixed;";
 
-    // Header rij 1: weeknummers
+    // Header rij 1: weeknummers + maand
     const hdr1 = document.createElement("tr");
-    const nameTh = document.createElement("th");
-    nameTh.style.cssText = "width:80px;";
-    hdr1.appendChild(nameTh);
+    const th0 = document.createElement("th");
+    th0.style.cssText = "width:72px;";
+    hdr1.appendChild(th0);
     weeks.forEach(w=>{
       const wn = getWeekNumber(w.monday);
+      const mo = w.monday.getMonth();
       const th = document.createElement("th");
-      th.colSpan = 6; // 5 werkdagen + 1 weekend
-      th.style.cssText = "text-align:center;font-size:8px;color:rgba(255,255,255,0.3);font-weight:400;padding-bottom:2px;border-bottom:1px solid rgba(255,255,255,0.08);";
-      th.textContent = `W${wn}`;
+      th.colSpan = 5;
+      th.style.cssText = "text-align:center;font-size:8px;color:rgba(255,255,255,0.3);font-weight:400;padding-bottom:2px;border-bottom:1px solid rgba(255,255,255,0.07);";
+      th.innerHTML = `W${wn} <span style="color:rgba(255,255,255,0.18)">${MAANDEN[mo]}</span>`;
       hdr1.appendChild(th);
     });
     tbl.appendChild(hdr1);
 
-    // Header rij 2: dag-afkortingen
+    // Header rij 2: dag-afkortingen + datums
     const hdr2 = document.createElement("tr");
     const nameEmpty = document.createElement("th");
     hdr2.appendChild(nameEmpty);
     weeks.forEach(w=>{
-      ["Ma","Di","Wo","Do","Vr"].forEach((dag,i)=>{
+      w.days.forEach((dd,i)=>{
         const th = document.createElement("th");
-        const dd = w.days[i];
-        const inMo = dd.getMonth()===mo;
         const isToday = dd.toDateString()===today.toDateString();
-        // Toon maand-afkorting bij overschrijdende dagen
-        th.style.cssText = `text-align:center;font-size:7px;padding:1px;color:${isToday?"#ffb74d":inMo?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.2)"};font-weight:${isToday?"700":"400"};`;
-        th.innerHTML = `${dag}<br>${dd.getDate()}`;
+        th.style.cssText = `text-align:center;font-size:7px;padding:1px;color:${isToday?"#ffb74d":"rgba(255,255,255,0.35)"};font-weight:${isToday?"700":"400"};`;
+        th.innerHTML = `${DAGNAMEN[i]}<br>${dd.getDate()}`;
         hdr2.appendChild(th);
       });
-      // Weekend kolom header
-      const thWE = document.createElement("th");
-      const zaInMo = w.za.getMonth()===mo, zoInMo = w.zo.getMonth()===mo;
-      thWE.style.cssText = `text-align:center;font-size:6px;color:rgba(255,255,255,0.2);padding:1px;`;
-      thWE.innerHTML = `Za/Zo<br>${(zaInMo?w.za.getDate():"")+(zaInMo&&zoInMo?"/":"")+(zoInMo?w.zo.getDate():"")}`;
-      hdr2.appendChild(thWE);
     });
     tbl.appendChild(hdr2);
 
@@ -1583,201 +1561,94 @@ function showMaandOverzicht(){
     TEAM.forEach(person=>{
       const tr = document.createElement("tr");
       const nameTd = document.createElement("td");
-      nameTd.style.cssText = "font-size:10px;color:#fff;padding-right:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px;";
+      nameTd.style.cssText = "font-size:10px;color:#fff;padding-right:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:72px;";
       nameTd.textContent = person;
       tr.appendChild(nameTd);
 
       weeks.forEach(w=>{
-        // 5 werkdag cellen
         ["MA","DI","WO","DO","VR"].forEach((dayKey,i)=>{
           const dd = w.days[i];
-          const inMo = dd.getMonth()===mo;
           const td = document.createElement("td");
-          td.style.cssText = `height:20px;border-radius:3px;text-align:center;vertical-align:middle;font-size:9px;font-weight:700;`;
-          if(!inMo){
-            td.style.background = "rgba(255,255,255,0.02)";
-            td.style.color = "rgba(255,255,255,0.2)";
+          td.style.cssText = "height:22px;border-radius:3px;text-align:center;vertical-align:middle;font-size:10px;font-weight:700;";
+          const sel = (getData(w.monday)[person]||{})[dayKey]||[];
+          if(sel.length===0){
+            td.style.background = "rgba(255,255,255,0.05)";
           } else {
-            const monday = w.monday;
-            const sel = (getData(monday)[person]||{})[dayKey]||[];
-            if(sel.length===0){
-              td.style.background = "rgba(255,255,255,0.05)";
-            } else {
-              const main = sel[0];
-              td.style.background = STATUS_COLORS[main]||"rgba(255,255,255,0.1)";
-              td.style.color = "#fff";
-              td.textContent = STATUS_LABELS[main]||"";
-            }
-            if(editUnlocked && inMo){
-              td.style.cursor = "pointer";
-              td.title = "Klik om te bewerken";
-              td.addEventListener("click", async (e)=>{
-                e.stopPropagation();
-                if(!await requireUnlock()) return;
-
-                // Verwijder eventueel bestaand inline menu
-                const existing = overlay.querySelector(".mo-inline-menu");
-                if(existing){ existing.remove(); if(existing._td===td) return; }
-
-                const rect = td.getBoundingClientRect();
-                const overlayRect = overlay.getBoundingClientRect();
-
-                const menu = document.createElement("div");
-                menu.className = "mo-inline-menu";
-                menu._td = td;
-                menu.style.cssText = `position:fixed;z-index:900;background:#1a1a2e;border:1px solid rgba(255,255,255,0.18);border-radius:10px;padding:6px;box-shadow:0 8px 32px rgba(0,0,0,0.7);min-width:160px;`;
-                menu.style.left = Math.min(rect.left, window.innerWidth - 180) + "px";
-                menu.style.top = (rect.bottom + 4) + "px";
-
-                // Huidige selectie
-                const curSel = (getData(monday)[person]||{})[dayKey]||[];
-
-                // Titel
-                const title = document.createElement("div");
-                title.style.cssText = "font-size:9px;color:rgba(255,255,255,0.4);padding:2px 6px 6px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:4px;";
-                title.textContent = person + " · " + dayKey;
-                menu.appendChild(title);
-
-                // Groep scheidingslijn helper
-                let lastGroup = null;
-
-                STATUSES.forEach(s=>{
-                  if(s.group !== lastGroup){
-                    if(lastGroup !== null){
-                      const sep = document.createElement("div");
-                      sep.style.cssText = "height:1px;background:rgba(255,255,255,0.08);margin:4px 0;";
-                      menu.appendChild(sep);
-                    }
-                    lastGroup = s.group;
-                  }
-                  const active = curSel.includes(s.key);
-                  const item = document.createElement("div");
-                  item.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;color:#eee;${active?"background:"+s.color+"22;border:1px solid "+s.border+"66;":"border:1px solid transparent;"}`;
-                  const dot = document.createElement("div");
-                  dot.style.cssText = `width:12px;height:12px;border-radius:3px;background:${s.color};flex-shrink:0;`;
-                  item.appendChild(dot);
-                  item.appendChild(document.createTextNode(s.label));
-                  if(active){
-                    const check = document.createElement("span");
-                    check.textContent = "✓";
-                    check.style.cssText = "margin-left:auto;color:#80cbc4;font-size:10px;";
-                    item.appendChild(check);
-                  }
-                  item.addEventListener("mouseenter",()=>{ item.style.background="rgba(255,255,255,0.07)"; });
-                  item.addEventListener("mouseleave",()=>{ item.style.background=active?s.color+"22":""; });
-                  item.addEventListener("click", async (ev)=>{
-                    ev.stopPropagation();
-                    // Gebruik toggleStatus om constraints te respecteren
-                    await toggleStatus(monday, person, dayKey, s.key, false);
-                    menu.remove();
-                    // Update alleen de cel in het maandoverzicht
-                    const newSel = (getData(monday)[person]||{})[dayKey]||[];
-                    if(newSel.length===0){
-                      td.style.background="rgba(255,255,255,0.05)";
-                      td.style.color=""; td.textContent="";
-                    } else {
-                      const main=newSel[0];
-                      td.style.background=STATUS_COLORS[main]||"rgba(255,255,255,0.1)";
-                      td.style.color="#fff";
-                      td.textContent=STATUS_LABELS[main]||"";
-                    }
-                  });
-                  menu.appendChild(item);
-                });
-
-                // Wis knop
-                const sep2 = document.createElement("div");
-                sep2.style.cssText = "height:1px;background:rgba(255,255,255,0.08);margin:4px 0;";
-                menu.appendChild(sep2);
-                const clearBtn = document.createElement("div");
-                clearBtn.style.cssText = "padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;color:rgba(255,255,255,0.4);border:1px solid transparent;";
-                clearBtn.textContent = "✕ Wissen";
-                clearBtn.addEventListener("click", async (ev)=>{
+            const main = sel[0];
+            td.style.background = STATUS_COLORS[main]||"rgba(255,255,255,0.1)";
+            td.style.color = "#fff";
+            td.textContent = STATUS_LABELS[main]||"";
+          }
+          if(editUnlocked){
+            td.style.cursor = "pointer";
+            td.title = person + " · " + DAGNAMEN[i] + " " + dd.getDate();
+            td.addEventListener("click", async (e)=>{
+              e.stopPropagation();
+              const existing = overlay.querySelector(".mo-inline-menu");
+              if(existing){ existing.remove(); if(existing._td===td) return; }
+              const rect = td.getBoundingClientRect();
+              const menu = document.createElement("div");
+              menu.className = "mo-inline-menu";
+              menu._td = td;
+              menu.style.cssText = `position:fixed;z-index:900;background:#1a1a2e;border:1px solid rgba(255,255,255,0.18);border-radius:10px;padding:6px;box-shadow:0 8px 32px rgba(0,0,0,0.7);min-width:160px;`;
+              menu.style.left = Math.min(rect.left, window.innerWidth-180)+"px";
+              menu.style.top = (rect.bottom+4)+"px";
+              const title = document.createElement("div");
+              title.style.cssText = "font-size:9px;color:rgba(255,255,255,0.4);padding:2px 6px 6px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:4px;";
+              title.textContent = person+" · "+DAGNAMEN[i]+" "+dd.getDate();
+              menu.appendChild(title);
+              let lastGrp = null;
+              const curSel = (getData(w.monday)[person]||{})[dayKey]||[];
+              STATUSES.forEach(s=>{
+                if(s.group!==lastGrp){
+                  if(lastGrp!==null){ const sep=document.createElement("div"); sep.style.cssText="height:1px;background:rgba(255,255,255,0.08);margin:4px 0;"; menu.appendChild(sep); }
+                  lastGrp=s.group;
+                }
+                const active=curSel.includes(s.key);
+                const item=document.createElement("div");
+                item.style.cssText=`display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;color:#eee;${active?"background:"+s.color+"22;border:1px solid "+s.border+"66;":"border:1px solid transparent;"}`;
+                const dot=document.createElement("div"); dot.style.cssText=`width:12px;height:12px;border-radius:3px;background:${s.color};flex-shrink:0;`; item.appendChild(dot);
+                item.appendChild(document.createTextNode(s.label));
+                if(active){ const chk=document.createElement("span"); chk.textContent="✓"; chk.style.cssText="margin-left:auto;color:#80cbc4;font-size:10px;"; item.appendChild(chk); }
+                item.addEventListener("click", async ev=>{
                   ev.stopPropagation();
-                  const data = getData(monday);
-                  if(data[person]) data[person][dayKey]=[];
-                  saveState();
+                  await toggleStatus(w.monday,person,dayKey,s.key,false);
                   menu.remove();
-                  td.style.background="rgba(255,255,255,0.05)";
-                  td.style.color=""; td.textContent="";
+                  const ns=(getData(w.monday)[person]||{})[dayKey]||[];
+                  if(ns.length===0){ td.style.background="rgba(255,255,255,0.05)"; td.style.color=""; td.textContent=""; }
+                  else { const m=ns[0]; td.style.background=STATUS_COLORS[m]||"rgba(255,255,255,0.1)"; td.style.color="#fff"; td.textContent=STATUS_LABELS[m]||""; }
                 });
-                menu.appendChild(clearBtn);
-
-                document.body.appendChild(menu);
-
-                // Sluit bij klik buiten
-                const closeMenu = (ev)=>{ if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener("click",closeMenu); }};
-                setTimeout(()=>document.addEventListener("click",closeMenu),0);
+                menu.appendChild(item);
               });
-            }
+              const sep2=document.createElement("div"); sep2.style.cssText="height:1px;background:rgba(255,255,255,0.08);margin:4px 0;"; menu.appendChild(sep2);
+              const clearBtn=document.createElement("div"); clearBtn.style.cssText="padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;color:rgba(255,255,255,0.4);border:1px solid transparent;"; clearBtn.textContent="✕ Wissen";
+              clearBtn.addEventListener("click", async ev=>{ ev.stopPropagation(); const data=getData(w.monday); if(data[person]) data[person][dayKey]=[]; saveState(); menu.remove(); td.style.background="rgba(255,255,255,0.05)"; td.style.color=""; td.textContent=""; });
+              menu.appendChild(clearBtn);
+              document.body.appendChild(menu);
+              setTimeout(()=>document.addEventListener("click", function h(ev){ if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener("click",h); }}),0);
+            });
           }
           tr.appendChild(td);
         });
-
-        // Weekend cel (Za+Zo gecombineerd)
-        const tdWE = document.createElement("td");
-        tdWE.style.cssText = "height:20px;border-radius:3px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);";
-        tr.appendChild(tdWE);
       });
-
       tbl.appendChild(tr);
     });
 
-    wrapper.appendChild(tbl);
-    return wrapper;
-  }
-
-  function render(){
-    overlay.innerHTML = "";
-    const box = document.createElement("div");
-    box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;min-width:320px;max-width:98vw;width:960px;font-family:'Courier New',monospace;";
-
-    // Header
-    const hdr = document.createElement("div");
-    hdr.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;";
-    const moLockLabel = editUnlocked ? "🔓 Bewerken aan" : "🔒 Alleen lezen";
-    const moLockColor = editUnlocked ? "rgba(128,203,196,0.3)" : "rgba(255,255,255,0.1)";
-    hdr.innerHTML = `
-      <button id="mo-prev" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">◀</button>
-      <span style="font-size:14px;font-weight:700;color:#80cbc4;">${MAANDEN[viewMonth]} ${viewYear} — ${MAANDEN[(viewMonth+2)%12]} ${viewMonth>=10?viewYear+1:viewYear}</span>
-      <button id="mo-next" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">▶</button>
-      <button id="mo-refresh" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-family:inherit;" title="Ververs">↻</button>
-      <button id="mo-lock" style="background:rgba(255,255,255,0.04);border:1px solid ${moLockColor};color:${editUnlocked?"#80cbc4":"rgba(255,255,255,0.35)"};border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">${moLockLabel}</button>
-      <button id="mo-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>`;
-    box.appendChild(hdr);
-
-    // 3 maanden
-    for(let i=0; i<3; i++){
-      const mo = (viewMonth + i) % 12;
-      const yr = viewYear + Math.floor((viewMonth + i) / 12);
-      box.appendChild(buildMonthGrid(yr, mo));
-    }
+    box.appendChild(tbl);
 
     // Legenda
     const leg = document.createElement("div");
     leg.style.cssText = "display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);";
     [["C","#aaaaaa","Campus"],["T","#4caf50","Thuis"],["V","#e53935","Vrij"],["—","rgba(150,150,150,0.5)","Ziek"],["E","#ffd54f","Extern"]].forEach(([lbl,col,naam])=>{
-      leg.innerHTML += `<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:rgba(255,255,255,0.5)"><div style="width:16px;height:16px;border-radius:3px;background:${col};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">${lbl}</div>${naam}</div>`;
+      leg.innerHTML+=`<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:rgba(255,255,255,0.5)"><div style="width:16px;height:16px;border-radius:3px;background:${col};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">${lbl}</div>${naam}</div>`;
     });
     box.appendChild(leg);
-
     overlay.appendChild(box);
 
-    // Gebruik directe referenties via box.querySelector ipv getElementById
-    box.querySelector("#mo-prev").onclick = ()=>{ if(viewMonth===0){viewMonth=11;viewYear--;}else{viewMonth--;} render(); };
-    box.querySelector("#mo-next").onclick = ()=>{ if(viewMonth===11){viewMonth=0;viewYear++;}else{viewMonth++;} render(); };
-    box.querySelector("#mo-refresh").onclick = async ()=>{
-      const btn = box.querySelector("#mo-refresh");
-      btn.textContent = "⟳"; btn.style.opacity = "0.4";
-      await loadFromGitHub();
-      renderAndSync();
-      render();
-      btn.textContent = "↻"; btn.style.opacity = "1";
-    };
-    box.querySelector("#mo-lock").onclick = async ()=>{
-      if(editUnlocked){ lock(); render(); }
-      else { const ok = await promptUnlock(); if(ok) render(); }
-    };
+    box.querySelector("#mo-prev").onclick = ()=>{ startWeek=addWeeks(startWeek,-NUM_WEEKS); render(); };
+    box.querySelector("#mo-next").onclick = ()=>{ startWeek=addWeeks(startWeek, NUM_WEEKS); render(); };
+    box.querySelector("#mo-refresh").onclick = async ()=>{ await loadFromGitHub(); renderAndSync(); render(); };
+    box.querySelector("#mo-lock").onclick = async ()=>{ if(editUnlocked){ lock(); render(); } else { const ok=await promptUnlock(); if(ok) render(); } };
     box.querySelector("#mo-close").onclick = ()=>overlay.remove();
   }
 
