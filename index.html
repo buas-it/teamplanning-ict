@@ -1484,69 +1484,36 @@ function showMaandOverzicht(){
     "ziek":"—","extern":"E","vm_extern":"E","nm_extern":"E",
   };
   const DAGNAMEN = ["Ma","Di","Wo","Do","Vr"];
-  const MAANDEN = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+  const MAAND_KORT = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+  const WEEKS_PER_ROW = 4;
+  const NUM_ROWS = 3;
+  const NUM_WEEKS = WEEKS_PER_ROW * NUM_ROWS;
 
-  // Startpunt: maandag van huidige week, toon 12 weken
   let startWeek = mondayOf(today);
-  const NUM_WEEKS = 12;
 
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
 
-  function render(){
-    overlay.innerHTML = "";
-    const box = document.createElement("div");
-    box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;min-width:320px;max-width:99vw;width:1100px;font-family:'Courier New',monospace;";
-
-    // Header
-    const hdr = document.createElement("div");
-    hdr.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;";
-    hdr.innerHTML = `
-      <button id="mo-prev" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">◀</button>
-      <button id="mo-next" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">▶</button>
-      <button id="mo-refresh" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-family:inherit;" title="Ververs">↻</button>
-      <button id="mo-lock" style="background:rgba(255,255,255,0.04);border:1px solid ${editUnlocked?"rgba(128,203,196,0.3)":"rgba(255,255,255,0.1)"};color:${editUnlocked?"#80cbc4":"rgba(255,255,255,0.35)"};border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">${editUnlocked?"🔓 Bewerken aan":"🔒 Alleen lezen"}</button>
-      <span style="flex:1"></span>
-      <button id="mo-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>`;
-    box.appendChild(hdr);
-
-    // Bouw weeklijst
-    const weeks = [];
-    for(let i=0; i<NUM_WEEKS; i++){
-      const mon = addWeeks(startWeek, i);
-      const days = [];
-      for(let d=0; d<5; d++){
-        const dd = addDays(mon, d);
-        days.push(dd);
-      }
-      weeks.push({monday: mon, days});
-    }
-
-    // Tabel
+  function buildWeekTable(weeksSlice){
     const tbl = document.createElement("table");
-    tbl.style.cssText = "border-collapse:separate;border-spacing:3px;width:100%;table-layout:fixed;";
+    tbl.style.cssText = "border-collapse:separate;border-spacing:2px;width:100%;table-layout:fixed;margin-bottom:12px;";
 
-    // Header rij 1: weeknummers + maand
+    // Weeknummer + maand header
     const hdr1 = document.createElement("tr");
-    const th0 = document.createElement("th");
-    th0.style.cssText = "width:72px;";
-    hdr1.appendChild(th0);
-    weeks.forEach(w=>{
-      const wn = getWeekNumber(w.monday);
-      const mo = w.monday.getMonth();
+    const th0 = document.createElement("th"); th0.style.cssText="width:72px;"; hdr1.appendChild(th0);
+    weeksSlice.forEach(w=>{
       const th = document.createElement("th");
-      th.colSpan = 6;
+      th.colSpan = 6; // 5 werkdagen + 1 weekend
       th.style.cssText = "text-align:center;font-size:8px;color:rgba(255,255,255,0.3);font-weight:400;padding-bottom:2px;border-bottom:1px solid rgba(255,255,255,0.07);";
-      th.innerHTML = `W${wn} <span style="color:rgba(255,255,255,0.18)">${MAANDEN[mo]}</span>`;
+      th.innerHTML = `W${getWeekNumber(w.monday)} <span style="color:rgba(255,255,255,0.18)">${MAAND_KORT[w.monday.getMonth()]}</span>`;
       hdr1.appendChild(th);
     });
     tbl.appendChild(hdr1);
 
-    // Header rij 2: dag-afkortingen + datums
+    // Dag-afkortingen + datums
     const hdr2 = document.createElement("tr");
-    const nameEmpty = document.createElement("th");
-    hdr2.appendChild(nameEmpty);
-    weeks.forEach(w=>{
+    hdr2.appendChild(document.createElement("th"));
+    weeksSlice.forEach(w=>{
       w.days.forEach((dd,i)=>{
         const th = document.createElement("th");
         const isToday = dd.toDateString()===today.toDateString();
@@ -1554,9 +1521,7 @@ function showMaandOverzicht(){
         th.innerHTML = `${DAGNAMEN[i]}<br>${dd.getDate()}`;
         hdr2.appendChild(th);
       });
-      // Za/Zo kolom
-      const za = addDays(w.monday, 5);
-      const zo = addDays(w.monday, 6);
+      const za=addDays(w.monday,5), zo=addDays(w.monday,6);
       const thWE = document.createElement("th");
       thWE.style.cssText = "text-align:center;font-size:6px;color:rgba(255,255,255,0.2);padding:1px;";
       thWE.innerHTML = `Za/Zo<br>${za.getDate()}/${zo.getDate()}`;
@@ -1572,45 +1537,34 @@ function showMaandOverzicht(){
       nameTd.textContent = person;
       tr.appendChild(nameTd);
 
-      weeks.forEach(w=>{
+      weeksSlice.forEach(w=>{
         ["MA","DI","WO","DO","VR"].forEach((dayKey,i)=>{
           const dd = w.days[i];
           const td = document.createElement("td");
           td.style.cssText = "height:22px;border-radius:3px;text-align:center;vertical-align:middle;font-size:10px;font-weight:700;";
           const sel = (getData(w.monday)[person]||{})[dayKey]||[];
-          if(sel.length===0){
-            td.style.background = "rgba(255,255,255,0.05)";
-          } else {
-            const main = sel[0];
-            td.style.background = STATUS_COLORS[main]||"rgba(255,255,255,0.1)";
-            td.style.color = "#fff";
-            td.textContent = STATUS_LABELS[main]||"";
-          }
+          if(sel.length===0){ td.style.background="rgba(255,255,255,0.05)"; }
+          else { const m=sel[0]; td.style.background=STATUS_COLORS[m]||"rgba(255,255,255,0.1)"; td.style.color="#fff"; td.textContent=STATUS_LABELS[m]||""; }
           if(editUnlocked){
-            td.style.cursor = "pointer";
-            td.title = person + " · " + DAGNAMEN[i] + " " + dd.getDate();
+            td.style.cursor="pointer";
             td.addEventListener("click", async (e)=>{
               e.stopPropagation();
-              const existing = overlay.querySelector(".mo-inline-menu");
+              const existing=overlay.querySelector(".mo-inline-menu");
               if(existing){ existing.remove(); if(existing._td===td) return; }
-              const rect = td.getBoundingClientRect();
-              const menu = document.createElement("div");
-              menu.className = "mo-inline-menu";
-              menu._td = td;
-              menu.style.cssText = `position:fixed;z-index:900;background:#1a1a2e;border:1px solid rgba(255,255,255,0.18);border-radius:10px;padding:6px;box-shadow:0 8px 32px rgba(0,0,0,0.7);min-width:160px;`;
-              menu.style.left = Math.min(rect.left, window.innerWidth-180)+"px";
-              menu.style.top = (rect.bottom+4)+"px";
-              const title = document.createElement("div");
-              title.style.cssText = "font-size:9px;color:rgba(255,255,255,0.4);padding:2px 6px 6px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:4px;";
-              title.textContent = person+" · "+DAGNAMEN[i]+" "+dd.getDate();
+              const rect=td.getBoundingClientRect();
+              const menu=document.createElement("div");
+              menu.className="mo-inline-menu"; menu._td=td;
+              menu.style.cssText=`position:fixed;z-index:900;background:#1a1a2e;border:1px solid rgba(255,255,255,0.18);border-radius:10px;padding:6px;box-shadow:0 8px 32px rgba(0,0,0,0.7);min-width:160px;`;
+              menu.style.left=Math.min(rect.left,window.innerWidth-180)+"px";
+              menu.style.top=(rect.bottom+4)+"px";
+              const title=document.createElement("div");
+              title.style.cssText="font-size:9px;color:rgba(255,255,255,0.4);padding:2px 6px 6px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:4px;";
+              title.textContent=person+" · "+DAGNAMEN[i]+" "+dd.getDate()+" "+MAAND_KORT[dd.getMonth()];
               menu.appendChild(title);
-              let lastGrp = null;
-              const curSel = (getData(w.monday)[person]||{})[dayKey]||[];
+              let lastGrp=null;
+              const curSel=(getData(w.monday)[person]||{})[dayKey]||[];
               STATUSES.forEach(s=>{
-                if(s.group!==lastGrp){
-                  if(lastGrp!==null){ const sep=document.createElement("div"); sep.style.cssText="height:1px;background:rgba(255,255,255,0.08);margin:4px 0;"; menu.appendChild(sep); }
-                  lastGrp=s.group;
-                }
+                if(s.group!==lastGrp){ if(lastGrp!==null){ const sep=document.createElement("div"); sep.style.cssText="height:1px;background:rgba(255,255,255,0.08);margin:4px 0;"; menu.appendChild(sep); } lastGrp=s.group; }
                 const active=curSel.includes(s.key);
                 const item=document.createElement("div");
                 item.style.cssText=`display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;color:#eee;${active?"background:"+s.color+"22;border:1px solid "+s.border+"66;":"border:1px solid transparent;"}`;
@@ -1628,43 +1582,72 @@ function showMaandOverzicht(){
                 menu.appendChild(item);
               });
               const sep2=document.createElement("div"); sep2.style.cssText="height:1px;background:rgba(255,255,255,0.08);margin:4px 0;"; menu.appendChild(sep2);
-              const clearBtn=document.createElement("div"); clearBtn.style.cssText="padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;color:rgba(255,255,255,0.4);border:1px solid transparent;"; clearBtn.textContent="✕ Wissen";
-              clearBtn.addEventListener("click", async ev=>{ ev.stopPropagation(); const data=getData(w.monday); if(data[person]) data[person][dayKey]=[]; saveState(); menu.remove(); td.style.background="rgba(255,255,255,0.05)"; td.style.color=""; td.textContent=""; });
-              menu.appendChild(clearBtn);
+              const clrBtn=document.createElement("div"); clrBtn.style.cssText="padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;color:rgba(255,255,255,0.4);"; clrBtn.textContent="✕ Wissen";
+              clrBtn.addEventListener("click", async ev=>{ ev.stopPropagation(); const d=getData(w.monday); if(d[person]) d[person][dayKey]=[]; saveState(); menu.remove(); td.style.background="rgba(255,255,255,0.05)"; td.style.color=""; td.textContent=""; });
+              menu.appendChild(clrBtn);
               document.body.appendChild(menu);
-              setTimeout(()=>document.addEventListener("click", function h(ev){ if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener("click",h); }}),0);
+              setTimeout(()=>document.addEventListener("click",function h(ev){ if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener("click",h); }}),0);
             });
           }
           tr.appendChild(td);
         });
         // Za/Zo cel
-        const tdWE = document.createElement("td");
-        tdWE.style.cssText = "height:22px;border-radius:3px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);";
+        const tdWE=document.createElement("td");
+        tdWE.style.cssText="height:22px;border-radius:3px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);";
         tr.appendChild(tdWE);
       });
       tbl.appendChild(tr);
     });
+    return tbl;
+  }
 
-    box.appendChild(tbl);
+  function render(){
+    overlay.innerHTML="";
+    const box=document.createElement("div");
+    box.style.cssText="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;max-width:99vw;width:1100px;font-family:'Courier New',monospace;";
+
+    // Header
+    const hdr=document.createElement("div");
+    hdr.style.cssText="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;";
+    hdr.innerHTML=`
+      <button id="mo-prev" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">◀ ${NUM_WEEKS}w</button>
+      <button id="mo-next" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">${NUM_WEEKS}w ▶</button>
+      <button id="mo-refresh" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-family:inherit;">↻</button>
+      <button id="mo-lock" style="background:rgba(255,255,255,0.04);border:1px solid ${editUnlocked?"rgba(128,203,196,0.3)":"rgba(255,255,255,0.1)"};color:${editUnlocked?"#80cbc4":"rgba(255,255,255,0.35)"};border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">${editUnlocked?"🔓 Bewerken aan":"🔒 Alleen lezen"}</button>
+      <span style="flex:1"></span>
+      <button id="mo-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>`;
+    box.appendChild(hdr);
+
+    // 3 rijen van elk 4 weken
+    for(let row=0; row<NUM_ROWS; row++){
+      const weeksSlice=[];
+      for(let w=0; w<WEEKS_PER_ROW; w++){
+        const mon=addWeeks(startWeek, row*WEEKS_PER_ROW+w);
+        const days=[];
+        for(let d=0; d<5; d++) days.push(addDays(mon,d));
+        weeksSlice.push({monday:mon, days});
+      }
+      box.appendChild(buildWeekTable(weeksSlice));
+    }
 
     // Legenda
-    const leg = document.createElement("div");
-    leg.style.cssText = "display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);";
+    const leg=document.createElement("div");
+    leg.style.cssText="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);";
     [["C","#aaaaaa","Campus"],["T","#4caf50","Thuis"],["V","#e53935","Vrij"],["—","rgba(150,150,150,0.5)","Ziek"],["E","#ffd54f","Extern"]].forEach(([lbl,col,naam])=>{
       leg.innerHTML+=`<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:rgba(255,255,255,0.5)"><div style="width:16px;height:16px;border-radius:3px;background:${col};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">${lbl}</div>${naam}</div>`;
     });
     box.appendChild(leg);
     overlay.appendChild(box);
 
-    box.querySelector("#mo-prev").onclick = ()=>{ startWeek=addWeeks(startWeek,-NUM_WEEKS); render(); };
-    box.querySelector("#mo-next").onclick = ()=>{ startWeek=addWeeks(startWeek, NUM_WEEKS); render(); };
-    box.querySelector("#mo-refresh").onclick = async ()=>{ await loadFromGitHub(); renderAndSync(); render(); };
-    box.querySelector("#mo-lock").onclick = async ()=>{ if(editUnlocked){ lock(); render(); } else { const ok=await promptUnlock(); if(ok) render(); } };
-    box.querySelector("#mo-close").onclick = ()=>overlay.remove();
+    box.querySelector("#mo-prev").onclick=()=>{ startWeek=addWeeks(startWeek,-NUM_WEEKS); render(); };
+    box.querySelector("#mo-next").onclick=()=>{ startWeek=addWeeks(startWeek, NUM_WEEKS); render(); };
+    box.querySelector("#mo-refresh").onclick=async()=>{ await loadFromGitHub(); renderAndSync(); render(); };
+    box.querySelector("#mo-lock").onclick=async()=>{ if(editUnlocked){ lock(); render(); } else { const ok=await promptUnlock(); if(ok) render(); } };
+    box.querySelector("#mo-close").onclick=()=>overlay.remove();
   }
 
   render();
-  overlay.addEventListener("click", e=>{ if(e.target===overlay) overlay.remove(); });
+  overlay.addEventListener("click",e=>{ if(e.target===overlay) overlay.remove(); });
   document.body.appendChild(overlay);
 }
 
