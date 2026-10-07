@@ -1640,42 +1640,44 @@ function showMaandOverzicht(){
       tbl.appendChild(tr);
     });
 
-    // Oranje kader om huidige week via position:absolute in tabel-container
+    // Wikkel tabel in een relatieve div zodat position:absolute werkt
+    const tblWrap = document.createElement("div");
+    tblWrap.style.cssText = "position:relative;";
+    tblWrap.appendChild(tbl);
+
+    // Oranje kader om huidige week via position:absolute in wrapper
     requestAnimationFrame(()=>{
       weeksSlice.forEach((w, wi)=>{
         if(!(today >= w.monday && today <= addDays(w.monday, 6))) return;
         const allTrs = Array.from(tbl.querySelectorAll("tr"));
         if(allTrs.length < 3) return;
-        const wnCell  = allTrs[1].querySelectorAll("th")[1 + wi];
+        const wnCell   = allTrs[1].querySelectorAll("th")[1 + wi];
         const dagCells = allTrs[2].querySelectorAll("th");
         const firstDag = dagCells[1 + wi*6];
         const lastDag  = dagCells[1 + wi*6 + 4];
         const lastTr   = allTrs[allTrs.length - 1];
         if(!wnCell || !firstDag || !lastDag) return;
 
-        // Gebruik positie relatief aan de tabel zelf
-        const tblRect  = tbl.getBoundingClientRect();
+        const wrapRect = tblWrap.getBoundingClientRect();
         const wnRect   = wnCell.getBoundingClientRect();
         const fRect    = firstDag.getBoundingClientRect();
         const lRect    = lastDag.getBoundingClientRect();
         const btmRect  = lastTr.getBoundingClientRect();
 
-        // Maak container relatief
-        tbl.style.position = "relative";
         const frame = document.createElement("div");
         frame.className = "mo-week-frame";
         frame.style.cssText =
           `position:absolute;pointer-events:none;z-index:2;`+
-          `left:${fRect.left - tblRect.left - 2}px;`+
-          `top:${wnRect.top  - tblRect.top  - 2}px;`+
+          `left:${fRect.left - wrapRect.left - 2}px;`+
+          `top:${wnRect.top  - wrapRect.top  - 2}px;`+
           `width:${lRect.right - fRect.left + 4}px;`+
           `height:${btmRect.bottom - wnRect.top + 4}px;`+
           `border:2px solid rgba(255,183,77,0.75);border-radius:5px;`+
           `box-shadow:0 0 10px rgba(255,183,77,0.2);`;
-        tbl.appendChild(frame);
+        tblWrap.appendChild(frame);
       });
     });
-    return tbl;
+    return tblWrap;
   }
 
   function render(){
