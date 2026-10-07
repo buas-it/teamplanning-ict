@@ -1530,7 +1530,7 @@ function showMaandOverzicht(){
     const th0 = document.createElement("th"); th0.style.cssText="width:72px;"; hdr1.appendChild(th0);
     weeksSlice.forEach(w=>{
       const th = document.createElement("th");
-      th.colSpan = 6;
+      th.colSpan = 5;
       th.style.cssText = "text-align:center;font-size:8px;color:rgba(255,255,255,0.25);font-weight:400;padding-bottom:2px;border-bottom:1px solid rgba(255,255,255,0.06);";
       // Toon maanden als week over maandgrens loopt
       const fri = addDays(w.monday, 4);
@@ -1545,6 +1545,8 @@ function showMaandOverzicht(){
         th.style.borderBottom = "2px solid rgba(255,183,77,0.4)";
       }
       hdr1.appendChild(th);
+      // Lege th voor Za/Zo kolom (geen label)
+      const thWE0 = document.createElement("th"); hdr1.appendChild(thWE0);
     });
     tbl.appendChild(hdr1);
 
@@ -1652,7 +1654,8 @@ function showMaandOverzicht(){
         const lastDag  = dagCells[1 + wi*6 + 4];
         const lastTr   = allTrs[allTrs.length - 1];
         if(!wnCell || !firstDag || !lastDag) return;
-        const top    = wnCell.getBoundingClientRect().top;
+        const wnRect = wnCell.getBoundingClientRect();
+        const top    = wnRect.top;
         const left   = firstDag.getBoundingClientRect().left;
         const right  = lastDag.getBoundingClientRect().right;
         const bottom = lastTr.getBoundingClientRect().bottom;
