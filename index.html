@@ -1511,9 +1511,9 @@ function showMaandOverzicht(){
         weekDays.push(dd);
       }
       // Tel hoeveel dagen in deze maand vallen
-      const daysInMonth = weekDays.filter(dd=>dd.getMonth()===mo && dd.getFullYear()===yr).length;
-      // Week hoort bij deze maand als meer dan helft (>=4) van de 7 dagen erin valt
-      if(daysInMonth >= 4){
+      const daysInMonth = weekDays.slice(0,5).filter(dd=>dd.getMonth()===mo && dd.getFullYear()===yr).length;
+      // Week hoort bij deze maand als alle 5 werkdagen erin vallen
+      if(daysInMonth === 5){
         const workDays = weekDays.slice(0,5);
         const za = weekDays[5], zo = weekDays[6];
         weeks.push({days:workDays, za, zo, monday:new Date(cur)});
