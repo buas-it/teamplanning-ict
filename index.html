@@ -1515,7 +1515,10 @@ function showMaandOverzicht(){
       while(i+count < weeksSlice.length && weeksSlice[i+count].monday.getMonth()===mo) count++;
       const th = document.createElement("th");
       th.colSpan = count * 6;
-      th.style.cssText = "text-align:center;font-size:9px;font-weight:700;color:rgba(128,203,196,0.7);padding:3px 0 2px;border-bottom:2px solid rgba(128,203,196,0.3);letter-spacing:1px;text-transform:uppercase;";
+      const isCurMo = mo === today.getMonth() && yr === today.getFullYear();
+      th.style.cssText = isCurMo
+        ? "text-align:center;font-size:9px;font-weight:700;color:#ffb74d;padding:3px 0 2px;border-bottom:2px solid rgba(255,183,77,0.7);letter-spacing:1px;text-transform:uppercase;background:rgba(255,183,77,0.06);border-radius:4px 4px 0 0;"
+        : "text-align:center;font-size:9px;font-weight:700;color:rgba(128,203,196,0.7);padding:3px 0 2px;border-bottom:2px solid rgba(128,203,196,0.3);letter-spacing:1px;text-transform:uppercase;";
       th.textContent = MAANDEN[mo] + " " + yr;
       maandHdr.appendChild(th);
       i += count;
