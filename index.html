@@ -1614,35 +1614,100 @@ function showMaandOverzicht(){
               td.addEventListener("click", async (e)=>{
                 e.stopPropagation();
                 if(!await requireUnlock()) return;
-                // Sluit maand overlay tijdelijk, open popup, heropend daarna
-                overlay.style.display = "none";
-                const tempWrap = document.createElement("div");
-                tempWrap.style.cssText = "position:fixed;left:0;top:0;";
-                document.body.appendChild(tempWrap);
-                // Wacht op popup sluiting via een patch op closePopup
-                const origClose = window._maandPopupDone;
-                let resolved = false;
-                const onDone = ()=>{
-                  if(resolved) return;
-                  resolved = true;
-                  tempWrap.remove();
-                  overlay.style.display = "";
-                  renderAndSync();
-                  // Herrender maand overlay
-                  const newOverlay = document.createElement("div");
-                  newOverlay.style.cssText = overlay.style.cssText;
-                  document.body.removeChild(overlay);
-                };
-                showPopup(tempWrap, monday, person, dayKey, false);
-                // Detecteer wanneer popup gesloten wordt
-                const checkClosed = setInterval(()=>{
-                  if(!openPopup || openPopup.wrap !== tempWrap){
-                    clearInterval(checkClosed);
-                    tempWrap.remove();
-                    overlay.style.display = "";
-                    renderAndSync();
+
+                // Verwijder eventueel bestaand inline menu
+                const existing = overlay.querySelector(".mo-inline-menu");
+                if(existing){ existing.remove(); if(existing._td===td) return; }
+
+                const rect = td.getBoundingClientRect();
+                const overlayRect = overlay.getBoundingClientRect();
+
+                const menu = document.createElement("div");
+                menu.className = "mo-inline-menu";
+                menu._td = td;
+                menu.style.cssText = `position:fixed;z-index:900;background:#1a1a2e;border:1px solid rgba(255,255,255,0.18);border-radius:10px;padding:6px;box-shadow:0 8px 32px rgba(0,0,0,0.7);min-width:160px;`;
+                menu.style.left = Math.min(rect.left, window.innerWidth - 180) + "px";
+                menu.style.top = (rect.bottom + 4) + "px";
+
+                // Huidige selectie
+                const curSel = (getData(monday)[person]||{})[dayKey]||[];
+
+                // Titel
+                const title = document.createElement("div");
+                title.style.cssText = "font-size:9px;color:rgba(255,255,255,0.4);padding:2px 6px 6px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:4px;";
+                title.textContent = person + " · " + dayKey;
+                menu.appendChild(title);
+
+                // Groep scheidingslijn helper
+                let lastGroup = null;
+
+                STATUSES.forEach(s=>{
+                  if(s.group !== lastGroup){
+                    if(lastGroup !== null){
+                      const sep = document.createElement("div");
+                      sep.style.cssText = "height:1px;background:rgba(255,255,255,0.08);margin:4px 0;";
+                      menu.appendChild(sep);
+                    }
+                    lastGroup = s.group;
                   }
-                }, 100);
+                  const active = curSel.includes(s.key);
+                  const item = document.createElement("div");
+                  item.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;color:#eee;${active?"background:"+s.color+"22;border:1px solid "+s.border+"66;":"border:1px solid transparent;"}`;
+                  const dot = document.createElement("div");
+                  dot.style.cssText = `width:12px;height:12px;border-radius:3px;background:${s.color};flex-shrink:0;`;
+                  item.appendChild(dot);
+                  item.appendChild(document.createTextNode(s.label));
+                  if(active){
+                    const check = document.createElement("span");
+                    check.textContent = "✓";
+                    check.style.cssText = "margin-left:auto;color:#80cbc4;font-size:10px;";
+                    item.appendChild(check);
+                  }
+                  item.addEventListener("mouseenter",()=>{ item.style.background="rgba(255,255,255,0.07)"; });
+                  item.addEventListener("mouseleave",()=>{ item.style.background=active?s.color+"22":""; });
+                  item.addEventListener("click", async (ev)=>{
+                    ev.stopPropagation();
+                    // Gebruik toggleStatus om constraints te respecteren
+                    await toggleStatus(monday, person, dayKey, s.key, false);
+                    menu.remove();
+                    // Update alleen de cel in het maandoverzicht
+                    const newSel = (getData(monday)[person]||{})[dayKey]||[];
+                    if(newSel.length===0){
+                      td.style.background="rgba(255,255,255,0.05)";
+                      td.style.color=""; td.textContent="";
+                    } else {
+                      const main=newSel[0];
+                      td.style.background=STATUS_COLORS[main]||"rgba(255,255,255,0.1)";
+                      td.style.color="#fff";
+                      td.textContent=STATUS_LABELS[main]||"";
+                    }
+                  });
+                  menu.appendChild(item);
+                });
+
+                // Wis knop
+                const sep2 = document.createElement("div");
+                sep2.style.cssText = "height:1px;background:rgba(255,255,255,0.08);margin:4px 0;";
+                menu.appendChild(sep2);
+                const clearBtn = document.createElement("div");
+                clearBtn.style.cssText = "padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;color:rgba(255,255,255,0.4);border:1px solid transparent;";
+                clearBtn.textContent = "✕ Wissen";
+                clearBtn.addEventListener("click", async (ev)=>{
+                  ev.stopPropagation();
+                  const data = getData(monday);
+                  if(data[person]) data[person][dayKey]=[];
+                  saveState();
+                  menu.remove();
+                  td.style.background="rgba(255,255,255,0.05)";
+                  td.style.color=""; td.textContent="";
+                });
+                menu.appendChild(clearBtn);
+
+                document.body.appendChild(menu);
+
+                // Sluit bij klik buiten
+                const closeMenu = (ev)=>{ if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener("click",closeMenu); }};
+                setTimeout(()=>document.addEventListener("click",closeMenu),0);
               });
             }
           }
