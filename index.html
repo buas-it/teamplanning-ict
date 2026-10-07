@@ -1702,7 +1702,14 @@ function showMaandOverzicht(){
     // Gebruik directe referenties via box.querySelector ipv getElementById
     box.querySelector("#mo-prev").onclick = ()=>{ if(viewMonth===0){viewMonth=11;viewYear--;}else{viewMonth--;} render(); };
     box.querySelector("#mo-next").onclick = ()=>{ if(viewMonth===11){viewMonth=0;viewYear++;}else{viewMonth++;} render(); };
-    box.querySelector("#mo-refresh").onclick = async ()=>{ await loadFromGitHub(); render(); };
+    box.querySelector("#mo-refresh").onclick = async ()=>{
+      const btn = box.querySelector("#mo-refresh");
+      btn.textContent = "⟳"; btn.style.opacity = "0.4";
+      await loadFromGitHub();
+      renderAndSync();
+      render();
+      btn.textContent = "↻"; btn.style.opacity = "1";
+    };
     box.querySelector("#mo-lock").onclick = async ()=>{
       if(editUnlocked){ lock(); render(); }
       else { const ok = await promptUnlock(); if(ok) render(); }
