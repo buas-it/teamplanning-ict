@@ -1567,7 +1567,7 @@ function showMaandOverzicht(){
           td.style.cssText = "height:22px;border-radius:3px;text-align:center;vertical-align:middle;font-size:10px;font-weight:700;";
           const sel = (getData(w.monday)[person]||{})[dayKey]||[];
           if(sel.length===0){ td.style.background="rgba(255,255,255,0.05)"; }
-          else { const m=sel[0]; td.style.background=STATUS_COLORS[m]||"rgba(255,255,255,0.1)"; td.style.color="#fff"; td.textContent=STATUS_LABELS[m]||""; }
+          else { const m=sel[0]; td.style.background=STATUS_COLORS[m]||"rgba(255,255,255,0.1)"; td.style.color=(m==="extern"||m==="vm_extern"||m==="nm_extern")?"rgba(0,0,0,0.7)":"#fff"; td.textContent=STATUS_LABELS[m]||""; }
           if(editUnlocked){
             td.style.cursor="pointer";
             td.addEventListener("click", async (e)=>{
@@ -1600,7 +1600,7 @@ function showMaandOverzicht(){
                   menu.remove();
                   const ns=(getData(w.monday)[person]||{})[dayKey]||[];
                   if(ns.length===0){ td.style.background="rgba(255,255,255,0.05)"; td.style.color=""; td.textContent=""; }
-                  else { const m=ns[0]; td.style.background=STATUS_COLORS[m]||"rgba(255,255,255,0.1)"; td.style.color="#fff"; td.textContent=STATUS_LABELS[m]||""; }
+                  else { const m=ns[0]; td.style.background=STATUS_COLORS[m]||"rgba(255,255,255,0.1)"; td.style.color=(m==="extern"||m==="vm_extern"||m==="nm_extern")?"rgba(0,0,0,0.7)":"#fff"; td.textContent=STATUS_LABELS[m]||""; }
                 });
                 menu.appendChild(item);
               });
