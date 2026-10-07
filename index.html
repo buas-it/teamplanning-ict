@@ -1643,8 +1643,10 @@ function showMaandOverzicht(){
     const hdr=document.createElement("div");
     hdr.style.cssText="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;";
     hdr.innerHTML=`
-      <button id="mo-prev" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">◀ ${NUM_WEEKS}w</button>
-      <button id="mo-next" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">${NUM_WEEKS}w ▶</button>
+      <button id="mo-prev" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">◀◀</button>
+      <button id="mo-prev1" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">◀</button>
+      <button id="mo-next1" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">▶</button>
+      <button id="mo-next" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">▶▶</button>
       <button id="mo-refresh" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-family:inherit;">↻</button>
       <button id="mo-lock" style="background:rgba(255,255,255,0.04);border:1px solid ${editUnlocked?"rgba(128,203,196,0.3)":"rgba(255,255,255,0.1)"};color:${editUnlocked?"#80cbc4":"rgba(255,255,255,0.35)"};border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">${editUnlocked?"🔓 Bewerken aan":"🔒 Alleen lezen"}</button>
       <span style="flex:1"></span>
@@ -1673,6 +1675,8 @@ function showMaandOverzicht(){
     overlay.appendChild(box);
 
     box.querySelector("#mo-prev").onclick=()=>{ startWeek=addWeeks(startWeek,-NUM_WEEKS); render(); };
+    box.querySelector("#mo-prev1").onclick=()=>{ startWeek=addWeeks(startWeek,-1); render(); };
+    box.querySelector("#mo-next1").onclick=()=>{ startWeek=addWeeks(startWeek, 1); render(); };
     box.querySelector("#mo-next").onclick=()=>{ startWeek=addWeeks(startWeek, NUM_WEEKS); render(); };
     box.querySelector("#mo-refresh").onclick=async()=>{
       const btn=box.querySelector("#mo-refresh");
