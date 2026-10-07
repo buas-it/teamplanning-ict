@@ -1535,7 +1535,7 @@ function showMaandOverzicht(){
       const wn = getWeekNumber(w.monday);
       const mo = w.monday.getMonth();
       const th = document.createElement("th");
-      th.colSpan = 5;
+      th.colSpan = 6;
       th.style.cssText = "text-align:center;font-size:8px;color:rgba(255,255,255,0.3);font-weight:400;padding-bottom:2px;border-bottom:1px solid rgba(255,255,255,0.07);";
       th.innerHTML = `W${wn} <span style="color:rgba(255,255,255,0.18)">${MAANDEN[mo]}</span>`;
       hdr1.appendChild(th);
@@ -1554,6 +1554,13 @@ function showMaandOverzicht(){
         th.innerHTML = `${DAGNAMEN[i]}<br>${dd.getDate()}`;
         hdr2.appendChild(th);
       });
+      // Za/Zo kolom
+      const za = addDays(w.monday, 5);
+      const zo = addDays(w.monday, 6);
+      const thWE = document.createElement("th");
+      thWE.style.cssText = "text-align:center;font-size:6px;color:rgba(255,255,255,0.2);padding:1px;";
+      thWE.innerHTML = `Za/Zo<br>${za.getDate()}/${zo.getDate()}`;
+      hdr2.appendChild(thWE);
     });
     tbl.appendChild(hdr2);
 
@@ -1630,6 +1637,10 @@ function showMaandOverzicht(){
           }
           tr.appendChild(td);
         });
+        // Za/Zo cel
+        const tdWE = document.createElement("td");
+        tdWE.style.cssText = "height:22px;border-radius:3px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);";
+        tr.appendChild(tdWE);
       });
       tbl.appendChild(tr);
     });
