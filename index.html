@@ -1957,63 +1957,8 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
 // Ververs het rooster elke minuut (vandaag-markering) — wordt al gedaan door de GitHub sync interval
 
 // Elk uur: vergelijk lokale staat met GitHub, merge onopgeslagen wijzigingen, herlaad dan
-setInterval(async ()=>{
-  if(ghSaving) return;
-
-  try{
-    // 1. Haal huidige staat van GitHub op
-    const r = await fetch(
-      `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
-      {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
-    );
-    if(!r.ok){ location.reload(); return; }
-    const d = await r.json();
-    const remoteJson = atob(d.content.replace(/\n/g,""));
-    const remoteState = JSON.parse(remoteJson);
-
-    // 2. Vergelijk met lokale staat
-    const localState = serializeState();
-    const localJson = JSON.stringify(localState);
-    const remoteJsonNorm = JSON.stringify(remoteState);
-
-    if(localJson === remoteJsonNorm){
-      // Geen verschil — gewoon herladen
-      location.reload();
-      return;
-    }
-
-    // 3. Er zijn lokale wijzigingen — merge: lokale store wint per cel
-    console.log("Uurlijkse refresh: lokale wijzigingen gevonden, worden opgeslagen voor reload...");
-    const merged = JSON.parse(remoteJsonNorm); // start vanuit remote
-
-    // Voeg lokale store-entries toe die ontbreken in remote
-    // Remote (GitHub) wint altijd — lokale waarden alleen toevoegen als remote ze niet heeft
-    const localStore = localState.store || {};
-    const remoteStore = remoteState.store || {};
-    for(const monday of Object.keys(localStore)){
-      if(!merged.store[monday]) merged.store[monday] = {};
-      for(const person of Object.keys(localStore[monday])){
-        for(const day of Object.keys(localStore[monday][person]||{})){
-          // Alleen toevoegen als remote die dag niet heeft
-          if(!(merged.store[monday]?.[person]?.[day])){
-            if(!merged.store[monday][person]) merged.store[monday][person] = {};
-            merged.store[monday][person][day] = localStore[monday][person][day];
-            console.log(`  Merge: ${person} ${monday} ${day} → lokaal toegevoegd (remote miste dit)`);
-          }
-        }
-      }
-    }
-
-    // 4. Sla de gemergde staat op
-    applyState(merged);
-    await saveToGitHub();
-    console.log("Merge opgeslagen, pagina wordt herladen...");
-  }catch(e){
-    console.warn("Uurlijkse refresh fout:", e);
-  }
-
-  location.reload();
-}, 60 * 60 * 1000);
+// Uurlijkse pagina-reload: simpelweg herladen, remote wint altijd via loadFromGitHub bij opstart
+setInterval(()=>{ location.reload(); }, 60 * 60 * 1000);
 </script>
 
 
