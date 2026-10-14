@@ -1987,18 +1987,20 @@ setInterval(async ()=>{
     console.log("Uurlijkse refresh: lokale wijzigingen gevonden, worden opgeslagen voor reload...");
     const merged = JSON.parse(remoteJsonNorm); // start vanuit remote
 
-    // Voeg lokale store-entries toe die ontbreken of nieuwer zijn
+    // Voeg lokale store-entries toe die ontbreken in remote
+    // Remote (GitHub) wint altijd — lokale waarden alleen toevoegen als remote ze niet heeft
     const localStore = localState.store || {};
     const remoteStore = remoteState.store || {};
     for(const monday of Object.keys(localStore)){
       if(!merged.store[monday]) merged.store[monday] = {};
       for(const person of Object.keys(localStore[monday])){
-        // Lokale waarde overschrijft remote als ze verschillen
-        const localVal = JSON.stringify(localStore[monday][person]||[]);
-        const remoteVal = JSON.stringify((remoteStore[monday]||{})[person]||[]);
-        if(localVal !== remoteVal){
-          merged.store[monday][person] = localStore[monday][person];
-          console.log(`  Merge: ${person} ${monday} → lokale waarde behouden`);
+        for(const day of Object.keys(localStore[monday][person]||{})){
+          // Alleen toevoegen als remote die dag niet heeft
+          if(!(merged.store[monday]?.[person]?.[day])){
+            if(!merged.store[monday][person]) merged.store[monday][person] = {};
+            merged.store[monday][person][day] = localStore[monday][person][day];
+            console.log(`  Merge: ${person} ${monday} ${day} → lokaal toegevoegd (remote miste dit)`);
+          }
         }
       }
     }
