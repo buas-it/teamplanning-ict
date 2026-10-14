@@ -110,6 +110,7 @@ button { font-family:inherit; cursor:pointer; }
   <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span>
   <span id="save-ind" style="font-size: 11px; opacity: 0; transition: opacity 0.3s; min-width: 20px; text-align: center; color: rgb(128, 203, 196);">✓ opgeslagen</span>
   <button class="nav-btn" id="btn-maand" style="font-size:10px;padding:6px 10px;color:#80cbc4;border-color:rgba(128,203,196,0.4);background:rgba(128,203,196,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">📅 Maand</button>
+  <button class="nav-btn" id="btn-restore" title="Backup herstellen" style="font-size:10px;padding:6px 10px;color:#ffb74d;border-color:rgba(255,183,77,0.4);background:rgba(255,183,77,0.06);width:auto;font-weight:700;">♻ Herstel</button>
   <button class="nav-btn" id="btn-geen-beheer" onclick="showGeenBeheerModal()" style="font-size:10px;padding:6px 10px;color:#f48fb1;border-color:rgba(244,143,177,0.4);background:rgba(244,143,177,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚠ Geen Beheer</button>
   <button class="nav-btn" id="btn-template" style="font-size:10px;padding:6px 10px;color:#60b0ff;border-color:rgba(0,150,255,0.3);background:rgba(0,100,220,0.08);width:auto;letter-spacing:1px;">★ Standaard</button>
 </div>
@@ -1752,6 +1753,92 @@ function showMaandOverzicht(){
   document.body.appendChild(overlay);
 }
 
+// ── Backup Herstel modal ──────────────────────────────────────────
+async function showRestoreModal(){
+  if(!await requireUnlock()) return;
+
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
+
+  const box = document.createElement("div");
+  box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:24px;width:480px;max-width:95vw;font-family:'Courier New',monospace;";
+
+  box.innerHTML = `<div style="font-size:14px;font-weight:700;color:#ffb74d;margin-bottom:16px;">♻ Backup herstellen</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:12px;">Kies een backup om volledig terug te zetten. Dit overschrijft de huidige planning.</div>
+    <div id="restore-list" style="max-height:300px;overflow-y:auto;margin-bottom:16px;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button id="restore-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:8px 16px;cursor:pointer;font-family:inherit;">Annuleren</button>
+    </div>`;
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  box.querySelector("#restore-cancel").onclick = ()=>overlay.remove();
+
+  // Laad backup lijst
+  const listDiv = box.querySelector("#restore-list");
+  listDiv.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:11px;">Backups laden...</div>';
+
+  try {
+    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups?ref=${GH_BRANCH}&t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2),
+      {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+    const files = await r.json();
+    const sorted = files.sort((a,b)=>b.name.localeCompare(a.name));
+
+    listDiv.innerHTML = "";
+    sorted.forEach(f=>{
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.07);margin-bottom:4px;cursor:pointer;";
+      row.innerHTML = `<span style="font-size:11px;color:#fff;">${f.name.replace(".json","")}</span>
+        <button style="background:rgba(255,183,77,0.15);border:1px solid rgba(255,183,77,0.4);color:#ffb74d;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:inherit;">Herstellen</button>`;
+      row.querySelector("button").onclick = async ()=>{
+        if(!confirm(`Backup '${f.name.replace(".json","")}' terugzetten?\nDe huidige planning wordt overschreven.`)) return;
+        row.querySelector("button").textContent = "Bezig...";
+        try {
+          // Laad backup
+          const br = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups/${f.name}?ref=${GH_BRANCH}&t=`+Date.now(),
+            {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+          const bd = await br.json();
+          const backupState = JSON.parse(atob(bd.content.replace(/\n/g,"")));
+
+          // Haal huidige SHA op
+          const sr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
+            {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+          const sd = await sr.json();
+
+          // Schrijf backup terug
+          const wr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`,{
+            method:"PUT",
+            headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
+            body: JSON.stringify({
+              message: `Herstel backup ${f.name.replace(".json","")}`,
+              content: btoa(unescape(encodeURIComponent(JSON.stringify(backupState)))),
+              sha: sd.sha,
+              branch: GH_BRANCH
+            })
+          });
+          if(wr.ok){
+            overlay.remove();
+            applyState(backupState);
+            propagateTemplateToAll();
+            renderAndSync();
+            alert("✅ Backup hersteld! De planning is bijgewerkt.");
+          } else {
+            alert("❌ Herstellen mislukt. Probeer opnieuw.");
+            row.querySelector("button").textContent = "Herstellen";
+          }
+        } catch(e){
+          alert("❌ Fout: " + e.message);
+          row.querySelector("button").textContent = "Herstellen";
+        }
+      };
+      listDiv.appendChild(row);
+    });
+  } catch(e){
+    listDiv.innerHTML = `<div style="color:#f48fb1;font-size:11px;">Fout bij laden: ${e.message}</div>`;
+  }
+}
+
 // ── Geen Beheer modal ────────────────────────────────────────────
 function showGeenBeheerModal(){
   const MUST = ["Bram","Marco","Hans","Ted","Sercan"];
@@ -1875,6 +1962,7 @@ document.getElementById("btn-goto").addEventListener("click",()=>{
 });
 document.getElementById("goto-week").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("btn-goto").click(); });
 document.getElementById("btn-maand").addEventListener("click",()=>{ showMaandOverzicht(); });
+document.getElementById("btn-restore").addEventListener("click",()=>{ showRestoreModal(); });
 
 const tplModal=document.getElementById("tpl-modal");
 document.getElementById("btn-template").addEventListener("click",async ()=>{ if(!await requireUnlock()) return; buildTemplateGrid(); tplModal.style.display="block"; });
