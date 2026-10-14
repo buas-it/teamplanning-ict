@@ -99,7 +99,7 @@ button { font-family:inherit; cursor:pointer; }
   <button class="nav-btn" id="btn-next1">▶</button>
   <button class="nav-btn" id="btn-next">▶▶</button>
   <button class="nav-now nav-btn" id="btn-now">Vandaag</button>
-  <button class="nav-btn" id="btn-refresh" onclick="saveState();setTimeout(()=&gt;location.reload(),300)" title="Ververs" style="font-size:14px;">↻</button>
+  <button class="nav-btn" id="btn-refresh" onclick="sessionStorage.setItem('tp_baseMonday',baseMonday.getTime());saveState();setTimeout(()=>location.reload(),300)" title="Ververs" style="font-size:14px;">↻</button>
   <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span>
   <span id="save-ind" style="font-size: 11px; opacity: 0; transition: opacity 0.3s; min-width: 20px; text-align: center; color: rgb(128, 203, 196);">✓ opgeslagen</span>
   <button class="nav-btn" id="btn-maand" style="font-size:10px;padding:6px 10px;color:#80cbc4;border-color:rgba(128,203,196,0.4);background:rgba(128,203,196,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">📅 Maand</button>
@@ -1428,6 +1428,11 @@ function buildLegend(){
 // Weekend: toon alvast volgende week
 const todayDay = today.getDay(); // 0=zo, 6=za
 let baseMonday = (todayDay === 0 || todayDay === 6) ? addWeeks(mondayOf(today), 1) : mondayOf(today);
+// Herstel positie na refresh
+try{
+  const saved = sessionStorage.getItem('tp_baseMonday');
+  if(saved){ baseMonday = new Date(parseInt(saved)); sessionStorage.removeItem('tp_baseMonday'); }
+}catch(e){}
 
 function render(){
   closePopup();
@@ -1958,7 +1963,7 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
 
 // Elk uur: vergelijk lokale staat met GitHub, merge onopgeslagen wijzigingen, herlaad dan
 // Uurlijkse pagina-reload: simpelweg herladen, remote wint altijd via loadFromGitHub bij opstart
-setInterval(()=>{ location.reload(); }, 60 * 60 * 1000);
+setInterval(()=>{ sessionStorage.setItem('tp_baseMonday',baseMonday.getTime()); location.reload(); }, 60 * 60 * 1000);
 </script>
 
 
