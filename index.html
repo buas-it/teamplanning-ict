@@ -204,11 +204,7 @@ function applyState(data){
     manuallyEdited[k] = new Set((data.manuallyEdited[k]||[]).filter(e=>TEAM.includes(e.split("-")[0])));
   });
 
-  // Sync data-store tag in HTML zodat verwijderde personen ook bij volgende laad weg zijn
-  try{
-    const el = document.getElementById("data-store");
-    if(el) el.textContent = JSON.stringify(serializeState());
-  }catch(e){}
+  // data-store tag blijft leeg — GitHub is de enige bron van waarheid
 }
 
 
