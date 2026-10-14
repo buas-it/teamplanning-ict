@@ -1809,15 +1809,24 @@ async function showBackupContents(){
       </div>
       <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-bottom:6px;letter-spacing:1px;">ALLE BESCHIKBARE BACKUPS</div>`;
 
+    box.querySelector("#bc-content").innerHTML = html_inner;
+
+    // Voeg herstel-knoppen toe als DOM-elementen (zodat async+wachtwoord werkt)
     sorted.forEach(f=>{
       const naam = f.name.replace(".json","");
-      html_inner += `<div style="display:flex;justify-content:space-between;padding:5px 8px;border-radius:4px;border-bottom:1px solid rgba(255,255,255,0.05);">
-        <span style="color:#fff">${naam}</span>
-        <button onclick="restoreFromBackup('${f.name}','${f.sha}')" style="background:rgba(255,183,77,0.1);border:1px solid rgba(255,183,77,0.3);color:#ffb74d;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:inherit;">Herstellen</button>
-      </div>`;
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:4px;border-bottom:1px solid rgba(255,255,255,0.05);";
+      const lbl = document.createElement("span");
+      lbl.style.color = "#fff";
+      lbl.textContent = naam;
+      const btn = document.createElement("button");
+      btn.textContent = "Herstellen";
+      btn.style.cssText = "background:rgba(255,183,77,0.1);border:1px solid rgba(255,183,77,0.3);color:#ffb74d;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:inherit;";
+      btn.addEventListener("click", ()=>restoreFromBackup(f.name, f.sha));
+      row.appendChild(lbl);
+      row.appendChild(btn);
+      box.querySelector("#bc-content").appendChild(row);
     });
-
-    box.querySelector("#bc-content").innerHTML = html_inner;
   } catch(e){
     box.querySelector("#bc-content").innerHTML = `<div style="color:#f48fb1">Fout: ${e.message}</div>`;
   }
