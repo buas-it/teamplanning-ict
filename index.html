@@ -633,6 +633,44 @@ function updateHealthBar(){
       elBackup.style.cursor = "pointer";
       elBackup.onclick = ()=>showBackupContents();
     }
+
+  // Klik op GitHub bolletje
+  const elGh = document.getElementById("health-github");
+  if(elGh && !elGh._clickSet){
+    elGh._clickSet = true; elGh.style.cursor = "pointer";
+    elGh.onclick = ()=>showHealthPopup("GitHub verbinding",
+      HEALTH.github==="ok" ? ["✅ Verbonden met GitHub API","📡 Repo: buas-it/teamplanning-ict","🔑 Token: actief"] :
+      ["❌ Niet bereikbaar","📡 Repo: buas-it/teamplanning-ict","⚠️ Controleer internetverbinding"]);
+  }
+
+  // Klik op Data bolletje
+  const elDt = document.getElementById("health-data");
+  if(elDt && !elDt._clickSet){
+    elDt._clickSet = true; elDt.style.cursor = "pointer";
+    elDt.onclick = ()=>{
+      const weken = Object.keys(store||{}).length;
+      const teamleden = (TEAM||[]).length;
+      showHealthPopup("Data integriteit",
+        HEALTH.data==="ok"
+          ? [`✅ Data geldig`,`👥 Team: ${teamleden} leden (${(TEAM||[]).join(", ")})`,`📅 Weken geladen: ${weken}`,`📍 Eerste week: ${Object.keys(store||{}).sort()[0]||"-"}`,`📍 Laatste week: ${Object.keys(store||{}).sort().slice(-1)[0]||"-"}`]
+          : ["❌ Data leeg of ongeldig","⚠️ Kan geen data laden van GitHub"]);
+    };
+  }
+
+  // Klik op Sync bolletje
+  const elSync = document.getElementById("health-sync");
+  if(elSync && !elSync._clickSet){
+    elSync._clickSet = true; elSync.style.cursor = "pointer";
+    elSync.onclick = ()=>{
+      const secAgo = HEALTH.lastSync ? Math.round((Date.now()-HEALTH.lastSync)/1000) : null;
+      const ago = secAgo===null ? "nog nooit" : secAgo < 60 ? secAgo+"s geleden" : Math.round(secAgo/60)+"m geleden";
+      const syncTime = HEALTH.lastSync ? new Date(HEALTH.lastSync).toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "-";
+      showHealthPopup("Synchronisatie",
+        secAgo!==null
+          ? [HEALTH.lastSyncOk ? `✅ Laatste sync: ${ago}` : `❌ Sync mislukt: ${ago}`,`🕐 Tijdstip: ${syncTime}`,`🔄 Interval: elke 60 seconden`,`☁️ Bron: GitHub (remote wint altijd)`]
+          : ["⏳ Nog niet gesynchroniseerd","🔄 Interval: elke 60 seconden"]);
+    };
+  }
   }
 }
 
@@ -1758,6 +1796,31 @@ function showMaandOverzicht(){
 
   render();
   document.body.appendChild(overlay);
+}
+
+// ── Health Status popup ───────────────────────────────────────────
+function showHealthPopup(title, lines){
+  const existing = document.getElementById("health-popup");
+  if(existing) existing.remove();
+
+  const popup = document.createElement("div");
+  popup.id = "health-popup";
+  popup.style.cssText = "position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:900;background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:14px 18px;min-width:280px;font-family:'Courier New',monospace;box-shadow:0 8px 32px rgba(0,0,0,0.6);";
+
+  const hdr = document.createElement("div");
+  hdr.style.cssText = "font-size:11px;font-weight:700;color:#80cbc4;margin-bottom:10px;letter-spacing:1px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;";
+  hdr.innerHTML = `<span>${title}</span><span style="cursor:pointer;color:rgba(255,255,255,0.4);font-size:14px;" onclick="this.closest('#health-popup').remove()">✕</span>`;
+  popup.appendChild(hdr);
+
+  lines.forEach(line=>{
+    const div = document.createElement("div");
+    div.style.cssText = "font-size:11px;color:rgba(255,255,255,0.75);padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05);";
+    div.textContent = line;
+    popup.appendChild(div);
+  });
+
+  document.body.appendChild(popup);
+  setTimeout(()=>document.addEventListener("click", function h(e){ if(!popup.contains(e.target)){ popup.remove(); document.removeEventListener("click",h); }}, true), 0);
 }
 
 // ── Backup Inhoud modal ───────────────────────────────────────────
