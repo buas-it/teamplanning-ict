@@ -1709,10 +1709,9 @@ function showMaandOverzicht(){
     box.querySelector("#mo-refresh").onclick=async()=>{
       const btn=box.querySelector("#mo-refresh");
       if(btn){ btn.textContent="⟳"; btn.style.opacity="0.4"; btn.disabled=true; }
-      await loadFromGitHub();
+      const ok = await loadFromGitHub(false);
       renderAndSync();
-      if(btn){ btn.textContent="↻"; btn.style.opacity="1"; btn.disabled=false; }
-      render();
+      render(); // render() vervangt box, btn bestaat niet meer daarna
     };
     box.querySelector("#mo-lock").onclick=async()=>{ if(editUnlocked){ lock(); render(); } else { const ok=await promptUnlock(); if(ok) render(); } };
     box.querySelector("#mo-close").onclick=()=>overlay.remove();
