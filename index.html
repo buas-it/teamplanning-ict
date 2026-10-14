@@ -319,7 +319,7 @@ let ghSaving = false;
 // Prefetch: start alle fetches meteen bij script-parse, vóór DOM-init
 // 1. state.json — voor snelle eerste load
 const _prefetchState = fetch(
-  `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
+  `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2),
   {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
 );
 
@@ -334,7 +334,7 @@ async function loadFromGitHub(usePrefetch=false){
   try{
     // Gebruik prefetch-promise als die nog loopt (eerste load), anders nieuw verzoek
     const r = await (usePrefetch ? _prefetchState : fetch(
-      `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
+      `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2),
       {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
     ));
     if(!r.ok){ console.warn("GitHub laden HTTP:", r.status); return false; }
@@ -434,7 +434,7 @@ async function saveToGitHub(){
   ghSaving = true;
   try{
     // Haal altijd eerst de actuele SHA op om conflicts te voorkomen
-    const check = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(), {
+    const check = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2), {
       headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}
     });
     if(check.ok){ const cd = await check.json(); ghSha = cd.sha; }
@@ -459,7 +459,7 @@ async function saveToGitHub(){
         if(!ghSaving){
           try{
             const pre = await fetch(
-              `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
+              `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2),
               {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
             );
             if(pre.ok){ const pd = await pre.json(); ghSha = pd.sha; }
