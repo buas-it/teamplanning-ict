@@ -327,7 +327,7 @@ const _prefetchState = fetch(
 // 2. Backup listing — voor directe health bar weergave
 const _prefetchBackupList = fetch(
   `https://api.github.com/repos/${GH_REPO}/contents/backups?ref=${GH_BRANCH}&t=`+Date.now(),
-  {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
+  {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json","Cache-Control":"no-cache"}}
 );
 
 
