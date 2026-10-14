@@ -619,12 +619,20 @@ function updateHealthBar(){
         return bDt.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit"})+" "+
                bDt.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
       })();
-      elBackup.title = (HEALTH.lastBackupOk ? "Backup OK" : "Backup mislukt") + ` — ${bLabel}`;
+      elBackup.title = (HEALTH.lastBackupOk ? "Backup OK" : "Backup mislukt") + ` — ${bLabel} (klik voor inhoud)`;
       el.detail.textContent += (HEALTH.lastBackupOk ? "  backup ✓ " : "  backup ✗ ") + bLabel;
+      elBackup.style.cursor = "pointer";
+      elBackup.onclick = ()=>showBackupContents();
     } else {
       elBackup.style.color = dot("unknown");
       elBackup.title = "Nog geen backup gemaakt";
       el.detail.textContent += "  backup: nog geen";
+    }
+    // Klik op backup-bolletje
+    if(elBackup && !elBackup._clickSet){
+      elBackup._clickSet = true;
+      elBackup.style.cursor = "pointer";
+      elBackup.onclick = ()=>showBackupContents();
     }
   }
 }
@@ -1751,6 +1759,96 @@ function showMaandOverzicht(){
 
   render();
   document.body.appendChild(overlay);
+}
+
+// ── Backup Inhoud modal ───────────────────────────────────────────
+async function showBackupContents(){
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
+
+  const box = document.createElement("div");
+  box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:24px;width:520px;max-width:95vw;max-height:85vh;overflow-y:auto;font-family:'Courier New',monospace;";
+
+  box.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div style="font-size:14px;font-weight:700;color:#80cbc4;">📦 Backup overzicht</div>
+    <button id="bc-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">✕</button>
+  </div>
+  <div id="bc-content" style="font-size:11px;color:rgba(255,255,255,0.7);">Laden...</div>`;
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  box.querySelector("#bc-close").onclick = ()=>overlay.remove();
+
+  try {
+    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups?ref=${GH_BRANCH}&t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2),
+      {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+    const files = await r.json();
+    const sorted = files.sort((a,b)=>b.name.localeCompare(a.name));
+
+    // Laad de meest recente backup voor inhoud
+    const latest = sorted[0];
+    const br = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups/${latest.name}?ref=${GH_BRANCH}&t=`+Date.now(),
+      {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+    const bd = await br.json();
+    const state = JSON.parse(atob(bd.content.replace(/\n/g,"")));
+
+    const MAANDEN = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+    const weken = Object.keys(state.store||{}).sort();
+    const eerste = weken[0]||"-";
+    const laatste = weken[weken.length-1]||"-";
+
+    let html_inner = `
+      <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;margin-bottom:12px;">
+        <div style="color:#ffb74d;font-weight:700;margin-bottom:8px;">📋 Meest recente backup: ${latest.name.replace(".json","")}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div><span style="color:rgba(255,255,255,0.4);">Team:</span> ${(state.team||[]).join(", ")}</div>
+          <div><span style="color:rgba(255,255,255,0.4);">Weken:</span> ${weken.length} (${eerste} t/m ${laatste})</div>
+          <div><span style="color:rgba(255,255,255,0.4);">Template:</span> ${Object.keys(state.template||{}).join(", ")||"-"}</div>
+          <div><span style="color:rgba(255,255,255,0.4);">Handm. edits:</span> ${Object.keys(state.manuallyEdited||{}).length} weken</div>
+        </div>
+      </div>
+      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-bottom:6px;letter-spacing:1px;">ALLE BESCHIKBARE BACKUPS</div>`;
+
+    sorted.forEach(f=>{
+      const naam = f.name.replace(".json","");
+      html_inner += `<div style="display:flex;justify-content:space-between;padding:5px 8px;border-radius:4px;border-bottom:1px solid rgba(255,255,255,0.05);">
+        <span style="color:#fff">${naam}</span>
+        <button onclick="restoreFromBackup('${f.name}','${f.sha}')" style="background:rgba(255,183,77,0.1);border:1px solid rgba(255,183,77,0.3);color:#ffb74d;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:inherit;">Herstellen</button>
+      </div>`;
+    });
+
+    box.querySelector("#bc-content").innerHTML = html_inner;
+  } catch(e){
+    box.querySelector("#bc-content").innerHTML = `<div style="color:#f48fb1">Fout: ${e.message}</div>`;
+  }
+}
+
+async function restoreFromBackup(filename, sha){
+  if(!await requireUnlock()) return;
+  if(!confirm(`Backup '${filename.replace(".json","")}' terugzetten?\nDe huidige planning wordt overschreven.`)) return;
+  try {
+    const br = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups/${filename}?ref=${GH_BRANCH}&t=`+Date.now(),
+      {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+    const bd = await br.json();
+    const backupState = JSON.parse(atob(bd.content.replace(/\n/g,"")));
+    const sr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
+      {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+    const sd = await sr.json();
+    const wr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`,{
+      method:"PUT",
+      headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
+      body: JSON.stringify({message:`Herstel backup ${filename}`, content: btoa(unescape(encodeURIComponent(JSON.stringify(backupState)))), sha: sd.sha, branch: GH_BRANCH})
+    });
+    if(wr.ok){
+      document.querySelectorAll(".z-index-800, [style*='z-index:800']").forEach(el=>el.remove());
+      applyState(backupState);
+      propagateTemplateToAll();
+      renderAndSync();
+      alert("✅ Backup hersteld!");
+    } else {
+      alert("❌ Herstellen mislukt.");
+    }
+  } catch(e){ alert("❌ Fout: "+e.message); }
 }
 
 // ── Backup Herstel modal ──────────────────────────────────────────
