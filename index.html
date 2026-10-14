@@ -812,56 +812,32 @@ function toggleStatus(monday,person,day,key,isTemplate){
     if(cur.includes(key)){
       next=cur.filter(k2=>k2!==key); // uitzetten
     } else {
-      next=[...cur,key];
-      // Vrije dag sluit alles uit behalve zichzelf
-      if(key==="vrij") next=["vrij"];
-      // Als iets anders geselecteerd wordt, zet vrije dag uit
-      if(key!=="vrij") next=next.filter(k2=>k2!=="vrij");
-      // vm_vrij sluit ochtend kantoor/thuis uit — en andersom
-      if(key==="vm_vrij") next=next.filter(k2=>k2!=="vm_kantoor"&&k2!=="vm_thuis");
-      if(key==="vm_kantoor"||key==="vm_thuis") next=next.filter(k2=>k2!=="vm_vrij");
-      // nm_vrij sluit middag kantoor/thuis uit — en andersom
-      if(key==="nm_vrij") next=next.filter(k2=>k2!=="nm_kantoor"&&k2!=="nm_thuis");
-      if(key==="nm_kantoor"||key==="nm_thuis") next=next.filter(k2=>k2!=="nm_vrij");
-      // kantoor/thuis-heel-dag sluit halve-dag-vrij uit en andersom
-      if(key==="kantoor") next=next.filter(k2=>k2!=="vm_vrij"&&k2!=="nm_vrij"&&k2!=="vm_kantoor"&&k2!=="nm_kantoor");
-      if(key==="thuis") next=next.filter(k2=>k2!=="vm_vrij"&&k2!=="nm_vrij");
-      if(key==="vm_vrij"||key==="nm_vrij") next=next.filter(k2=>k2!=="kantoor"&&k2!=="thuis");
-      if(key==="vm_kantoor"||key==="nm_kantoor"){
-        next=next.filter(k2=>k2!=="kantoor");
-        if(next.includes("vm_kantoor")&&next.includes("nm_kantoor")){
-          next=next.filter(k2=>k2!=="vm_kantoor"&&k2!=="nm_kantoor");
-          next.push("kantoor");
-        }
+      // ── Constraints ──────────────────────────────────────────────────
+      const HELE_DAG  = ["kantoor","thuis","vrij","ziek","extern"];
+      const HALVE_VM  = ["vm_kantoor","vm_thuis","vm_vrij","vm_extern"];
+      const HALVE_NM  = ["nm_kantoor","nm_thuis","nm_vrij","nm_extern"];
+      const HALVE_DAG = [...HALVE_VM,...HALVE_NM];
+
+      // 1. Hele-dag status: verwijdert ALLE andere hele-dag én alle halve-dag
+      if(HELE_DAG.includes(key)){
+        next = [key];
       }
-      if(key==="thuis") next=next.filter(k2=>k2!=="vm_thuis"&&k2!=="nm_thuis");
-      if(key==="vm_thuis"||key==="nm_thuis"){
-        next=next.filter(k2=>k2!=="thuis");
-        if(next.includes("vm_thuis")&&next.includes("nm_thuis")){
-          next=next.filter(k2=>k2!=="vm_thuis"&&k2!=="nm_thuis");
-          next.push("thuis");
-        }
+      // 2. Halve-dag: verwijder alle hele-dag statussen
+      else {
+        next = [...cur, key].filter(k2=>!HELE_DAG.includes(k2));
+        // Verwijder dubbele
+        next = [...new Set(next)];
+        // Ochtend: slechts één ochtend-status tegelijk
+        if(HALVE_VM.includes(key)) next = next.filter(k2=>!HALVE_VM.includes(k2)||k2===key);
+        // Middag: slechts één middag-status tegelijk
+        if(HALVE_NM.includes(key)) next = next.filter(k2=>!HALVE_NM.includes(k2)||k2===key);
+        // vm+nm van zelfde soort → hele dag
+        if(next.includes("vm_kantoor")&&next.includes("nm_kantoor")){ next=["kantoor"]; }
+        else if(next.includes("vm_thuis")&&next.includes("nm_thuis")){ next=["thuis"]; }
+        // extern halve dag sluit andere dagdeel vm/nm extern uit
+        if(key==="vm_extern") next=next.filter(k2=>k2!=="nm_extern");
+        if(key==="nm_extern") next=next.filter(k2=>k2!=="vm_extern");
       }
-      // Extern sluit alles uit en andersom
-      if(key==="extern") next=["extern"];
-      if(key!=="extern"&&key!=="vm_extern"&&key!=="nm_extern") next=next.filter(k2=>k2!=="extern");
-      // vm_extern sluit ochtend kantoor/thuis/vrij uit en andersom
-      if(key==="vm_extern") next=next.filter(k2=>!["vm_kantoor","vm_thuis","vm_vrij","kantoor","thuis","vrij","ziek","nm_extern"].includes(k2));
-      if(["vm_kantoor","vm_thuis","vm_vrij"].includes(key)) next=next.filter(k2=>k2!=="vm_extern");
-      // nm_extern sluit middag kantoor/thuis/vrij uit en andersom
-      if(key==="nm_extern") next=next.filter(k2=>!["nm_kantoor","nm_thuis","nm_vrij","kantoor","thuis","vrij","ziek","vm_extern"].includes(k2));
-      if(["nm_kantoor","nm_thuis","nm_vrij"].includes(key)) next=next.filter(k2=>k2!=="nm_extern");
-      if(key==="kantoor"||key==="thuis"||key==="vrij") next=next.filter(k2=>k2!=="vm_extern"&&k2!=="nm_extern");
-      if(key==="vm_extern"||key==="nm_extern") next=next.filter(k2=>k2!=="kantoor"&&k2!=="thuis"&&k2!=="vrij");
-      // Ziek sluit alles uit en andersom
-      if(key==="ziek") next=["ziek"];
-      if(key!=="ziek") next=next.filter(k2=>k2!=="ziek");
-      // Ochtend kantoor en ochtend thuis sluiten elkaar uit
-      if(key==="vm_kantoor") next=next.filter(k2=>k2!=="vm_thuis");
-      if(key==="vm_thuis") next=next.filter(k2=>k2!=="vm_kantoor");
-      // Middag kantoor en middag thuis sluiten elkaar uit
-      if(key==="nm_kantoor") next=next.filter(k2=>k2!=="nm_thuis");
-      if(key==="nm_thuis") next=next.filter(k2=>k2!=="nm_kantoor");
     }
     data[person][day]=next;
     saveState();
