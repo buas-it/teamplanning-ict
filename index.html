@@ -102,6 +102,10 @@ button { font-family:inherit; cursor:pointer; }
   <button class="nav-btn" id="btn-next1">▶</button>
   <button class="nav-btn" id="btn-next">▶▶</button>
   <button class="nav-now nav-btn" id="btn-now">Vandaag</button>
+  <div style="display:flex;align-items:center;gap:4px;">
+    <input id="goto-week" type="number" min="1" max="53" placeholder="W" title="Ga naar week" style="width:44px;height:34px;border-radius:7px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:13px;text-align:center;font-family:'Courier New',monospace;">
+    <button class="nav-btn" id="btn-goto" title="Ga naar week" style="font-size:11px;padding:0 8px;width:auto;">→</button>
+  </div>
   <button class="nav-btn" id="btn-refresh" onclick="sessionStorage.setItem('tp_baseMonday',baseMonday.getTime());saveState();setTimeout(()=>location.reload(),300)" title="Ververs" style="font-size:14px;">↻</button>
   <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span>
   <span id="save-ind" style="font-size: 11px; opacity: 0; transition: opacity 0.3s; min-width: 20px; text-align: center; color: rgb(128, 203, 196);">✓ opgeslagen</span>
@@ -1857,6 +1861,19 @@ function showGeenBeheerModal(){
 }
 
 document.getElementById("btn-now").addEventListener("click",()=>{ baseMonday=mondayOf(today); renderAndSync(); });
+document.getElementById("btn-goto").addEventListener("click",()=>{
+  const wn = parseInt(document.getElementById("goto-week").value);
+  if(!wn || wn<1 || wn>53) return;
+  const yr = today.getFullYear();
+  // Bereken maandag van week wn in huidig jaar
+  const jan4 = new Date(yr,0,4);
+  const jan4dow = jan4.getDay()||7;
+  const week1mon = new Date(jan4.getTime()-(jan4dow-1)*86400000);
+  baseMonday = new Date(week1mon.getTime()+(wn-1)*7*86400000);
+  document.getElementById("goto-week").value="";
+  renderAndSync();
+});
+document.getElementById("goto-week").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("btn-goto").click(); });
 document.getElementById("btn-maand").addEventListener("click",()=>{ showMaandOverzicht(); });
 
 const tplModal=document.getElementById("tpl-modal");
