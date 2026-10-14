@@ -321,7 +321,7 @@ let ghSaving = false;
 // 1. state.json — voor snelle eerste load
 const _prefetchState = fetch(
   `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
-  {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
+  {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json","Cache-Control":"no-cache"}}
 );
 
 // 2. Backup listing — voor directe health bar weergave
@@ -336,7 +336,7 @@ async function loadFromGitHub(usePrefetch=false){
     // Gebruik prefetch-promise als die nog loopt (eerste load), anders nieuw verzoek
     const r = await (usePrefetch ? _prefetchState : fetch(
       `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
-      {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
+      {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json","Cache-Control":"no-cache"}}
     ));
     if(!r.ok){ console.warn("GitHub laden HTTP:", r.status); return false; }
     const d = await r.json();
