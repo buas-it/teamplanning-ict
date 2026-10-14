@@ -711,7 +711,16 @@ function pushTemplateCell(person,day){
   });
 }
 
+// Vergrendelde weken — kunnen niet bewerkt worden
+const LOCKED_WEEKS = new Set(["2026-W53"]);
+
 function toggleStatus(monday,person,day,key,isTemplate){
+  if(!isTemplate){
+    const wk = weekKey(monday);
+    if(LOCKED_WEEKS.has(wk)){
+      return; // Vergrendeld — niet bewerkbaar
+    }
+  }
   if(isTemplate){
     const cur=template[person][day];
     template[person][day]=cur.includes(key)?cur.filter(k=>k!==key):[...cur,key];
@@ -868,6 +877,7 @@ function closePopup(){ if(openPopup){ openPopup.el.remove(); openPopup=null; } }
 document.addEventListener("click",e=>{ if(openPopup&&!openPopup.el.contains(e.target)&&!e.target.closest(".cell")) closePopup(); });
 
 async function showPopup(cellWrap,monday,person,day,isTemplate){
+  if(!isTemplate && LOCKED_WEEKS.has(weekKey(monday))) return; // Vergrendeld
   if(!await requireUnlock()) return;
   closePopup();
   const popup=document.createElement("div"); popup.className="popup";
