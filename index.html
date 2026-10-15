@@ -236,6 +236,34 @@ function touchEditTimer(){
   unlockTimer = setTimeout(lock, EDIT_IDLE_MS);
 }
 
+// ── Gebruiker + werkstation: ID voor wie een wijziging doet ─────────────
+let currentIdentity = null;   // {user, workstation, device, id} zolang bewerken aan staat
+function getDeviceId(){
+  try{
+    let d = localStorage.getItem("tp_device");
+    if(!d){
+      const a = new Uint8Array(4);
+      if(window.crypto && crypto.getRandomValues) crypto.getRandomValues(a); else for(let k=0;k<4;k++) a[k] = Math.floor(Math.random()*256);
+      d = Array.from(a).map(b=>b.toString(16).padStart(2,"0")).join("");
+      localStorage.setItem("tp_device", d);
+    }
+    return d;
+  }catch(e){ return "onbekend"; }
+}
+function guessWorkstation(){
+  const ua = navigator.userAgent || "";
+  const os = /Windows/.test(ua) ? "Windows" : /Android/.test(ua) ? "Android" : /iPhone|iPad|iPod/.test(ua) ? "iOS" : /Mac OS X|Macintosh/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "pc";
+  const br = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "browser";
+  return os + " · " + br;
+}
+function makeIdentity(user, workstation){
+  const device = getDeviceId();
+  return {user, workstation, device, id: user + "@" + device};
+}
+function commitMessage(base){
+  return currentIdentity ? base + " — " + currentIdentity.id + " (" + currentIdentity.workstation + ")" : base;
+}
+
 async function hashPassword(pw){
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
@@ -245,10 +273,10 @@ function showLockIndicator(){
   const ind = document.getElementById("lock-ind");
   if(!ind) return;
   if(editUnlocked){
-    ind.textContent = "🔓 bewerken aan";
+    ind.textContent = "🔓 bewerken aan" + (currentIdentity ? " · " + currentIdentity.user : "");
     ind.style.color = "#80cbc4";
     ind.style.cursor = "pointer";
-    ind.title = "Klik om te vergrendelen";
+    ind.title = currentIdentity ? ("Ingelogd als " + currentIdentity.id + " (" + currentIdentity.workstation + ") — klik om te vergrendelen") : "Klik om te vergrendelen";
   } else {
     ind.textContent = "🔒 alleen lezen";
     ind.style.color = "rgba(255,255,255,0.3)";
@@ -260,7 +288,8 @@ function showLockIndicator(){
 function lock(){
   editUnlocked = false;
   clearTimeout(unlockTimer);
-  try{ localStorage.removeItem("tp_unlocked"); }catch(e){}
+  try{ localStorage.removeItem("tp_unlocked"); localStorage.removeItem("tp_user"); }catch(e){}
+  currentIdentity = null;
   // Open keuzemenu's/popups sluiten, zodat daarmee niets meer gemuteerd kan worden
   try{ closePopup(); }catch(e){}
   document.querySelectorAll(".mo-inline-menu").forEach(m=>m.remove());
@@ -274,7 +303,12 @@ async function promptUnlock(){
     overlay.style.cssText = "position:fixed;inset:0;z-index:950;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
     overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:28px 24px;min-width:280px;text-align:center;">
       <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">🔒 Wachtwoord vereist</div>
-      <div style="font-size:11px;color:#777;margin-bottom:18px;">Voer het wachtwoord in om te bewerken</div>
+      <div style="font-size:11px;color:#777;margin-bottom:14px;">Kies wie je bent en voer het wachtwoord in om te bewerken</div>
+      <div style="text-align:left;font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:4px;">WIE BEN JE?</div>
+      <select id="pw-user" style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;outline:none;margin-bottom:10px;"></select>
+      <div style="text-align:left;font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:4px;">WERKSTATION</div>
+      <input id="pw-ws" type="text" maxlength="40" autocomplete="off" style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;outline:none;margin-bottom:4px;">
+      <div style="text-align:left;font-size:9px;color:#666;margin-bottom:12px;">Naam van deze pc of laptop. De browser kan die zelf niet uitlezen.</div>
       <input id="pw-input" type="password" placeholder="Wachtwoord" autocomplete="off"
         style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;margin-bottom:8px;outline:none;">
       <div id="pw-error" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
@@ -286,11 +320,22 @@ async function promptUnlock(){
     document.body.appendChild(overlay);
     const input = overlay.querySelector("#pw-input");
     const error = overlay.querySelector("#pw-error");
-    input.focus();
+    const userSel = overlay.querySelector("#pw-user");
+    const wsInput = overlay.querySelector("#pw-ws");
+    { const ph = document.createElement("option"); ph.value = ""; ph.disabled = true; ph.selected = true; ph.textContent = "— Kies je naam —"; userSel.appendChild(ph); }
+    TEAM.filter(n=>n!=="__divider__").forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; userSel.appendChild(o); });
+    let savedWs = ""; try{ savedWs = localStorage.getItem("tp_ws") || ""; }catch(e){}
+    wsInput.value = savedWs || guessWorkstation();
+    userSel.focus();
 
     async function tryUnlock(){
+      const user = userSel.value;
+      if(!user){ error.textContent = "Kies eerst wie je bent"; userSel.focus(); return; }
+      const ws = (wsInput.value || "").trim().slice(0, 40) || guessWorkstation();
       const hash = await hashPassword(input.value);
       if(hash === PW_HASH){
+        currentIdentity = makeIdentity(user, ws);
+        try{ localStorage.setItem("tp_ws", ws); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); }catch(e){}
         editUnlocked = true;
         clearTimeout(unlockTimer);
         // Onthoud op dit apparaat (30 dagen geldig)
@@ -305,7 +350,7 @@ async function promptUnlock(){
         error.textContent = "Onjuist wachtwoord";
         input.value = "";
         input.focus();
-        resolve(false);
+        // venster blijft open: na een juist wachtwoord gaat de oorspronkelijke actie gewoon door
       }
     }
 
@@ -454,7 +499,7 @@ async function saveToGitHub(){
     const json = JSON.stringify(serializeState());
     const content = encodeBase64(json);
 
-    const body = {message:"Update planning", content, sha: ghSha, branch: GH_BRANCH};
+    const body = {message:commitMessage("Update planning"), content, sha: ghSha, branch: GH_BRANCH};
     const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`, {
       method:"PUT",
       headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
@@ -903,7 +948,12 @@ function propagateTemplateToAll(){
   if(!ghLoaded){
     // Geen localStorage fallback — GitHub is de enige bron van waarheid
     // Verwijder eventuele oude localStorage data
-    try{ localStorage.clear(); }catch(e){}
+    try{
+      const keep = {};
+      ["tp_device","tp_ws"].forEach(k=>{ const v = localStorage.getItem(k); if(v !== null) keep[k] = v; });
+      localStorage.clear();
+      Object.keys(keep).forEach(k=>localStorage.setItem(k, keep[k]));
+    }catch(e){}
   }
   TEAM = TEAM.filter(p => p !== "__divider__");
   propagateTemplateToAll();
@@ -1904,7 +1954,7 @@ async function restoreFromBackup(filename, sha){
     const wr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`,{
       method:"PUT",
       headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
-      body: JSON.stringify({message:`Herstel backup ${filename}`, content: btoa(unescape(encodeURIComponent(JSON.stringify(backupState)))), sha: sd.sha, branch: GH_BRANCH})
+      body: JSON.stringify({message:commitMessage(`Herstel backup ${filename}`), content: btoa(unescape(encodeURIComponent(JSON.stringify(backupState)))), sha: sd.sha, branch: GH_BRANCH})
     });
     if(wr.ok){
       touchEditTimer();
@@ -2357,12 +2407,14 @@ try{
   const saved = localStorage.getItem("tp_unlocked");
   if(saved){
     const age = Date.now() - parseInt(saved);
-    if(age < 30 * 24 * 60 * 60 * 1000){
+    let ident = null;
+    try{ ident = JSON.parse(localStorage.getItem("tp_user") || "null"); }catch(e){}
+    if(age < 30 * 24 * 60 * 60 * 1000 && ident && ident.user && ident.id){
+      currentIdentity = ident;
       editUnlocked = true;
-      // Reset auto-lock timer
       touchEditTimer();
     } else {
-      localStorage.removeItem("tp_unlocked"); // verlopen
+      localStorage.removeItem("tp_unlocked"); // verlopen, of geen gebruiker bekend: opnieuw inloggen
     }
   }
 }catch(e){}
