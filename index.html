@@ -446,7 +446,7 @@ async function showAuditModal(){
   const old = document.getElementById("audit-overlay"); if(old) old.remove();
   const overlay = document.createElement("div");
   overlay.id = "audit-overlay";
-  overlay.style.cssText = "position:fixed;inset:0;z-index:860;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
+  overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:860;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
   const box = document.createElement("div");
   box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:900px;max-width:98vw;font-family:'Courier New',monospace;";
   const SEL = "background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 8px;font-family:inherit;font-size:12px;";
@@ -560,7 +560,7 @@ function lock(){
 async function promptUnlock(){
   return new Promise(resolve=>{
     const overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed;inset:0;z-index:950;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+    overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:950;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
     overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:28px 24px;min-width:280px;text-align:center;">
       <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">🔒 Wachtwoord vereist</div>
       <div style="font-size:11px;color:#777;margin-bottom:14px;">Kies wie je bent en voer het wachtwoord in om te bewerken</div>
@@ -1891,7 +1891,7 @@ function showMaandOverzicht(){
   let startWeek = mondayOf(today);
 
   const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
+  overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
   const onLockChanged = ()=>{
     if(!overlay.isConnected){ document.removeEventListener("tp-lock-changed", onLockChanged); return; }
     const b = overlay.querySelector("#mo-lock"); if(!b) return;
@@ -2151,7 +2151,7 @@ function showHealthPopup(title, lines){
 // ── Backup Inhoud modal ───────────────────────────────────────────
 async function showBackupContents(){
   const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
+  overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
 
   const box = document.createElement("div");
   box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:24px;width:520px;max-width:95vw;max-height:85vh;overflow-y:auto;font-family:'Courier New',monospace;";
@@ -2257,7 +2257,7 @@ async function showRestoreModal(){
   if(!await requireUnlock()) return;
 
   const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
+  overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
 
   const box = document.createElement("div");
   box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:24px;width:480px;max-width:95vw;font-family:'Courier New',monospace;";
@@ -2364,7 +2364,7 @@ async function showPeriodeModal(){
   const DAGKEYS = ["ZO","MA","DI","WO","DO","VR","ZA"];
 
   const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed;inset:0;z-index:860;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
+  overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:860;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
 
   const box = document.createElement("div");
   box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:24px;width:440px;max-width:95vw;font-family:'Courier New',monospace;";
@@ -2630,7 +2630,7 @@ function showGeenBeheerModal(){
 
   // Bouw modal
   const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+  overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
   const box = document.createElement("div");
   box.style.cssText = "background:#111827;border:1px solid rgba(244,143,177,0.3);border-radius:14px;padding:24px 22px;min-width:320px;max-width:420px;max-height:80vh;overflow-y:auto;";
 
@@ -2725,7 +2725,7 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
 
     // Bouw keuze-overlay
     const overlay = document.createElement("div");
-    overlay.style.cssText="position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+    overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
     const box = document.createElement("div");
     box.style.cssText="background:#111827;border:1px solid rgba(255,165,0,0.4);border-radius:14px;padding:24px 22px;min-width:280px;max-width:340px;";
     // Maak-backup knop bovenaan
@@ -2809,6 +2809,34 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
 });
 
 // Ververs het rooster elke minuut (vandaag-markering) — wordt al gedaan door de GitHub sync interval
+
+// ── Inactiviteit: na 10 minuten zonder gebruik altijd terug naar het hoofdscherm ──
+const IDLE_HOME_MS = 10 * 60 * 1000;
+let lastActivity = Date.now();
+let idleHandled = false;
+function closeAllOverlays(){
+  document.querySelectorAll(".tp-overlay, .mo-inline-menu, #health-popup").forEach(el=>el.remove());
+  try{ closePopup(); }catch(e){}
+  try{ tplModal.style.display = "none"; }catch(e){}
+}
+function goHome(){
+  closeAllOverlays();
+  const now = new Date(), dow = now.getDay();
+  const def = (dow === 0 || dow === 6) ? addWeeks(mondayOf(now), 1) : mondayOf(now);   // zelfde startweek als bij het openen (in het weekend: komende week)
+  try{ sessionStorage.removeItem("tp_baseMonday"); }catch(e){}
+  if(baseMonday.getTime() !== def.getTime()){ baseMonday = def; renderAndSync(); }
+  const se = document.scrollingElement || document.documentElement;
+  se.scrollTop = 0; document.body.scrollTop = 0;
+}
+function markActive(){
+  const now = Date.now();
+  if(!idleHandled && now - lastActivity >= IDLE_HOME_MS){ goHome(); }   // timers stonden stil (slaapstand/achtergrond): alsnog terug
+  lastActivity = now; idleHandled = false;
+}
+["pointerdown","pointermove","keydown","wheel","touchstart","scroll","click"].forEach(t=>document.addEventListener(t, markActive, {capture:true, passive:true}));
+setInterval(()=>{
+  if(!idleHandled && Date.now() - lastActivity >= IDLE_HOME_MS){ idleHandled = true; goHome(); }
+}, 10000);
 
 // Elk uur: vergelijk lokale staat met GitHub, merge onopgeslagen wijzigingen, herlaad dan
 // Uurlijkse pagina-reload: simpelweg herladen, remote wint altijd via loadFromGitHub bij opstart
