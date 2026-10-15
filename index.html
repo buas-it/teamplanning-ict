@@ -2006,44 +2006,44 @@ async function showPeriodeModal(){
     {key:"extern",  label:"Extern",  color:"#ffd54f"},
   ];
 
-  const INP = "width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:7px 10px;font-family:'Courier New',monospace;font-size:12px;box-sizing:border-box;";
-  const LBL = "font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:5px;letter-spacing:1px;text-transform:uppercase;";
-  const SEL = "background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 8px;font-family:'Courier New',monospace;font-size:12px;";
   box.innerHTML = `
     <div style="font-size:14px;font-weight:700;color:#ce93d8;margin-bottom:16px;">📆 Periode invoeren</div>
     <div style="display:grid;gap:14px;">
-
       <div>
-        <div style="${LBL}">Persoon</div>
-        <select id="pd-person" style="${INP}"><option value="" disabled selected style="color:rgba(255,255,255,0.3);">— Kies een persoon —</option>${TEAM.map(p=>`<option value="${p}">${p}</option>`).join("")}</select>
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:5px;letter-spacing:1px;">PERSOON</div>
+        <select id="pd-person" style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:8px;font-family:'Courier New',monospace;font-size:12px;">
+          <option value="" disabled selected style="color:rgba(255,255,255,0.3);">— Kies een persoon —</option>
+          ${TEAM.map(p=>`<option value="${p}">${p}</option>`).join("")}
+        </select>
       </div>
-
-      <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:12px;">
-        <div style="${LBL}margin-bottom:8px;">Weeknummer</div>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-          <span style="font-size:11px;color:rgba(255,255,255,0.4);">Van</span>
-          <select id="pd-week-yr" style="${SEL}"><option value="2026">2026</option><option value="2027">2027</option></select>
-          <select id="pd-week-nr" style="${SEL}">${Array.from({length:53},(_,i)=>`<option value="${i+1}">W${String(i+1).padStart(2,"0")}</option>`).join("")}</select>
-          <span style="font-size:11px;color:rgba(255,255,255,0.4);">t/m</span>
-          <select id="pd-week-yr2" style="${SEL}"><option value="2026">2026</option><option value="2027">2027</option></select>
-          <select id="pd-week-nr2" style="${SEL}">${Array.from({length:53},(_,i)=>`<option value="${i+1}">W${String(i+1).padStart(2,"0")}</option>`).join("")}</select>
-          <button id="pd-week-set" style="background:rgba(206,147,216,0.15);border:1px solid rgba(206,147,216,0.3);color:#ce93d8;border-radius:8px;padding:6px 14px;cursor:pointer;font-family:inherit;font-size:11px;">→</button>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div style="display:grid;grid-template-columns:1fr auto 1fr auto;gap:8px;align-items:end;">
         <div>
-          <div style="${LBL}">Van <span id="pd-from-wk" style="color:#ce93d8;"></span></div>
-          <input id="pd-from" type="date" style="${INP}">
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:5px;letter-spacing:1px;">VAN WEEK</div>
+          <div style="display:flex;gap:4px;">
+            <select id="pd-week-yr" style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:8px;font-family:'Courier New',monospace;font-size:12px;width:75px;">
+              <option value="2026">2026</option><option value="2027">2027</option>
+            </select>
+            <select id="pd-week-nr" style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:8px;font-family:'Courier New',monospace;font-size:12px;flex:1;">
+              ${Array.from({length:53},(_,i)=>`<option value="${i+1}">W${String(i+1).padStart(2,"0")}</option>`).join("")}
+            </select>
+          </div>
         </div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.4);padding-bottom:8px;">t/m</div>
         <div>
-          <div style="${LBL}">T/m <span id="pd-to-wk" style="color:#ce93d8;"></span></div>
-          <input id="pd-to" type="date" style="${INP}">
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:5px;letter-spacing:1px;">T/M WEEK</div>
+          <div style="display:flex;gap:4px;">
+            <select id="pd-week-yr2" style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:8px;font-family:'Courier New',monospace;font-size:12px;width:75px;">
+              <option value="2026">2026</option><option value="2027">2027</option>
+            </select>
+            <select id="pd-week-nr2" style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:8px;font-family:'Courier New',monospace;font-size:12px;flex:1;">
+              ${Array.from({length:53},(_,i)=>`<option value="${i+1}">W${String(i+1).padStart(2,"0")}</option>`).join("")}
+            </select>
+          </div>
         </div>
+        <div id="pd-result" style="font-size:11px;color:#ce93d8;padding-bottom:8px;white-space:nowrap;"></div>
       </div>
-
       <div>
-        <div style="${LBL}">Status</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:5px;letter-spacing:1px;">STATUS</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
           ${STATUSES_SIMPLE.map(s=>`
             <label style="display:flex;align-items:center;gap:7px;cursor:pointer;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);font-size:12px;color:#fff;">
@@ -2053,90 +2053,73 @@ async function showPeriodeModal(){
             </label>`).join("")}
         </div>
       </div>
-
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
         <input type="checkbox" id="pd-workdays" checked style="accent-color:#ce93d8;">
         <span style="font-size:12px;color:rgba(255,255,255,0.6);">Alleen werkdagen (ma-vr)</span>
       </label>
-
-      <div id="pd-result" style="font-size:11px;color:#ce93d8;min-height:18px;"></div>
-
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button id="pd-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:9px 18px;cursor:pointer;font-family:inherit;font-size:12px;">Annuleren</button>
         <button id="pd-save" style="background:rgba(206,147,216,0.2);border:1px solid rgba(206,147,216,0.5);color:#ce93d8;border-radius:8px;padding:9px 18px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;">Opslaan</button>
       </div>
     </div>`;
 
-    // Set default dates: today to today+7
-  const now = new Date();
-  const fmt = d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  box.querySelector("#pd-from").value = fmt(now);
-  const week = new Date(now); week.setDate(week.getDate()+6);
-  box.querySelector("#pd-to").value = fmt(week);
-  box.querySelector('input[name="pd-status"][value="vrij"]').checked = true;
 
-  const getISOWeek = d=>{ const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); dt.setUTCDate(dt.getUTCDate()+4-(dt.getUTCDay()||7)); const y=dt.getUTCFullYear(); return [y,Math.ceil((((dt-new Date(Date.UTC(y,0,1)))/86400000)+1)/7)]; };
+    // Helper: maandag van weeknummer
   const getMondayOfWeek = (yr,wn)=>{ const jan4=new Date(yr,0,4); const dow=jan4.getDay()||7; const mon=new Date(jan4); mon.setDate(jan4.getDate()-(dow-1)+(wn-1)*7); return mon; };
+  const getISOWeek = d=>{ const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); dt.setUTCDate(dt.getUTCDate()+4-(dt.getUTCDay()||7)); const y=dt.getUTCFullYear(); return [y,Math.ceil((((dt-new Date(Date.UTC(y,0,1)))/86400000)+1)/7)]; };
+  const fmt = d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
-  const updateResult = ()=>{
-    const from = new Date(box.querySelector("#pd-from").value);
-    const to   = new Date(box.querySelector("#pd-to").value);
-    const workOnly = box.querySelector("#pd-workdays").checked;
-    // Toon weeknummers
-    if(!isNaN(from)){ const [y,w]=getISOWeek(from); box.querySelector("#pd-from-wk").textContent=`W${String(w).padStart(2,"0")}`; }
-    if(!isNaN(to)){   const [y,w]=getISOWeek(to);   box.querySelector("#pd-to-wk").textContent=`W${String(w).padStart(2,"0")}`; }
-    if(isNaN(from)||isNaN(to)||to<from){ box.querySelector("#pd-result").textContent=""; return; }
-    let count=0, d=new Date(from);
-    while(d<=to){ if(!workOnly||d.getDay()>=1&&d.getDay()<=5) count++; d.setDate(d.getDate()+1); }
-    box.querySelector("#pd-result").textContent = `→ ${count} dag${count!==1?"en":""} worden aangepast`;
-  };
-
-  box.querySelector("#pd-from").addEventListener("input", updateResult);
-  box.querySelector("#pd-to").addEventListener("input", updateResult);
-  box.querySelector("#pd-workdays").addEventListener("change", updateResult);
-
-  // Weeknummer selector → vult van/t/m in (van week t/m week)
-  box.querySelector("#pd-week-set").addEventListener("click", ()=>{
-    const yr1 = parseInt(box.querySelector("#pd-week-yr").value);
-    const wn1 = parseInt(box.querySelector("#pd-week-nr").value);
-    const yr2 = parseInt(box.querySelector("#pd-week-yr2").value);
-    const wn2 = parseInt(box.querySelector("#pd-week-nr2").value);
-    const mon = getMondayOfWeek(yr1, wn1);
-    // Einde = vrijdag van de t/m week
-    const monEnd = getMondayOfWeek(yr2, wn2);
-    const fri = new Date(monEnd); fri.setDate(monEnd.getDate()+4);
-    // Als t/m voor van valt: gebruik van-week als beide
-    if(monEnd < mon){ box.querySelector("#pd-week-yr2").value=String(yr1); box.querySelector("#pd-week-nr2").value=String(wn1); return; }
-    box.querySelector("#pd-from").value = fmt(mon);
-    box.querySelector("#pd-to").value   = fmt(fri);
-    updateResult();
-  });
-
-  // Stel huidig weeknummer in als default
+  // Stel huidig weeknummer in
+  const now = new Date();
   const [curY, curW] = getISOWeek(now);
   box.querySelector("#pd-week-yr").value  = String(curY);
   box.querySelector("#pd-week-nr").value  = String(curW);
   box.querySelector("#pd-week-yr2").value = String(curY);
   box.querySelector("#pd-week-nr2").value = String(curW);
+  box.querySelector('input[name="pd-status"][value="vrij"]').checked = true;
 
+  const updateResult = ()=>{
+    const yr1=parseInt(box.querySelector("#pd-week-yr").value);
+    const wn1=parseInt(box.querySelector("#pd-week-nr").value);
+    const yr2=parseInt(box.querySelector("#pd-week-yr2").value);
+    const wn2=parseInt(box.querySelector("#pd-week-nr2").value);
+    const workOnly=box.querySelector("#pd-workdays").checked;
+    const mon=getMondayOfWeek(yr1,wn1);
+    const fri=new Date(getMondayOfWeek(yr2,wn2)); fri.setDate(fri.getDate()+4);
+    if(fri<mon){ box.querySelector("#pd-result").textContent=""; return; }
+    let count=0,d=new Date(mon);
+    while(d<=fri){ if(!workOnly||d.getDay()>=1&&d.getDay()<=5) count++; d.setDate(d.getDate()+1); }
+    box.querySelector("#pd-result").textContent=`${count} dag${count!==1?"en":""}`;
+  };
+
+  box.querySelector("#pd-week-yr").addEventListener("change",updateResult);
+  box.querySelector("#pd-week-nr").addEventListener("change",updateResult);
+  box.querySelector("#pd-week-yr2").addEventListener("change",updateResult);
+  box.querySelector("#pd-week-nr2").addEventListener("change",updateResult);
+  box.querySelector("#pd-workdays").addEventListener("change",updateResult);
   updateResult();
 
-  box.querySelector("#pd-cancel").onclick = ()=>overlay.remove();
+    box.querySelector("#pd-cancel").onclick = ()=>overlay.remove();
 
   box.querySelector("#pd-save").onclick = async ()=>{
     const person   = box.querySelector("#pd-person").value;
-    const from     = new Date(box.querySelector("#pd-from").value);
-    const to       = new Date(box.querySelector("#pd-to").value);
+    const yr1=parseInt(box.querySelector("#pd-week-yr").value);
+    const wn1=parseInt(box.querySelector("#pd-week-nr").value);
+    const yr2=parseInt(box.querySelector("#pd-week-yr2").value);
+    const wn2=parseInt(box.querySelector("#pd-week-nr2").value);
+    const from = getMondayOfWeek(yr1,wn1);
+    const toFri = new Date(getMondayOfWeek(yr2,wn2)); toFri.setDate(toFri.getDate()+4);
     const statusEl = box.querySelector('input[name="pd-status"]:checked');
     const workOnly = box.querySelector("#pd-workdays").checked;
 
     if(!person){ alert("Kies eerst een persoon"); return; }
     if(!statusEl){ alert("Kies een status"); return; }
-    if(isNaN(from)||isNaN(to)||to<from){ alert("Ongeldige datums"); return; }
+    if(toFri<from){ alert("T/m week ligt voor van week"); return; }
 
     const status = statusEl.value;
     const DAGKEYS = ["ZO","MA","DI","WO","DO","VR","ZA"];
     let changed = 0;
+    const to = toFri;
 
     let d = new Date(from);
     while(d <= to){
