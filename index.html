@@ -1655,9 +1655,8 @@ function showMaandOverzicht(){
             if(i===4){ td.style.borderRight="2px solid rgba(255,183,77,0.75)"; }
             if(isLastPerson){ td.style.borderBottom="2px solid rgba(255,183,77,0.75)"; if(i===0) td.style.borderBottomLeftRadius="5px"; if(i===4) td.style.borderBottomRightRadius="5px"; }
           }
-          if(editUnlocked){
-            td.style.cursor="pointer";
-            td.addEventListener("click", async (e)=>{
+          td.style.cursor="pointer";
+          td.addEventListener("click", async (e)=>{
               e.stopPropagation();
               if(!editUnlocked){ const ok=await promptUnlock(); if(!ok) return; }
               const existing=overlay.querySelector(".mo-inline-menu");
@@ -1699,7 +1698,6 @@ function showMaandOverzicht(){
               document.body.appendChild(menu);
               setTimeout(()=>document.addEventListener("click",function h(ev){ if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener("click",h); }},true),0);
             });
-          }
           tr.appendChild(td);
         });
         // Za/Zo cel
