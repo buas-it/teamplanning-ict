@@ -110,6 +110,7 @@ button { font-family:inherit; cursor:pointer; }
   <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span>
   <span id="save-ind" style="font-size: 11px; opacity: 0; transition: opacity 0.3s; min-width: 20px; text-align: center; color: rgb(128, 203, 196);">✓ opgeslagen</span>
   <button class="nav-btn" id="btn-maand" style="font-size:10px;padding:6px 10px;color:#80cbc4;border-color:rgba(128,203,196,0.4);background:rgba(128,203,196,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">📅 Maand</button>
+  <button class="nav-btn" id="btn-periode" style="font-size:10px;padding:6px 10px;color:#ce93d8;border-color:rgba(206,147,216,0.4);background:rgba(206,147,216,0.06);width:auto;font-weight:700;">📆 Periode</button>
   <button class="nav-btn" id="btn-geen-beheer" onclick="showGeenBeheerModal()" style="font-size:10px;padding:6px 10px;color:#f48fb1;border-color:rgba(244,143,177,0.4);background:rgba(244,143,177,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚠ Geen Beheer</button>
   <button class="nav-btn" id="btn-template" style="font-size:10px;padding:6px 10px;color:#60b0ff;border-color:rgba(0,150,255,0.3);background:rgba(0,100,220,0.08);width:auto;letter-spacing:1px;">★ Standaard</button>
 </div>
@@ -1987,6 +1988,143 @@ async function showRestoreModal(){
   }
 }
 
+// ── Periode invoer ────────────────────────────────────────────────
+async function showPeriodeModal(){
+  if(!await requireUnlock()) return;
+
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
+
+  const box = document.createElement("div");
+  box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:24px;width:400px;max-width:95vw;font-family:'Courier New',monospace;";
+
+  const STATUSES_SIMPLE = [
+    {key:"vrij",    label:"Vrij",    color:"#e53935"},
+    {key:"thuis",   label:"Thuis",   color:"#4caf50"},
+    {key:"kantoor", label:"Campus",  color:"#aaaaaa"},
+    {key:"ziek",    label:"Ziek",    color:"rgba(150,150,150,0.5)"},
+    {key:"extern",  label:"Extern",  color:"#ffd54f"},
+  ];
+
+  box.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:#ce93d8;margin-bottom:16px;">📆 Periode invoeren</div>
+    <div style="display:grid;gap:12px;">
+      <div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;letter-spacing:1px;">PERSOON</div>
+        <select id="pd-person" style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;padding:8px;font-family:'Courier New',monospace;font-size:12px;">
+          ${TEAM.map(p=>`<option value="${p}">${p}</option>`).join("")}
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;letter-spacing:1px;">VAN</div>
+          <input id="pd-from" type="date" style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;padding:8px;font-family:'Courier New',monospace;font-size:12px;box-sizing:border-box;">
+        </div>
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;letter-spacing:1px;">T/M</div>
+          <input id="pd-to" type="date" style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;padding:8px;font-family:'Courier New',monospace;font-size:12px;box-sizing:border-box;">
+        </div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;letter-spacing:1px;">STATUS</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${STATUSES_SIMPLE.map(s=>`
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);font-size:11px;color:#fff;">
+              <input type="radio" name="pd-status" value="${s.key}" style="accent-color:${s.color}">
+              <span style="width:10px;height:10px;border-radius:2px;background:${s.color};display:inline-block;"></span>
+              ${s.label}
+            </label>`).join("")}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="pd-workdays" checked style="accent-color:#ce93d8;">
+        <label for="pd-workdays" style="font-size:11px;color:rgba(255,255,255,0.6);cursor:pointer;">Alleen werkdagen (ma-vr)</label>
+      </div>
+      <div id="pd-result" style="font-size:10px;color:rgba(255,255,255,0.4);min-height:16px;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="pd-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:8px 16px;cursor:pointer;font-family:inherit;">Annuleren</button>
+        <button id="pd-save" style="background:rgba(206,147,216,0.15);border:1px solid rgba(206,147,216,0.4);color:#ce93d8;border-radius:8px;padding:8px 16px;cursor:pointer;font-family:inherit;font-weight:700;">Opslaan</button>
+      </div>
+    </div>`;
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  // Set default dates: today to today+7
+  const now = new Date();
+  const fmt = d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  box.querySelector("#pd-from").value = fmt(now);
+  const week = new Date(now); week.setDate(week.getDate()+6);
+  box.querySelector("#pd-to").value = fmt(week);
+  box.querySelector('input[name="pd-status"][value="vrij"]').checked = true;
+
+  const updateResult = ()=>{
+    const from = new Date(box.querySelector("#pd-from").value);
+    const to   = new Date(box.querySelector("#pd-to").value);
+    const workOnly = box.querySelector("#pd-workdays").checked;
+    if(isNaN(from)||isNaN(to)||to<from){ box.querySelector("#pd-result").textContent=""; return; }
+    let count=0, d=new Date(from);
+    while(d<=to){ if(!workOnly||d.getDay()>=1&&d.getDay()<=5) count++; d.setDate(d.getDate()+1); }
+    box.querySelector("#pd-result").textContent = `→ ${count} dag${count!==1?"en":""} worden aangepast`;
+  };
+
+  box.querySelector("#pd-from").addEventListener("input", updateResult);
+  box.querySelector("#pd-to").addEventListener("input", updateResult);
+  box.querySelector("#pd-workdays").addEventListener("change", updateResult);
+  updateResult();
+
+  box.querySelector("#pd-cancel").onclick = ()=>overlay.remove();
+
+  box.querySelector("#pd-save").onclick = async ()=>{
+    const person   = box.querySelector("#pd-person").value;
+    const from     = new Date(box.querySelector("#pd-from").value);
+    const to       = new Date(box.querySelector("#pd-to").value);
+    const statusEl = box.querySelector('input[name="pd-status"]:checked');
+    const workOnly = box.querySelector("#pd-workdays").checked;
+
+    if(!statusEl){ alert("Kies een status"); return; }
+    if(isNaN(from)||isNaN(to)||to<from){ alert("Ongeldige datums"); return; }
+
+    const status = statusEl.value;
+    const DAGKEYS = ["ZO","MA","DI","WO","DO","VR","ZA"];
+    let changed = 0;
+
+    let d = new Date(from);
+    while(d <= to){
+      const dow = d.getDay();
+      if(!workOnly || (dow>=1&&dow<=5)){
+        // Check locked days
+        const y=d.getFullYear(), wn=d.toLocaleDateString("nl-NL",{year:"numeric"});
+        const isoWeek = (()=>{ const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); dt.setUTCDate(dt.getUTCDate()+4-(dt.getUTCDay()||7)); const y=dt.getUTCFullYear(); const w=Math.ceil((((dt-new Date(Date.UTC(y,0,1)))/86400000)+1)/7); return `${y}-W${String(w).padStart(2,"0")}`; })();
+        const dayKey = DAGKEYS[dow];
+        const lockKey = isoWeek+"-"+dayKey;
+        if(!LOCKED_DAYS.has(lockKey)){
+          const monday = mondayOf(d);
+          const data = getData(monday);
+          if(!data[person]) data[person]={};
+          data[person][dayKey] = [status];
+          // Mark as manuallyEdited
+          if(!manuallyEdited[isoWeek]) manuallyEdited[isoWeek]=new Set();
+          manuallyEdited[isoWeek].add(person+"-"+dayKey);
+          changed++;
+        }
+      }
+      d.setDate(d.getDate()+1);
+    }
+
+    await saveToGitHub();
+    renderAndSync();
+    overlay.remove();
+    const btn = box.querySelector("#pd-save");
+    // Show feedback
+    const msg = document.createElement("div");
+    msg.style.cssText = "position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid rgba(206,147,216,0.4);color:#ce93d8;padding:10px 20px;border-radius:8px;font-family:'Courier New',monospace;font-size:12px;z-index:900;";
+    msg.textContent = `✅ ${changed} dag${changed!==1?"en":""} aangepast voor ${person}`;
+    document.body.appendChild(msg);
+    setTimeout(()=>msg.remove(), 3000);
+  };
+}
+
 // ── Geen Beheer modal ────────────────────────────────────────────
 function showGeenBeheerModal(){
   const MUST = ["Bram","Marco","Hans","Ted","Sercan"];
@@ -2110,6 +2248,7 @@ document.getElementById("btn-goto").addEventListener("click",()=>{
 });
 document.getElementById("goto-week").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("btn-goto").click(); });
 document.getElementById("btn-maand").addEventListener("click",()=>{ showMaandOverzicht(); });
+document.getElementById("btn-periode").addEventListener("click",()=>{ showPeriodeModal(); });
 
 const tplModal=document.getElementById("tpl-modal");
 document.getElementById("btn-template").addEventListener("click",async ()=>{ if(!await requireUnlock()) return; buildTemplateGrid(); tplModal.style.display="block"; });
