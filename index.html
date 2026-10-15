@@ -2172,6 +2172,9 @@ async function showPeriodeModal(){
     document.body.appendChild(msg);
     setTimeout(()=>msg.remove(), 3000);
   };
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
 }
 
 // ── Geen Beheer modal ────────────────────────────────────────────
