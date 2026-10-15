@@ -2160,7 +2160,14 @@ async function showPeriodeModal(){
   box.querySelector("#pd-to").addEventListener("input",updateResult);
   updateResult();
 
-    box.querySelector("#pd-cancel").onclick = ()=>overlay.remove();
+    // Switch tussen week en datum invoer
+  let useWeekTab = true;
+  const panelWeek = box.querySelector("#pd-panel-week");
+  const panelDate = box.querySelector("#pd-panel-date");
+  box.querySelector("#pd-switch-to-date").onclick = ()=>{ useWeekTab=false; panelWeek.style.display="none"; panelDate.style.display=""; updateResult(); };
+  box.querySelector("#pd-switch-to-week").onclick = ()=>{ useWeekTab=true; panelWeek.style.display=""; panelDate.style.display="none"; updateResult(); };
+
+  box.querySelector("#pd-cancel").onclick = ()=>overlay.remove();
 
   box.querySelector("#pd-save").onclick = async ()=>{
     const person   = box.querySelector("#pd-person").value;
