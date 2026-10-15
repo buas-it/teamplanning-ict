@@ -2099,26 +2099,7 @@ async function showPeriodeModal(){
   const fmt = d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   const now = new Date();
 
-  // Tab switching
-  let useWeekTab = true;
-  const tabWeek = box.querySelector("#pd-tab-week");
-  const tabDate = box.querySelector("#pd-tab-date");
-  const panelWeek = box.querySelector("#pd-panel-week");
-  const panelDate = box.querySelector("#pd-panel-date");
-  const setTab = (week)=>{
-    useWeekTab = week;
-    tabWeek.style.background = week?"rgba(206,147,216,0.2)":"transparent";
-    tabWeek.style.color = week?"#ce93d8":"rgba(255,255,255,0.4)";
-    tabWeek.style.fontWeight = week?"700":"400";
-    tabDate.style.background = !week?"rgba(206,147,216,0.2)":"transparent";
-    tabDate.style.color = !week?"#ce93d8":"rgba(255,255,255,0.4)";
-    tabDate.style.fontWeight = !week?"700":"400";
-    panelWeek.style.display = week?"":"none";
-    panelDate.style.display = !week?"":"none";
-    updateResult();
-  };
-  tabWeek.onclick = ()=>setTab(true);
-  tabDate.onclick = ()=>setTab(false);
+
 
   // Defaults
   const [curY, curW] = getISOWeek(now);
