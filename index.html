@@ -543,7 +543,9 @@ async function promptUnlock(){
     TEAM.filter(n=>n!=="__divider__").forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; userSel.appendChild(o); });
     let savedWs = ""; try{ savedWs = localStorage.getItem("tp_ws") || ""; }catch(e){}
     wsInput.value = savedWs || guessWorkstation();
-    userSel.focus();
+    let lastUser = ""; try{ lastUser = localStorage.getItem("tp_last_user") || ""; }catch(e){}
+    if(lastUser && TEAM.includes(lastUser)) userSel.value = lastUser;   // laatst gebruikte naam op dit werkstation
+    (userSel.value ? input : userSel).focus();
 
     async function tryUnlock(){
       const user = userSel.value;
@@ -552,7 +554,7 @@ async function promptUnlock(){
       const hash = await hashPassword(input.value);
       if(hash === PW_HASH){
         currentIdentity = makeIdentity(user, ws);
-        try{ localStorage.setItem("tp_ws", ws); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); }catch(e){}
+        try{ localStorage.setItem("tp_ws", ws); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); localStorage.setItem("tp_last_user", user); }catch(e){}
         editUnlocked = true;
         clearTimeout(unlockTimer);
         // Onthoud op dit apparaat (30 dagen geldig)
@@ -1169,7 +1171,7 @@ function propagateTemplateToAll(){
     // Verwijder eventuele oude localStorage data
     try{
       const keep = {};
-      ["tp_device","tp_ws","tp_audit_queue"].forEach(k=>{ const v = localStorage.getItem(k); if(v !== null) keep[k] = v; });
+      ["tp_device","tp_ws","tp_audit_queue","tp_last_user"].forEach(k=>{ const v = localStorage.getItem(k); if(v !== null) keep[k] = v; });
       localStorage.clear();
       Object.keys(keep).forEach(k=>localStorage.setItem(k, keep[k]));
     }catch(e){}
