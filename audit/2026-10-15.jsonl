@@ -1,1 +1,2 @@
 {"v":1,"eid":"9cebfc80eeec","t":"2026-10-15T10:34:48.683Z","user":"Bram","ws":"Windows · Chrome","device":"fa363b69","id":"Bram@fa363b69","action":"wijziging","n":1,"trunc":false,"changes":[{"s":"cel","w":"2026-W42","p":"Bas","d":"DO","from":["kantoor"],"to":["vm_kantoor"]}]}
+{"v":1,"eid":"bac17da58149","t":"2026-10-15T10:34:52.394Z","user":"Bram","ws":"Windows · Chrome","device":"fa363b69","id":"Bram@fa363b69","action":"wijziging","n":1,"trunc":false,"changes":[{"s":"cel","w":"2026-W42","p":"Bas","d":"DO","from":["vm_kantoor"],"to":["vm_kantoor","nm_vrij"]}]}
