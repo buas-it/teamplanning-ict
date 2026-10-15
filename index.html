@@ -1989,7 +1989,7 @@ async function showRestoreModal(){
 
 // ── Periode invoer ────────────────────────────────────────────────
 async function showPeriodeModal(){
-  if(!await requireUnlock()) return;
+  if(!editUnlocked){ const ok=await promptUnlock(); if(!ok) return; }
 
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
