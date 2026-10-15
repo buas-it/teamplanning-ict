@@ -228,6 +228,13 @@ const GH_TOKEN = ["github_pat_11AWVCIPQ0AIakeamzqF", "45_3ZlBcrlc8WOcANxLNPsYrOe
 const PW_HASH = "b980ef247db770228acf922dbb07e5a555da45a84d8b8a399246367e0c2f3c08";
 let editUnlocked = false;
 let unlockTimer = null;
+// Bewerken gaat automatisch uit na 10 minuten zonder mutatie
+const EDIT_IDLE_MS = 10 * 60 * 1000;
+function touchEditTimer(){
+  if(!editUnlocked) return;
+  clearTimeout(unlockTimer);
+  unlockTimer = setTimeout(lock, EDIT_IDLE_MS);
+}
 
 async function hashPassword(pw){
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw));
@@ -254,13 +261,17 @@ function lock(){
   editUnlocked = false;
   clearTimeout(unlockTimer);
   try{ localStorage.removeItem("tp_unlocked"); }catch(e){}
+  // Open keuzemenu's/popups sluiten, zodat daarmee niets meer gemuteerd kan worden
+  try{ closePopup(); }catch(e){}
+  document.querySelectorAll(".mo-inline-menu").forEach(m=>m.remove());
   showLockIndicator();
+  document.dispatchEvent(new CustomEvent("tp-lock-changed"));
 }
 
 async function promptUnlock(){
   return new Promise(resolve=>{
     const overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed;inset:0;z-index:850;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:950;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
     overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:28px 24px;min-width:280px;text-align:center;">
       <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">🔒 Wachtwoord vereist</div>
       <div style="font-size:11px;color:#777;margin-bottom:18px;">Voer het wachtwoord in om te bewerken</div>
@@ -284,8 +295,9 @@ async function promptUnlock(){
         clearTimeout(unlockTimer);
         // Onthoud op dit apparaat (30 dagen geldig)
         try{ localStorage.setItem("tp_unlocked", Date.now().toString()); }catch(e){}
-        // Auto-vergrendel na 15 minuten inactiviteit
-        unlockTimer = setTimeout(lock, 15 * 60 * 1000);
+        // Auto-vergrendel na 10 minuten zonder mutatie
+        touchEditTimer();
+        document.dispatchEvent(new CustomEvent("tp-lock-changed"));
         showLockIndicator();
         overlay.remove();
         resolve(true);
@@ -305,12 +317,7 @@ async function promptUnlock(){
 
 // Controleer of bewerken is toegestaan, vraag anders wachtwoord
 async function requireUnlock(){
-  if(editUnlocked){
-    // Reset auto-lock timer bij elke actie
-    clearTimeout(unlockTimer);
-    unlockTimer = setTimeout(lock, 15 * 60 * 1000);
-    return true;
-  }
+  if(editUnlocked) return true;   // alleen openen/kijken verlengt het bewerken niet; alleen een mutatie doet dat
   return await promptUnlock();
 }
 const GH_REPO   = "buas-it/teamplanning-ict";
@@ -499,6 +506,7 @@ async function saveToGitHub(){
 
 // Alles opslaan
 function saveState(){
+  touchEditTimer();   // er is gemuteerd: 10-minutentimer opnieuw starten
   clearTimeout(ghSaveTimer);
   ghSaveTimer = setTimeout(saveToGitHub, 1500);
 }
@@ -1555,6 +1563,14 @@ function showMaandOverzicht(){
 
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
+  const onLockChanged = ()=>{
+    if(!overlay.isConnected){ document.removeEventListener("tp-lock-changed", onLockChanged); return; }
+    const b = overlay.querySelector("#mo-lock"); if(!b) return;
+    b.textContent = editUnlocked ? "🔓 Bewerken aan" : "🔒 Alleen lezen";
+    b.style.color = editUnlocked ? "#80cbc4" : "rgba(255,255,255,0.35)";
+    b.style.borderColor = editUnlocked ? "rgba(128,203,196,0.3)" : "rgba(255,255,255,0.1)";
+  };
+  document.addEventListener("tp-lock-changed", onLockChanged);
 
   function buildWeekTable(weeksSlice){
     const tbl = document.createElement("table");
@@ -1891,6 +1907,7 @@ async function restoreFromBackup(filename, sha){
       body: JSON.stringify({message:`Herstel backup ${filename}`, content: btoa(unescape(encodeURIComponent(JSON.stringify(backupState)))), sha: sd.sha, branch: GH_BRANCH})
     });
     if(wr.ok){
+      touchEditTimer();
       document.querySelectorAll(".z-index-800, [style*='z-index:800']").forEach(el=>el.remove());
       applyState(backupState);
       propagateTemplateToAll();
@@ -2150,6 +2167,7 @@ async function showPeriodeModal(){
   box.querySelector("#pd-cancel").onclick = ()=>overlay.remove();
 
   box.querySelector("#pd-save").onclick = async ()=>{
+    if(!editUnlocked){ const ok = await promptUnlock(); if(!ok) return; }
     const person = box.querySelector("#pd-person").value;
     const statusEl = box.querySelector('input[name="pd-status"]:checked');
     const workOnly = box.querySelector("#pd-workdays").checked;
@@ -2191,6 +2209,7 @@ async function showPeriodeModal(){
       }
       d.setDate(d.getDate()+1);
     }
+    touchEditTimer();
     await saveToGitHub();
     renderAndSync();
     overlay.remove();
@@ -2341,8 +2360,7 @@ try{
     if(age < 30 * 24 * 60 * 60 * 1000){
       editUnlocked = true;
       // Reset auto-lock timer
-      clearTimeout(unlockTimer);
-      unlockTimer = setTimeout(lock, 15 * 60 * 1000);
+      touchEditTimer();
     } else {
       localStorage.removeItem("tp_unlocked"); // verlopen
     }
@@ -2439,6 +2457,7 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
         const data = await dr.json();
         if(data && data.store){
           applyState(data);
+          touchEditTimer();
           await saveToGitHub();
           renderAndSync();
           buildTemplateGrid();
