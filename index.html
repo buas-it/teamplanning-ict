@@ -1992,7 +1992,7 @@ async function showPeriodeModal(){
   if(!editUnlocked){ const ok=await promptUnlock(); if(!ok) return; }
 
   const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:860;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
 
   const box = document.createElement("div");
   box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:24px;width:400px;max-width:95vw;font-family:'Courier New',monospace;";
