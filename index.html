@@ -2160,10 +2160,11 @@ async function showPeriodeModal(){
   box.querySelector("#pd-to").addEventListener("input",updateResult);
   updateResult();
 
-    // Switch tussen week en datum invoer
-  let useWeekTab = true;
+    // Switch tussen week en datum invoer — standaard: datums
+  let useWeekTab = false;
   const panelWeek = box.querySelector("#pd-panel-week");
   const panelDate = box.querySelector("#pd-panel-date");
+  panelWeek.style.display="none"; panelDate.style.display="";
   box.querySelector("#pd-switch-to-date").onclick = ()=>{ useWeekTab=false; panelWeek.style.display="none"; panelDate.style.display=""; updateResult(); };
   box.querySelector("#pd-switch-to-week").onclick = ()=>{ useWeekTab=true; panelWeek.style.display=""; panelDate.style.display="none"; updateResult(); };
 
