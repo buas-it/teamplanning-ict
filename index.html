@@ -566,10 +566,6 @@ async function promptUnlock(){
       <div style="font-size:11px;color:#777;margin-bottom:14px;">Kies wie je bent en voer het wachtwoord in om te bewerken</div>
       <div style="text-align:left;font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:4px;">WIE BEN JE?</div>
       <select id="pw-user" style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;outline:none;margin-bottom:10px;"></select>
-      <div style="text-align:left;font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:4px;">WERKSTATION</div>
-      <input id="pw-ws" type="text" maxlength="40" autocomplete="off" placeholder="Naam van deze pc (optioneel)" style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;outline:none;margin-bottom:4px;">
-      <div style="text-align:left;font-size:9px;color:#666;margin-bottom:4px;">Naam van deze pc of laptop (mag leeg). De browser kan die zelf niet uitlezen.</div>
-      <div id="pw-ws-info" style="text-align:left;font-size:9px;color:#8a8f98;margin-bottom:12px;word-break:break-word;"></div>
       <input id="pw-input" type="password" placeholder="Wachtwoord" autocomplete="off"
         style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;margin-bottom:8px;outline:none;">
       <div id="pw-error" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
@@ -582,21 +578,12 @@ async function promptUnlock(){
     const input = overlay.querySelector("#pw-input");
     const error = overlay.querySelector("#pw-error");
     const userSel = overlay.querySelector("#pw-user");
-    const wsInput = overlay.querySelector("#pw-ws");
     { const ph = document.createElement("option"); ph.value = ""; ph.disabled = true; ph.selected = true; ph.textContent = "— Kies je naam —"; userSel.appendChild(ph); }
     TEAM.filter(n=>n!=="__divider__").forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; userSel.appendChild(o); });
-    let savedWs = "";
-    try{
-      savedWs = localStorage.getItem("tp_ws") || "";
-      if(savedWs === guessWorkstation()){ savedWs = ""; localStorage.removeItem("tp_ws"); }   // een eerder automatisch onthouden gok telt niet als zelf gekozen naam
-    }catch(e){}
-    wsInput.value = savedWs;   // in eerste instantie leeg; daarna de laatst ingetypte naam
-    const infoEl = overlay.querySelector("#pw-ws-info");
+    // Machine-gegevens worden op de achtergrond vastgelegd (niet gevraagd of getoond bij het inloggen)
     const mBase = machineBase();
     let machineInfoStr = machineText(mBase);
-    const showInfo = ()=>{ infoEl.textContent = machineInfoStr ? "Vastgelegd: " + machineInfoStr : ""; };
-    showInfo();
-    machineEnrich(mBase).then(o=>{ machineInfoStr = machineText(o); if(overlay.isConnected) showInfo(); });
+    machineEnrich(mBase).then(o=>{ machineInfoStr = machineText(o); });
     let lastUser = ""; try{ lastUser = localStorage.getItem("tp_last_user") || ""; }catch(e){}
     if(lastUser && TEAM.includes(lastUser)) userSel.value = lastUser;   // laatst gebruikte naam op dit werkstation
     (userSel.value ? input : userSel).focus();
@@ -604,12 +591,11 @@ async function promptUnlock(){
     async function tryUnlock(){
       const user = userSel.value;
       if(!user){ error.textContent = "Kies eerst wie je bent"; userSel.focus(); return; }
-      const typedWs = (wsInput.value || "").trim().slice(0, 40);
-      const ws = typedWs || guessWorkstation();   // leeg gelaten: de gedetecteerde machine
+      const ws = guessWorkstation();   // automatisch: besturingssysteem · browser
       const hash = await hashPassword(input.value);
       if(hash === PW_HASH){
         currentIdentity = makeIdentity(user, ws, machineInfoStr);
-        try{ if(typedWs) localStorage.setItem("tp_ws", typedWs); else localStorage.removeItem("tp_ws"); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); localStorage.setItem("tp_last_user", user); }catch(e){}
+        try{ localStorage.removeItem("tp_ws"); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); localStorage.setItem("tp_last_user", user); }catch(e){}
         editUnlocked = true;
         clearTimeout(unlockTimer);
         // Onthoud op dit apparaat (30 dagen geldig)
