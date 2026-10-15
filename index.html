@@ -2014,7 +2014,7 @@ async function showPeriodeModal(){
 
       <div>
         <div style="${LBL}">Persoon</div>
-        <select id="pd-person" style="${INP}">${TEAM.map(p=>`<option value="${p}">${p}</option>`).join("")}</select>
+        <select id="pd-person" style="${INP}"><option value="" disabled selected style="color:rgba(255,255,255,0.3);">— Kies een persoon —</option>${TEAM.map(p=>`<option value="${p}">${p}</option>`).join("")}</select>
       </div>
 
       <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:12px;">
@@ -2129,6 +2129,7 @@ async function showPeriodeModal(){
     const statusEl = box.querySelector('input[name="pd-status"]:checked');
     const workOnly = box.querySelector("#pd-workdays").checked;
 
+    if(!person){ alert("Kies eerst een persoon"); return; }
     if(!statusEl){ alert("Kies een status"); return; }
     if(isNaN(from)||isNaN(to)||to<from){ alert("Ongeldige datums"); return; }
 
