@@ -113,7 +113,7 @@ button { font-family:inherit; cursor:pointer; }
   <button class="nav-btn" id="btn-periode" style="font-size:10px;padding:6px 10px;color:#ce93d8;border-color:rgba(206,147,216,0.4);background:rgba(206,147,216,0.06);width:auto;font-weight:700;">📆 Periode</button>
   <button class="nav-btn" id="btn-geen-beheer" onclick="showGeenBeheerModal()" style="font-size:10px;padding:6px 10px;color:#f48fb1;border-color:rgba(244,143,177,0.4);background:rgba(244,143,177,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚠ Geen Beheer</button>
   <button class="nav-btn" id="btn-template" style="font-size:10px;padding:6px 10px;color:#60b0ff;border-color:rgba(0,150,255,0.3);background:rgba(0,100,220,0.08);width:auto;letter-spacing:1px;">★ Standaard</button>
-  <button class="nav-btn" id="btn-admin" title="Beheer: audit-logboek (wachtwoord vereist)" style="font-size:10px;padding:6px 10px;color:#ffcc80;border-color:rgba(255,204,128,0.4);background:rgba(255,204,128,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚙ Admin</button>
+  <button class="nav-btn" id="btn-admin" title="Beheer: audit-logboek (alleen Hans, beheerderswachtwoord)" style="font-size:10px;padding:6px 10px;color:#ffcc80;border-color:rgba(255,204,128,0.4);background:rgba(255,204,128,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚙ Admin</button>
 </div>
 
 <div class="scroll-wrap">
@@ -441,9 +441,99 @@ function updateAuditDot(){
   if(!el._clickSet){ el._clickSet = true; el.onclick = ()=>showAuditModal(); }
 }
 
-// Logboek bekijken: laatste 14 dagen, filter op naam en machine (alleen na inloggen)
+// ── Admin: het audit-logboek is alleen voor Hans, met een eigen beheerderswachtwoord ──
+const ADMIN_USER = "Hans";
+const ADMIN_ITER = 210000;
+let adminOk = false;   // beheerderswachtwoord ingevoerd tijdens deze login (gewist bij vergrendelen en bij terug naar het hoofdscherm)
+function b64e(u8){ let s = ""; for(let i=0;i<u8.length;i++) s += String.fromCharCode(u8[i]); return btoa(s); }
+function b64d(s){ const bin = atob(s), u = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i); return u; }
+async function adminDerive(pw, salt, iter){
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
+  return new Uint8Array(await crypto.subtle.deriveBits({name:"PBKDF2", hash:"SHA-256", salt, iterations: iter}, key, 256));
+}
+async function adminFetchVerifier(){
+  const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit/admin.json?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+  if(r.status === 404) return {state:"none"};            // alleen een echte 404 betekent: nog niet ingesteld
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  const v = JSON.parse(auditDecode((await r.json()).content));
+  if(!v || !v.salt || !v.hash || !v.iter) throw new Error("ongeldig bestand");
+  return {state:"ok", v};
+}
+function adminNotice(text){
+  const old = document.getElementById("admin-notice"); if(old) old.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "tp-overlay"; overlay.id = "admin-notice";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:955;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+  overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:26px 24px;min-width:280px;max-width:92vw;text-align:center;font-family:'Courier New',monospace;">
+    <div style="font-size:15px;font-weight:700;color:#ffcc80;margin-bottom:10px;">⚙ Admin</div>
+    <div id="adm-msg" style="font-size:12px;color:rgba(255,255,255,0.8);margin-bottom:16px;"></div>
+    <button id="adm-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#ddd;border-radius:8px;padding:8px 18px;font-size:12px;cursor:pointer;font-family:inherit;">Sluiten</button></div>`;
+  overlay.querySelector("#adm-msg").textContent = text;
+  overlay.querySelector("#adm-close").onclick = ()=>overlay.remove();
+  document.body.appendChild(overlay);
+}
+async function promptAdmin(){
+  let info;
+  try{ info = await adminFetchVerifier(); }
+  catch(e){ adminNotice("Het beheerderswachtwoord kon niet worden opgehaald (" + e.message + "). Probeer het later opnieuw."); return false; }
+  const setup = info.state === "none";
+  return new Promise(resolve=>{
+    const overlay = document.createElement("div");
+    overlay.className = "tp-overlay"; overlay.id = "admin-overlay";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:955;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+    const FIELD = "width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;margin-bottom:8px;outline:none;";
+    const BTN = "border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;";
+    overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:26px 24px;min-width:280px;max-width:92vw;text-align:center;font-family:'Courier New',monospace;">
+      <div style="font-size:15px;font-weight:700;color:#ffcc80;margin-bottom:6px;">${setup ? "⚙ Beheerderswachtwoord instellen" : "⚙ Beheerder"}</div>
+      <div style="font-size:11px;color:#777;margin-bottom:14px;">${setup ? "Kies een eigen wachtwoord voor het audit-logboek (minimaal 10 tekens)." : "Voer het beheerderswachtwoord in."}</div>
+      <input id="adm-pw" type="password" placeholder="${setup ? "Nieuw beheerderswachtwoord" : "Beheerderswachtwoord"}" autocomplete="off" style="${FIELD}">
+      ${setup ? `<input id="adm-pw2" type="password" placeholder="Herhaal wachtwoord" autocomplete="off" style="${FIELD}">` : ""}
+      <div id="adm-err" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button id="adm-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">Annuleren</button>
+        <button id="adm-ok" style="background:rgba(255,204,128,0.15);border:1px solid rgba(255,204,128,0.4);color:#ffcc80;font-weight:700;${BTN}">${setup ? "Instellen" : "Openen"}</button>
+      </div></div>`;
+    document.body.appendChild(overlay);
+    const pw1 = overlay.querySelector("#adm-pw"), pw2 = overlay.querySelector("#adm-pw2"), err = overlay.querySelector("#adm-err");
+    const done = v=>{ overlay.remove(); resolve(v); };
+    pw1.focus();
+    const submit = async ()=>{
+      err.textContent = "";
+      try{
+        const pw = pw1.value;
+        if(setup){
+          if(pw.length < 10){ err.textContent = "Minimaal 10 tekens"; return; }
+          if(pw !== pw2.value){ err.textContent = "De wachtwoorden komen niet overeen"; return; }
+          const salt = crypto.getRandomValues(new Uint8Array(16));
+          const hash = await adminDerive(pw, salt, ADMIN_ITER);
+          const content = encodeBase64(JSON.stringify({v:1, kdf:"PBKDF2-SHA256", iter:ADMIN_ITER, salt:b64e(salt), hash:b64e(hash)}));
+          const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit/admin.json`, {method:"PUT", headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify({message: commitMessage("Beheerderswachtwoord ingesteld"), content, branch: GH_BRANCH})});
+          if(r.status === 422 || r.status === 409){ err.textContent = "Er is intussen al een beheerderswachtwoord ingesteld. Sluit dit venster en probeer opnieuw."; return; }
+          if(!r.ok){ err.textContent = "Opslaan mislukt (HTTP " + r.status + ")"; return; }
+          adminOk = true; done(true); return;
+        }
+        const got = await adminDerive(pw, b64d(info.v.salt), info.v.iter), want = b64d(info.v.hash);
+        let diff = got.length ^ want.length; for(let i=0;i<Math.min(got.length, want.length);i++) diff |= got[i] ^ want[i];
+        if(diff === 0){ adminOk = true; done(true); }
+        else { err.textContent = "Onjuist beheerderswachtwoord"; pw1.value = ""; pw1.focus(); }
+      }catch(e){ err.textContent = "Fout: " + e.message; }
+    };
+    overlay.querySelector("#adm-ok").onclick = submit;
+    overlay.querySelector("#adm-cancel").onclick = ()=>done(false);
+    [pw1, pw2].forEach(el=>{ if(el) el.addEventListener("keydown", e=>{ if(e.key === "Enter") submit(); if(e.key === "Escape") done(false); }); });
+  });
+}
+// Toegang tot het logboek: eerst gewoon inloggen, dan alleen als Hans, dan het beheerderswachtwoord
+async function ensureAdmin(){
+  if(!await requireUnlock()) return false;
+  if(!currentIdentity || currentIdentity.user !== ADMIN_USER){ adminNotice("Alleen toegankelijk voor " + ADMIN_USER + "."); return false; }
+  if(adminOk) return true;
+  return await promptAdmin();
+}
+
+// Logboek bekijken: laatste 14 dagen, filter op naam en machine (alleen voor Hans, met beheerderswachtwoord)
 async function showAuditModal(){
-  if(!await requireUnlock()) return;
+  if(!await ensureAdmin()) return;
   const old = document.getElementById("audit-overlay"); if(old) old.remove();
   const overlay = document.createElement("div");
   overlay.id = "audit-overlay";
@@ -551,6 +641,7 @@ function lock(){
   clearTimeout(unlockTimer);
   try{ localStorage.removeItem("tp_unlocked"); localStorage.removeItem("tp_user"); }catch(e){}
   currentIdentity = null;
+  adminOk = false;
   // Open keuzemenu's/popups sluiten, zodat daarmee niets meer gemuteerd kan worden
   try{ closePopup(); }catch(e){}
   document.querySelectorAll(".mo-inline-menu").forEach(m=>m.remove());
@@ -2808,6 +2899,7 @@ function closeAllOverlays(){
   try{ tplModal.style.display = "none"; }catch(e){}
 }
 function goHome(){
+  adminOk = false;   // na inactiviteit opnieuw het beheerderswachtwoord vragen
   closeAllOverlays();
   const now = new Date(), dow = now.getDay();
   const def = (dow === 0 || dow === 6) ? addWeeks(mondayOf(now), 1) : mondayOf(now);   // zelfde startweek als bij het openen (in het weekend: komende week)
