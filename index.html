@@ -123,6 +123,7 @@ button { font-family:inherit; cursor:pointer; }
     <span id="health-data" title="Data integriteit" style="color:rgba(255,255,255,0.2)">⬤ Data</span>
     <span id="health-sync" title="Laatste sync" style="color:rgba(255,255,255,0.2)">⬤ Sync</span>
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
+    <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
   </div>
   <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
@@ -234,6 +235,7 @@ function touchEditTimer(){
   if(!editUnlocked) return;
   clearTimeout(unlockTimer);
   unlockTimer = setTimeout(lock, EDIT_IDLE_MS);
+  if(currentIdentity) auditWho = currentIdentity;   // wie heeft het laatst gemuteerd (voor het audit-logboek)
 }
 
 // ── Gebruiker + werkstation: ID voor wie een wijziging doet ─────────────
@@ -262,6 +264,221 @@ function makeIdentity(user, workstation){
 }
 function commitMessage(base){
   return currentIdentity ? base + " — " + currentIdentity.id + " (" + currentIdentity.workstation + ")" : base;
+}
+
+// ── Audit: wie (naam/machine) heeft wanneer wat gewijzigd ───────────────
+const AUDIT_MAX_CHANGES = 200;
+let auditBase = null;     // laatst bekende opgeslagen staat: basis voor de vergelijking
+let auditWho = null;      // identiteit van de laatste mutatie
+let auditHint = null;     // {text, t}: omschrijving van de actie (Periode, backup herstellen)
+let auditLastOk = null;   // laatste upload geslaagd? (null = nog niet geprobeerd)
+let auditFlushing = false;
+let auditQueue = (()=>{ try{ const q = JSON.parse(localStorage.getItem("tp_audit_queue") || "[]"); return Array.isArray(q) ? q : []; }catch(e){ return []; } })();
+
+function auditEid(){
+  const a = new Uint8Array(6);
+  if(window.crypto && crypto.getRandomValues) crypto.getRandomValues(a); else for(let k=0;k<6;k++) a[k] = Math.floor(Math.random()*256);
+  return Array.from(a).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+function auditPersist(){
+  try{ if(auditQueue.length) localStorage.setItem("tp_audit_queue", JSON.stringify(auditQueue)); else localStorage.removeItem("tp_audit_queue"); }catch(e){}
+}
+function auditRebase(){ try{ auditBase = JSON.parse(JSON.stringify(serializeState())); }catch(e){} }
+function auditSetHint(text){ auditHint = {text, t: Date.now()}; }
+function auditDecode(b64){
+  const bin = atob(String(b64).replace(/\n/g,""));
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+// Vergelijk twee opgeslagen staten en geef de echte wijzigingen terug
+function auditDiff(base, cur, hinted){
+  const D5 = ["MA","DI","WO","DO","VR"];
+  const same = (a,b)=>JSON.stringify(a||[]) === JSON.stringify(b||[]);
+  const bTeam = (base.team||[]).filter(p=>p!=="__divider__"), cTeam = (cur.team||[]).filter(p=>p!=="__divider__");
+  const both = cTeam.filter(p=>bTeam.includes(p));
+  const team = [];
+  cTeam.filter(p=>!bTeam.includes(p)).forEach(p=>team.push({s:"team+", p}));
+  bTeam.filter(p=>!cTeam.includes(p)).forEach(p=>team.push({s:"team-", p}));
+  const bTpl = base.template||{}, cTpl = cur.template||{};
+  const tpl = [];
+  both.forEach(p=>D5.forEach(d=>{ const a=(bTpl[p]||{})[d], b=(cTpl[p]||{})[d]; if(!same(a,b)) tpl.push({s:"standaard", p, d, from:a||[], to:b||[]}); }));
+  const bStore = base.store||{}, cStore = cur.store||{};
+  const cells = [];
+  Object.keys(cStore).forEach(w=>{
+    const bw = bStore[w] || {}, cw = cStore[w] || {};
+    both.forEach(p=>D5.forEach(d=>{
+      const b = (cw[p]||{})[d]; if(b === undefined) return;
+      let a = (bw[p]||{})[d]; if(a === undefined) a = (bTpl[p]||{})[d];   // ontbrekende cel/week = standaardrooster
+      if(!same(a,b)) cells.push({s:"cel", w, p, d, from:a||[], to:b||[]});
+    }));
+  });
+  let changes, n;
+  if(tpl.length && !hinted){ changes = [...team, ...tpl, {s:"doorgevoerd", n:cells.length}]; n = team.length + tpl.length; }   // standaardrooster: afgeleide cellen alleen tellen
+  else { changes = [...team, ...tpl, ...cells]; n = team.length + tpl.length + cells.length; }
+  return { n, trunc: changes.length > AUDIT_MAX_CHANGES, changes: changes.slice(0, AUDIT_MAX_CHANGES),
+           action: tpl.length ? "standaard" : (team.length && !cells.length ? "team" : "wijziging") };
+}
+
+// Na elke geslaagde opslag: wat is er veranderd, door wie, vanaf welke machine
+function auditAfterSave(snap){
+  try{
+    const base = auditBase;
+    auditBase = snap;
+    if(!base) return;
+    const hint = (auditHint && Date.now() - auditHint.t < 60000) ? auditHint.text : null;
+    auditHint = null;
+    const diff = auditDiff(base, snap, !!hint);
+    if(!diff.n) return;
+    const who = auditWho || currentIdentity || null;
+    auditQueue.push({
+      v:1, eid: auditEid(), t: new Date().toISOString(),
+      user: who ? who.user : "onbekend", ws: who ? who.workstation : "", device: who ? who.device : "", id: who ? who.id : "",
+      action: hint || diff.action, n: diff.n, trunc: diff.trunc, changes: diff.changes
+    });
+    auditWho = null;
+    auditPersist();
+    auditFlush();
+  }catch(e){ console.warn("audit fout:", e); }
+}
+
+// Regels toevoegen aan audit/<dag>.jsonl (lezen, toevoegen, schrijven; bij conflict opnieuw)
+async function auditAppend(day, entries){
+  const url = `https://api.github.com/repos/${GH_REPO}/contents/audit/${day}.jsonl`;
+  const hdr = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
+  for(let attempt=0; attempt<4; attempt++){
+    let sha, text = "";
+    const g = await fetch(url + `?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers: hdr});
+    if(g.status === 200){ const d = await g.json(); sha = d.sha; text = auditDecode(d.content); }
+    else if(g.status !== 404){ return false; }
+    const have = new Set();
+    text.split("\n").forEach(l=>{ if(!l.trim()) return; try{ have.add(JSON.parse(l).eid); }catch(e){} });
+    const add = entries.filter(e=>!have.has(e.eid));
+    if(!add.length) return true;
+    const newText = text + (text && !text.endsWith("\n") ? "\n" : "") + add.map(e=>JSON.stringify(e)).join("\n") + "\n";
+    const body = {message: commitMessage("Audit " + day), content: encodeBase64(newText), branch: GH_BRANCH};
+    if(sha) body.sha = sha;
+    const p = await fetch(url, {method:"PUT", headers:{...hdr, "Content-Type":"application/json"}, body: JSON.stringify(body)});
+    if(p.ok) return true;
+    if(p.status === 409 || p.status === 422) continue;   // iemand was ons voor: opnieuw lezen en nogmaals proberen
+    return false;
+  }
+  return false;
+}
+
+async function auditFlush(){
+  if(auditFlushing || !auditQueue.length){ updateAuditDot(); return; }
+  auditFlushing = true; updateAuditDot();
+  try{
+    let guard = 0;
+    while(auditQueue.length && guard++ < 10){
+      const day = auditQueue[0].t.slice(0,10);
+      const batch = auditQueue.filter(e=>e.t.slice(0,10) === day);
+      const ok = await auditAppend(day, batch);
+      auditLastOk = ok;
+      if(!ok) break;
+      const done = new Set(batch.map(e=>e.eid));
+      auditQueue = auditQueue.filter(e=>!done.has(e.eid));
+      auditPersist();
+    }
+  }catch(e){ auditLastOk = false; console.warn("audit flush fout:", e); }
+  finally{ auditFlushing = false; updateAuditDot(); }
+}
+
+function updateAuditDot(){
+  const el = document.getElementById("health-audit"); if(!el) return;
+  const n = auditQueue.length;
+  let col, title;
+  if(auditLastOk === false){ col = "#e53935"; title = "Audit: uploaden mislukt, " + n + " regel" + (n!==1?"s":"") + " in wachtrij (wordt opnieuw geprobeerd)"; }
+  else if(n > 0){ col = "#ffb74d"; title = "Audit: " + n + " in wachtrij"; }
+  else if(auditLastOk === true){ col = "#4caf50"; title = "Audit: bijgewerkt (klik voor het logboek)"; }
+  else { col = "rgba(255,255,255,0.2)"; title = "Audit: nog niets gelogd in deze sessie (klik voor het logboek)"; }
+  el.style.color = col; el.title = title; el.style.cursor = "pointer";
+  if(!el._clickSet){ el._clickSet = true; el.onclick = ()=>showAuditModal(); }
+}
+
+// Logboek bekijken: laatste 14 dagen, filter op naam en machine (alleen na inloggen)
+async function showAuditModal(){
+  if(!await requireUnlock()) return;
+  const old = document.getElementById("audit-overlay"); if(old) old.remove();
+  const overlay = document.createElement("div");
+  overlay.id = "audit-overlay";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:860;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
+  const box = document.createElement("div");
+  box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:900px;max-width:98vw;font-family:'Courier New',monospace;";
+  const SEL = "background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 8px;font-family:inherit;font-size:12px;";
+  box.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+      <div style="font-size:14px;font-weight:700;color:#80cbc4;">📜 Audit</div>
+      <select id="au-user" style="${SEL}"></select>
+      <select id="au-dev" style="${SEL}"></select>
+      <span id="au-count" style="font-size:11px;color:rgba(255,255,255,0.4);"></span>
+      <span style="flex:1"></span>
+      <button id="au-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>
+    </div>
+    <div id="au-list" style="font-size:11px;color:rgba(255,255,255,0.7);">Laden...</div>`;
+  overlay.appendChild(box); document.body.appendChild(overlay);
+  box.querySelector("#au-close").onclick = ()=>overlay.remove();
+  const list = box.querySelector("#au-list"), userSel = box.querySelector("#au-user"), devSel = box.querySelector("#au-dev"), count = box.querySelector("#au-count");
+
+  const hdrs = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
+  const nc = ()=>`&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`;
+  let entries = [];
+  try{
+    const lr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit?ref=${GH_BRANCH}${nc()}`, {headers: hdrs});
+    if(lr.ok){
+      const files = (await lr.json()).filter(f=>/\.jsonl$/.test(f.name)).sort((a,b)=>b.name.localeCompare(a.name)).slice(0, 14);
+      const texts = await Promise.all(files.map(async f=>{
+        const fr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit/${f.name}?ref=${GH_BRANCH}${nc()}`, {headers: hdrs});
+        return fr.ok ? auditDecode((await fr.json()).content) : "";
+      }));
+      texts.forEach(t=>t.split("\n").forEach(l=>{ if(!l.trim()) return; try{ entries.push(JSON.parse(l)); }catch(e){} }));
+    }
+  }catch(e){ list.textContent = "Laden mislukt: " + e.message; return; }
+  const have = new Set(entries.map(e=>e.eid));
+  auditQueue.forEach(e=>{ if(!have.has(e.eid)) entries.push({...e, pending:true}); });
+  entries.sort((a,b)=> a.t < b.t ? 1 : -1);
+
+  const addOpt = (sel, v, label)=>{ const o = document.createElement("option"); o.value = v; o.textContent = label; sel.appendChild(o); };
+  addOpt(userSel, "", "Alle namen");
+  [...new Set(entries.map(e=>e.user))].sort().forEach(u=>addOpt(userSel, u, u));
+  addOpt(devSel, "", "Alle machines");
+  const devLabel = {};
+  entries.forEach(e=>{ if(e.device && !devLabel[e.device]) devLabel[e.device] = (e.ws || "?") + " (" + e.device + ")"; });
+  Object.keys(devLabel).sort().forEach(d=>addOpt(devSel, d, devLabel[d]));
+
+  const lab = k=>{ const s = STATUSES.find(x=>x.key === k); return s ? s.label : k; };
+  const fv = a=>(a && a.length) ? a.map(lab).join(" + ") : "leeg";
+  const chText = c=>{
+    if(c.s === "cel") return c.p + " " + c.w + " " + c.d + ": " + fv(c.from) + " → " + fv(c.to);
+    if(c.s === "standaard") return "standaard " + c.p + " " + c.d + ": " + fv(c.from) + " → " + fv(c.to);
+    if(c.s === "team+") return "team: " + c.p + " toegevoegd";
+    if(c.s === "team-") return "team: " + c.p + " verwijderd";
+    if(c.s === "doorgevoerd") return "doorgevoerd naar " + c.n + " cellen";
+    return JSON.stringify(c);
+  };
+  const render = ()=>{
+    list.innerHTML = "";
+    const rows = entries.filter(e=>(!userSel.value || e.user === userSel.value) && (!devSel.value || e.device === devSel.value));
+    count.textContent = rows.length + " van " + entries.length + " (laatste 14 dagen)";
+    if(!rows.length){ list.textContent = "Geen regels."; return; }
+    rows.slice(0, 300).forEach(e=>{
+      const row = document.createElement("div");
+      row.style.cssText = "padding:7px 9px;border-bottom:1px solid rgba(255,255,255,0.06);cursor:pointer;";
+      const t = new Date(e.t);
+      const head = document.createElement("div"); head.style.color = "#fff";
+      head.textContent = t.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit"}) + " " + t.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"}) + " · " + e.user + " · " + (e.ws || "?") + " (" + (e.device || "?") + ") · " + e.action + " · " + e.n + (e.pending ? " · wacht op upload" : "");
+      const sum = document.createElement("div"); sum.style.color = "rgba(255,255,255,0.5)";
+      sum.textContent = (e.changes||[]).slice(0,3).map(chText).join(", ") + ((e.changes||[]).length > 3 ? " …" : "");
+      const full = document.createElement("div"); full.style.cssText = "display:none;margin-top:6px;color:rgba(255,255,255,0.75);";
+      (e.changes||[]).forEach(c=>{ const d = document.createElement("div"); d.textContent = chText(c); full.appendChild(d); });
+      if(e.trunc){ const d = document.createElement("div"); d.textContent = "… ingekort: " + e.n + " wijzigingen in totaal"; full.appendChild(d); }
+      row.onclick = ()=>{ full.style.display = full.style.display === "none" ? "" : "none"; };
+      row.append(head, sum, full); list.appendChild(row);
+    });
+  };
+  userSel.onchange = render; devSel.onchange = render; render();
 }
 
 async function hashPassword(pw){
@@ -403,7 +620,7 @@ async function loadFromGitHub(usePrefetch=false){
       HEALTH.github = "ok"; HEALTH.data = "ok";
       HEALTH.lastSync = Date.now(); HEALTH.lastSyncOk = true;
       updateHealthBar();
-      applyState(data); return true;
+      applyState(data); auditRebase(); return true;
     } else {
       HEALTH.github = "ok"; HEALTH.data = "error";
       updateHealthBar();
@@ -525,6 +742,7 @@ async function saveToGitHub(){
       }, 2000);
       // Backup (silent, na succesvolle save)
       maybeBackup(json);
+      auditAfterSave(JSON.parse(json));   // audit: wat is er veranderd, door wie
     } else {
       const err = await r.json().catch(()=>({}));
       const msg = err.message || err.errors?.[0]?.message || r.status;
@@ -635,6 +853,7 @@ function updateHealthBar(){
     detail: document.getElementById("health-detail"),
   };
   if(!el.github) return;
+  updateAuditDot();
 
   function dot(state){ return state==="ok"?"#4caf50": state==="warn"?"#ffb74d": state==="error"?"#e53935":"rgba(255,255,255,0.2)"; }
 
@@ -950,7 +1169,7 @@ function propagateTemplateToAll(){
     // Verwijder eventuele oude localStorage data
     try{
       const keep = {};
-      ["tp_device","tp_ws"].forEach(k=>{ const v = localStorage.getItem(k); if(v !== null) keep[k] = v; });
+      ["tp_device","tp_ws","tp_audit_queue"].forEach(k=>{ const v = localStorage.getItem(k); if(v !== null) keep[k] = v; });
       localStorage.clear();
       Object.keys(keep).forEach(k=>localStorage.setItem(k, keep[k]));
     }catch(e){}
@@ -958,6 +1177,8 @@ function propagateTemplateToAll(){
   TEAM = TEAM.filter(p => p !== "__divider__");
   propagateTemplateToAll();
   renderAndSync();
+  auditRebase();                 // audit: automatische doorvoering van het standaardrooster bij laden telt niet als gebruikerswijziging
+  if(ghLoaded) auditFlush();     // eventuele eerder niet-geüploade regels alsnog wegschrijven
   // Toon grid nu state geladen is
   if(mainGrid) mainGrid.style.visibility = "visible";
   // Achtergrond-sync: herlaad van GitHub elke 60 seconden
@@ -968,6 +1189,7 @@ function propagateTemplateToAll(){
     if(loaded && JSON.stringify(serializeState()) !== beforeJson){
       renderAndSync();
     }
+    auditFlush();   // audit: wachtrij opnieuw proberen
   }, 60000);
 })();
 
@@ -1958,9 +2180,13 @@ async function restoreFromBackup(filename, sha){
     });
     if(wr.ok){
       touchEditTimer();
+      const written = JSON.parse(JSON.stringify(backupState));   // wat er echt is weggeschreven (voordat applyState de data aanpast)
       document.querySelectorAll(".z-index-800, [style*='z-index:800']").forEach(el=>el.remove());
       applyState(backupState);
       propagateTemplateToAll();
+      auditSetHint("backup hersteld: " + filename.replace(".json",""));
+      auditAfterSave(written);   // logboek: verschil met wat er daarvoor stond
+      auditRebase();             // daarna weer vergelijken met de lokale staat
       renderAndSync();
       alert("✅ Backup hersteld!");
     } else {
@@ -2259,6 +2485,7 @@ async function showPeriodeModal(){
       }
       d.setDate(d.getDate()+1);
     }
+    auditSetHint("periode: " + person + " " + status + " " + fmt(from) + " t/m " + fmt(to));
     touchEditTimer();
     await saveToGitHub();
     renderAndSync();
@@ -2509,6 +2736,7 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
         const data = await dr.json();
         if(data && data.store){
           applyState(data);
+          auditSetHint("backup hersteld: " + decodeURIComponent((url.split("?")[0].split("/").pop() || "")));
           touchEditTimer();
           await saveToGitHub();
           renderAndSync();
