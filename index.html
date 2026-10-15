@@ -258,9 +258,51 @@ function guessWorkstation(){
   const br = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "browser";
   return os + " · " + br;
 }
-function makeIdentity(user, workstation){
+// Gegevens over dit werkstation die een browser wél kan geven (geen IP-adres of computernaam)
+function machineBase(){
+  const ua = navigator.userAgent || "";
+  let m, os = "", br = "";
+  if(/iPhone/.test(ua) && (m = ua.match(/OS (\d+)[_.](\d+)/))) os = "iOS " + m[1] + "." + m[2];
+  else if(/iPad/.test(ua)) os = "iPadOS" + ((m = ua.match(/OS (\d+)[_.](\d+)/)) ? " " + m[1] + "." + m[2] : "");
+  else if(/Android/.test(ua)) os = "Android" + ((m = ua.match(/Android (\d+(?:\.\d+)?)/)) ? " " + m[1] : "");
+  else if(/Windows/.test(ua)) os = "Windows";
+  else if(/CrOS/.test(ua)) os = "ChromeOS";
+  else if(/Mac OS X|Macintosh/.test(ua)) os = "macOS";
+  else if(/Linux/.test(ua)) os = "Linux";
+  if((m = ua.match(/Edg(?:A|iOS)?\/(\d+)/))) br = "Edge " + m[1];
+  else if((m = ua.match(/OPR\/(\d+)/))) br = "Opera " + m[1];
+  else if((m = ua.match(/(?:Firefox|FxiOS)\/(\d+)/))) br = "Firefox " + m[1];
+  else if((m = ua.match(/(?:Chrome|CriOS)\/(\d+)/))) br = "Chrome " + m[1];
+  else if((m = ua.match(/Version\/(\d+(?:\.\d+)?)/)) && /Safari/.test(ua)) br = "Safari " + m[1];
+  const dpr = window.devicePixelRatio || 1;
+  const scr = (screen && screen.width && screen.height) ? screen.width + "×" + screen.height + (dpr !== 1 ? " @" + (Math.round(dpr*100)/100) + "x" : "") : "";
+  let tz = ""; try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; }catch(e){}
+  return {os, browser: br, arch: "", model: "", screen: scr,
+          cores: navigator.hardwareConcurrency ? navigator.hardwareConcurrency + (navigator.hardwareConcurrency === 1 ? " core" : " cores") : "", tz, lang: navigator.language || ""};
+}
+function machineText(o){
+  const first = (o.model ? o.model + " · " : "") + (o.os || "") + (o.arch ? " (" + o.arch + ")" : "");
+  return [first.trim(), o.browser, o.screen, o.cores, o.tz, o.lang].filter(Boolean).join(" · ").slice(0, 200);
+}
+async function machineEnrich(o){
+  try{
+    const uad = navigator.userAgentData;
+    if(uad && uad.getHighEntropyValues){
+      const v = await uad.getHighEntropyValues(["platformVersion","architecture","model"]);
+      const plat = String(uad.platform || "").toLowerCase();
+      const pv = String(v.platformVersion || "").split(".");
+      if(/windows/.test(plat) && pv[0]) o.os = "Windows " + (parseInt(pv[0],10) >= 13 ? "11" : "10");
+      else if(/mac/.test(plat) && pv[0]) o.os = "macOS " + pv[0] + "." + (pv[1] || "0");
+      else if(/android/.test(plat) && pv[0]) o.os = "Android " + pv[0];
+      if(v.architecture) o.arch = v.architecture;
+      if(v.model) o.model = v.model;
+    }
+  }catch(e){}
+  return o;
+}
+function makeIdentity(user, workstation, info){
   const device = getDeviceId();
-  return {user, workstation, device, id: user + "@" + device};
+  return {user, workstation, device, id: user + "@" + device, info: info || ""};
 }
 function commitMessage(base){
   return currentIdentity ? base + " — " + currentIdentity.id + " (" + currentIdentity.workstation + ")" : base;
@@ -334,7 +376,7 @@ function auditAfterSave(snap){
     const who = auditWho || currentIdentity || null;
     auditQueue.push({
       v:1, eid: auditEid(), t: new Date().toISOString(),
-      user: who ? who.user : "onbekend", ws: who ? who.workstation : "", device: who ? who.device : "", id: who ? who.id : "",
+      user: who ? who.user : "onbekend", ws: who ? who.workstation : "", device: who ? who.device : "", id: who ? who.id : "", wsinfo: who ? (who.info || "") : "",
       action: hint || diff.action, n: diff.n, trunc: diff.trunc, changes: diff.changes
     });
     auditWho = null;
@@ -472,6 +514,7 @@ async function showAuditModal(){
       const sum = document.createElement("div"); sum.style.color = "rgba(255,255,255,0.5)";
       sum.textContent = (e.changes||[]).slice(0,3).map(chText).join(", ") + ((e.changes||[]).length > 3 ? " …" : "");
       const full = document.createElement("div"); full.style.cssText = "display:none;margin-top:6px;color:rgba(255,255,255,0.75);";
+      if(e.wsinfo){ const d = document.createElement("div"); d.style.color = "rgba(255,255,255,0.5)"; d.textContent = "Machine: " + e.wsinfo; full.appendChild(d); }
       (e.changes||[]).forEach(c=>{ const d = document.createElement("div"); d.textContent = chText(c); full.appendChild(d); });
       if(e.trunc){ const d = document.createElement("div"); d.textContent = "… ingekort: " + e.n + " wijzigingen in totaal"; full.appendChild(d); }
       row.onclick = ()=>{ full.style.display = full.style.display === "none" ? "" : "none"; };
@@ -493,7 +536,7 @@ function showLockIndicator(){
     ind.textContent = "🔓 bewerken aan" + (currentIdentity ? " · " + currentIdentity.user : "");
     ind.style.color = "#80cbc4";
     ind.style.cursor = "pointer";
-    ind.title = currentIdentity ? ("Ingelogd als " + currentIdentity.id + " (" + currentIdentity.workstation + ") — klik om te vergrendelen") : "Klik om te vergrendelen";
+    ind.title = currentIdentity ? ("Ingelogd als " + currentIdentity.id + " (" + currentIdentity.workstation + ") — klik om te vergrendelen" + (currentIdentity.info ? "\n" + currentIdentity.info : "")) : "Klik om te vergrendelen";
   } else {
     ind.textContent = "🔒 alleen lezen";
     ind.style.color = "rgba(255,255,255,0.3)";
@@ -525,7 +568,8 @@ async function promptUnlock(){
       <select id="pw-user" style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;outline:none;margin-bottom:10px;"></select>
       <div style="text-align:left;font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:4px;">WERKSTATION</div>
       <input id="pw-ws" type="text" maxlength="40" autocomplete="off" style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;outline:none;margin-bottom:4px;">
-      <div style="text-align:left;font-size:9px;color:#666;margin-bottom:12px;">Naam van deze pc of laptop. De browser kan die zelf niet uitlezen.</div>
+      <div style="text-align:left;font-size:9px;color:#666;margin-bottom:4px;">Naam van deze pc of laptop. De browser kan die zelf niet uitlezen.</div>
+      <div id="pw-ws-info" style="text-align:left;font-size:9px;color:#8a8f98;margin-bottom:12px;word-break:break-word;"></div>
       <input id="pw-input" type="password" placeholder="Wachtwoord" autocomplete="off"
         style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;margin-bottom:8px;outline:none;">
       <div id="pw-error" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
@@ -543,6 +587,12 @@ async function promptUnlock(){
     TEAM.filter(n=>n!=="__divider__").forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; userSel.appendChild(o); });
     let savedWs = ""; try{ savedWs = localStorage.getItem("tp_ws") || ""; }catch(e){}
     wsInput.value = savedWs || guessWorkstation();
+    const infoEl = overlay.querySelector("#pw-ws-info");
+    const mBase = machineBase();
+    let machineInfoStr = machineText(mBase);
+    const showInfo = ()=>{ infoEl.textContent = machineInfoStr ? "Vastgelegd: " + machineInfoStr : ""; };
+    showInfo();
+    machineEnrich(mBase).then(o=>{ machineInfoStr = machineText(o); if(overlay.isConnected) showInfo(); });
     let lastUser = ""; try{ lastUser = localStorage.getItem("tp_last_user") || ""; }catch(e){}
     if(lastUser && TEAM.includes(lastUser)) userSel.value = lastUser;   // laatst gebruikte naam op dit werkstation
     (userSel.value ? input : userSel).focus();
@@ -553,7 +603,7 @@ async function promptUnlock(){
       const ws = (wsInput.value || "").trim().slice(0, 40) || guessWorkstation();
       const hash = await hashPassword(input.value);
       if(hash === PW_HASH){
-        currentIdentity = makeIdentity(user, ws);
+        currentIdentity = makeIdentity(user, ws, machineInfoStr);
         try{ localStorage.setItem("tp_ws", ws); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); localStorage.setItem("tp_last_user", user); }catch(e){}
         editUnlocked = true;
         clearTimeout(unlockTimer);
