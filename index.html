@@ -2016,12 +2016,25 @@ async function showPeriodeModal(){
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;letter-spacing:1px;">VAN</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;letter-spacing:1px;">VAN <span id="pd-from-wk" style="color:#ce93d8;"></span></div>
           <input id="pd-from" type="date" style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;padding:8px;font-family:'Courier New',monospace;font-size:12px;box-sizing:border-box;">
         </div>
         <div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;letter-spacing:1px;">T/M</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;letter-spacing:1px;">T/M <span id="pd-to-wk" style="color:#ce93d8;"></span></div>
           <input id="pd-to" type="date" style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;padding:8px;font-family:'Courier New',monospace;font-size:12px;box-sizing:border-box;">
+        </div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:4px;letter-spacing:1px;">OF SELECTEER EEN WEEKNUMMER</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select id="pd-week-yr" style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;padding:6px;font-family:'Courier New',monospace;font-size:12px;">
+            <option value="2026">2026</option>
+            <option value="2027">2027</option>
+          </select>
+          <select id="pd-week-nr" style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;padding:6px;font-family:'Courier New',monospace;font-size:12px;flex:1;">
+            ${Array.from({length:53},(_,i)=>`<option value="${i+1}">W${String(i+1).padStart(2,"0")}</option>`).join("")}
+          </select>
+          <button id="pd-week-set" style="background:rgba(206,147,216,0.15);border:1px solid rgba(206,147,216,0.3);color:#ce93d8;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;font-size:11px;white-space:nowrap;">→ Hele week</button>
         </div>
       </div>
       <div>
@@ -2057,10 +2070,16 @@ async function showPeriodeModal(){
   box.querySelector("#pd-to").value = fmt(week);
   box.querySelector('input[name="pd-status"][value="vrij"]').checked = true;
 
+  const getISOWeek = d=>{ const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); dt.setUTCDate(dt.getUTCDate()+4-(dt.getUTCDay()||7)); const y=dt.getUTCFullYear(); return [y,Math.ceil((((dt-new Date(Date.UTC(y,0,1)))/86400000)+1)/7)]; };
+  const getMondayOfWeek = (yr,wn)=>{ const jan4=new Date(yr,0,4); const dow=jan4.getDay()||7; const mon=new Date(jan4); mon.setDate(jan4.getDate()-(dow-1)+(wn-1)*7); return mon; };
+
   const updateResult = ()=>{
     const from = new Date(box.querySelector("#pd-from").value);
     const to   = new Date(box.querySelector("#pd-to").value);
     const workOnly = box.querySelector("#pd-workdays").checked;
+    // Toon weeknummers
+    if(!isNaN(from)){ const [y,w]=getISOWeek(from); box.querySelector("#pd-from-wk").textContent=`W${String(w).padStart(2,"0")}`; }
+    if(!isNaN(to)){   const [y,w]=getISOWeek(to);   box.querySelector("#pd-to-wk").textContent=`W${String(w).padStart(2,"0")}`; }
     if(isNaN(from)||isNaN(to)||to<from){ box.querySelector("#pd-result").textContent=""; return; }
     let count=0, d=new Date(from);
     while(d<=to){ if(!workOnly||d.getDay()>=1&&d.getDay()<=5) count++; d.setDate(d.getDate()+1); }
@@ -2070,6 +2089,23 @@ async function showPeriodeModal(){
   box.querySelector("#pd-from").addEventListener("input", updateResult);
   box.querySelector("#pd-to").addEventListener("input", updateResult);
   box.querySelector("#pd-workdays").addEventListener("change", updateResult);
+
+  // Weeknummer selector → vult van/t/m in
+  box.querySelector("#pd-week-set").addEventListener("click", ()=>{
+    const yr = parseInt(box.querySelector("#pd-week-yr").value);
+    const wn = parseInt(box.querySelector("#pd-week-nr").value);
+    const mon = getMondayOfWeek(yr, wn);
+    const fri = new Date(mon); fri.setDate(mon.getDate()+4);
+    box.querySelector("#pd-from").value = fmt(mon);
+    box.querySelector("#pd-to").value   = fmt(fri);
+    updateResult();
+  });
+
+  // Stel huidig weeknummer in als default in de selector
+  const [curY, curW] = getISOWeek(now);
+  box.querySelector("#pd-week-yr").value = String(curY);
+  box.querySelector("#pd-week-nr").value = String(curW);
+
   updateResult();
 
   box.querySelector("#pd-cancel").onclick = ()=>overlay.remove();
