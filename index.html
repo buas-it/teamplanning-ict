@@ -1659,6 +1659,7 @@ function showMaandOverzicht(){
             td.style.cursor="pointer";
             td.addEventListener("click", async (e)=>{
               e.stopPropagation();
+              if(!editUnlocked){ const ok=await promptUnlock(); if(!ok) return; render(); return; }
               const existing=overlay.querySelector(".mo-inline-menu");
               if(existing){ existing.remove(); if(existing._td===td) return; }
               const rect=td.getBoundingClientRect();
