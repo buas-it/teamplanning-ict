@@ -110,7 +110,6 @@ button { font-family:inherit; cursor:pointer; }
   <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span>
   <span id="save-ind" style="font-size: 11px; opacity: 0; transition: opacity 0.3s; min-width: 20px; text-align: center; color: rgb(128, 203, 196);">✓ opgeslagen</span>
   <button class="nav-btn" id="btn-maand" style="font-size:10px;padding:6px 10px;color:#80cbc4;border-color:rgba(128,203,196,0.4);background:rgba(128,203,196,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">📅 Maand</button>
-  <button class="nav-btn" id="btn-periode" style="font-size:10px;padding:6px 10px;color:#ce93d8;border-color:rgba(206,147,216,0.4);background:rgba(206,147,216,0.06);width:auto;font-weight:700;">📆 Periode</button>
   <button class="nav-btn" id="btn-geen-beheer" onclick="showGeenBeheerModal()" style="font-size:10px;padding:6px 10px;color:#f48fb1;border-color:rgba(244,143,177,0.4);background:rgba(244,143,177,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚠ Geen Beheer</button>
   <button class="nav-btn" id="btn-template" style="font-size:10px;padding:6px 10px;color:#60b0ff;border-color:rgba(0,150,255,0.3);background:rgba(0,100,220,0.08);width:auto;letter-spacing:1px;">★ Standaard</button>
 </div>
@@ -1732,6 +1731,7 @@ function showMaandOverzicht(){
       <button id="mo-next" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">▶▶</button>
       <button id="mo-today" style="background:rgba(255,183,77,0.1);border:1px solid rgba(255,183,77,0.4);color:#ffb74d;border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">Deze week</button>
       <button id="mo-refresh" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-family:inherit;">↻</button>
+      <button id="mo-periode" style="background:rgba(206,147,216,0.08);border:1px solid rgba(206,147,216,0.3);color:#ce93d8;border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">📆 Periode</button>
       <button id="mo-lock" style="background:rgba(255,255,255,0.04);border:1px solid ${editUnlocked?"rgba(128,203,196,0.3)":"rgba(255,255,255,0.1)"};color:${editUnlocked?"#80cbc4":"rgba(255,255,255,0.35)"};border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">${editUnlocked?"🔓 Bewerken aan":"🔒 Alleen lezen"}</button>
       <span style="flex:1"></span>
       <button id="mo-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>`;
@@ -1770,6 +1770,7 @@ function showMaandOverzicht(){
       renderAndSync();
       render(); // render() vervangt box, btn bestaat niet meer daarna
     };
+    box.querySelector("#mo-periode").onclick=()=>{ showPeriodeModal(); };
     box.querySelector("#mo-lock").onclick=async()=>{ if(editUnlocked){ lock(); render(); } else { const ok=await promptUnlock(); if(ok) render(); } };
     box.querySelector("#mo-close").onclick=()=>overlay.remove();
   }
@@ -2248,7 +2249,6 @@ document.getElementById("btn-goto").addEventListener("click",()=>{
 });
 document.getElementById("goto-week").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("btn-goto").click(); });
 document.getElementById("btn-maand").addEventListener("click",()=>{ showMaandOverzicht(); });
-document.getElementById("btn-periode").addEventListener("click",()=>{ showPeriodeModal(); });
 
 const tplModal=document.getElementById("tpl-modal");
 document.getElementById("btn-template").addEventListener("click",async ()=>{ if(!await requireUnlock()) return; buildTemplateGrid(); tplModal.style.display="block"; });
