@@ -119,7 +119,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <button class="nav-btn" id="btn-goto" title="Ga naar week" style="font-size:11px;padding:0 8px;width:auto;">→</button>
   </div>
   <button class="nav-btn" id="btn-refresh" onclick="sessionStorage.setItem('tp_baseMonday',baseMonday.getTime());saveState();setTimeout(()=>location.reload(),300)" title="Ververs" style="font-size:14px;">↻</button>
-  <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span><a id="pw-change-link" href="#" title="Je eigen wachtwoord wijzigen" style="display:none;font-size:11px;color:rgba(255,255,255,0.3);margin-left:8px;text-decoration:underline;">wachtwoord wijzigen</a>
+  <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span><a id="pw-change-link" href="#" title="Je eigen wachtwoord wijzigen" style="display:none;font-size:11px;color:rgba(255,255,255,0.3);margin-left:8px;text-decoration:underline;">wachtwoord wijzigen</a><a id="logout-link" href="#" title="Uitloggen" style="display:none;font-size:11px;color:rgba(255,255,255,0.3);margin-left:8px;text-decoration:underline;">uitloggen</a>
   <span id="save-ind" style="font-size: 11px; opacity: 0; transition: opacity 0.3s; min-width: 20px; text-align: center; color: rgb(128, 203, 196);">✓ opgeslagen</span>
   <button class="nav-btn" id="btn-maand" style="font-size:10px;padding:6px 10px;color:#80cbc4;border-color:rgba(128,203,196,0.4);background:rgba(128,203,196,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">📅 Maand</button>
   <button class="nav-btn" id="btn-periode" style="font-size:10px;padding:6px 10px;color:#ce93d8;border-color:rgba(206,147,216,0.4);background:rgba(206,147,216,0.06);width:auto;font-weight:700;">📆 Periode</button>
@@ -241,23 +241,28 @@ const GH_TOKEN = ["github_pat_11AWVCIPQ0AIakeamzqF", "45_3ZlBcrlc8WOcANxLNPsYrOe
 // ── Beveiliging ──────────────────────────────────────────────────
 // Wachtwoord hash (SHA-256 van het wachtwoord)
 const PW_HASH = "b980ef247db770228acf922dbb07e5a555da45a84d8b8a399246367e0c2f3c08";
-let editUnlocked = false;
+// Toegang en bewerken zijn twee aparte dingen:
+//  - Toegang: naam + wachtwoord (de toegangspoort). Daarna kun je alleen kijken. De login vervalt na 10 minuten zonder activiteit (Monitor: nooit).
+//  - Bewerken: staat na het inloggen UIT; je zet het zelf aan en het gaat na 10 minuten zonder wijziging vanzelf weer uit (je blijft dan ingelogd).
+let editUnlocked = false;   // bewerken staat aan (kan alleen als je bent ingelogd)
 let unlockTimer = null;
-// Bewerken gaat automatisch uit na 10 minuten zonder mutatie
-const EDIT_IDLE_MS = 10 * 60 * 1000;
-let lastEditAt = 0;   // tijdstip van de laatste wijziging of inlog; ook bewaard op het apparaat, zodat de 10 minuten gelden zonder dat de pagina hoeft te draaien
-const KEEP_LOGINS = ["Monitor"];   // scherm op de afdeling: blijft ingelogd op dit apparaat (geen uitlog na 10 minuten, ook niet na het uurlijks verversen) tot iemand uitlogt of de beheerder het wachtwoord reset
+const EDIT_IDLE_MS = 10 * 60 * 1000;     // bewerken gaat uit na 10 minuten zonder wijziging
+const ACCESS_IDLE_MS = 10 * 60 * 1000;   // de login vervalt na 10 minuten zonder activiteit
+let lastEditAt = 0;               // tijdstip van het aanzetten van bewerken of de laatste wijziging; ook bewaard op het apparaat (tp_edit), zodat de 10 minuten gelden zonder dat de pagina hoeft te draaien
+let lastActivity = Date.now();    // laatste activiteit van de gebruiker (muis, toets, aanraking); ook bewaard op het apparaat (tp_unlocked)
+const KEEP_LOGINS = ["Monitor"];   // scherm op de afdeling: de toegang blijft op dit apparaat bewaard (geen uitlog na 10 minuten zonder activiteit, ook niet na het uurlijks verversen) tot iemand uitlogt of de beheerder het wachtwoord reset; bewerken gaat ook voor Monitor na 10 minuten uit
 function keptNow(){ return !!(currentIdentity && KEEP_LOGINS.includes(currentIdentity.user)); }
-function armEditTimer(ms){ clearTimeout(unlockTimer); if(keptNow()) return; unlockTimer = setTimeout(lock, Math.max(0, ms)); }
-function touchEditTimer(){
+function armEditTimer(ms){ clearTimeout(unlockTimer); unlockTimer = setTimeout(disableEditing, Math.max(0, ms)); }
+function touchEditTimer(){   // er is gemuteerd (of bewerken is net aangezet): de 10 minuten beginnen opnieuw
   if(!editUnlocked) return;
   lastEditAt = Date.now();
-  try{ localStorage.setItem("tp_unlocked", String(lastEditAt)); }catch(e){}
+  try{ localStorage.setItem("tp_edit", String(lastEditAt)); }catch(e){}
   armEditTimer(EDIT_IDLE_MS);
   if(currentIdentity) auditWho = currentIdentity;   // wie heeft het laatst gemuteerd (voor het audit-logboek)
 }
 // Vangnet: een timer loopt niet in een slapende laptop of een bevroren/verborgen tabblad; kijk dan alsnog naar de klok
-function checkEditExpiry(){ if(editUnlocked && !keptNow() && Date.now() - lastEditAt >= EDIT_IDLE_MS) lock(); }
+function checkEditExpiry(){ if(editUnlocked && Date.now() - lastEditAt >= EDIT_IDLE_MS) disableEditing(); }
+function checkAccessExpiry(){ if(currentIdentity && !keptNow() && Date.now() - lastActivity >= ACCESS_IDLE_MS) lock(); }
 
 // ── Gebruiker + werkstation: ID voor wie een wijziging doet ─────────────
 let currentIdentity = null;   // {user, workstation, device, id} zolang bewerken aan staat
@@ -484,7 +489,7 @@ function adminNotice(text){
 }
 // Toegang tot het logboek: eerst gewoon inloggen, daarna alleen als teamlid (Monitor is geen teamlid)
 async function ensureAdmin(){
-  if(!await requireUnlock()) return false;
+  if(!await requireLogin()) return false;
   const me = currentIdentity && currentIdentity.user;
   if(!me || !TEAM.includes(me)){ adminNotice("Alleen toegankelijk voor teamleden."); return false; }
   return true;
@@ -584,35 +589,37 @@ async function hashPassword(pw){
 function showLockIndicator(){
   const ind = document.getElementById("lock-ind");
   if(!ind) return;
-  if(editUnlocked){
-    ind.textContent = "🔓 bewerken aan" + (currentIdentity ? " · " + currentIdentity.user : "");
+  const idLine = currentIdentity ? "Ingelogd als " + currentIdentity.id + " (" + currentIdentity.workstation + ")" + (currentIdentity.info ? "\n" + currentIdentity.info : "") : "";
+  if(currentIdentity && editUnlocked){
+    ind.textContent = "🔓 bewerken aan · " + currentIdentity.user;
     ind.style.color = "#80cbc4";
-    ind.style.cursor = "pointer";
-    ind.title = currentIdentity ? ("Ingelogd als " + currentIdentity.id + " (" + currentIdentity.workstation + ") — klik om te vergrendelen" + (currentIdentity.info ? "\n" + currentIdentity.info : "")) : "Klik om te vergrendelen";
+    ind.title = idLine + "\nBewerken gaat na 10 minuten zonder wijziging vanzelf uit. Klik om het nu uit te zetten.";
   } else {
-    ind.textContent = "🔒 alleen lezen";
+    ind.textContent = "🔒 alleen lezen" + (currentIdentity ? " · klik om te bewerken" : "");
     ind.style.color = "rgba(255,255,255,0.3)";
-    ind.style.cursor = "pointer";
-    ind.title = "Klik om te bewerken";
+    ind.title = currentIdentity ? idLine + "\nBewerken staat uit. Klik om het aan te zetten (het gaat na 10 minuten zonder wijziging vanzelf weer uit)." : "Eerst inloggen";
   }
-  const lnk = document.getElementById("pw-change-link"); if(lnk) lnk.style.display = editUnlocked ? "" : "none";
+  ind.style.cursor = "pointer";
+  const on = !!currentIdentity;
+  const lnk = document.getElementById("pw-change-link"); if(lnk) lnk.style.display = on ? "" : "none";
+  const out = document.getElementById("logout-link"); if(out) out.style.display = on ? "" : "none";
   // Rechtsboven: onder wie er is ingelogd (alleen tekst, nooit HTML)
   const wb = document.getElementById("who-badge");
   if(wb){
     wb.textContent = "";
-    if(editUnlocked && currentIdentity){
+    if(currentIdentity){
       wb.append("Ingelogd als ");
       const b = document.createElement("b"); b.textContent = currentIdentity.user; wb.appendChild(b);
-      wb.title = "Ingelogd als " + currentIdentity.id + " (" + currentIdentity.workstation + ")";
+      wb.title = idLine;
       wb.style.display = "";
     } else { wb.title = ""; wb.style.display = "none"; }
   }
 }
 
-function lock(){
+function lock(){   // uitloggen: terug naar de toegangspoort
   editUnlocked = false;
   clearTimeout(unlockTimer);
-  try{ localStorage.removeItem("tp_unlocked"); localStorage.removeItem("tp_user"); }catch(e){}
+  try{ localStorage.removeItem("tp_unlocked"); localStorage.removeItem("tp_user"); localStorage.removeItem("tp_edit"); }catch(e){}
   currentIdentity = null;
   // Open keuzemenu's/popups sluiten, zodat daarmee niets meer gemuteerd kan worden
   try{ closePopup(); }catch(e){}
@@ -621,6 +628,23 @@ function lock(){
   document.dispatchEvent(new CustomEvent("tp-lock-changed"));
   gateOn();   // uitgelogd = weer een zwart scherm: eerst aangeven wie je bent
 }
+function enableEditing(){   // bewerken aanzetten (alleen als je bent ingelogd); de 10 minuten beginnen nu
+  if(!currentIdentity || editUnlocked) return;
+  editUnlocked = true;
+  touchEditTimer();
+  document.dispatchEvent(new CustomEvent("tp-lock-changed"));
+  showLockIndicator();
+}
+function disableEditing(){   // bewerken uit; je blijft ingelogd en kunt gewoon blijven kijken
+  clearTimeout(unlockTimer);
+  try{ localStorage.removeItem("tp_edit"); }catch(e){}
+  if(!editUnlocked){ showLockIndicator(); return; }
+  editUnlocked = false;
+  try{ closePopup(); }catch(e){}
+  document.querySelectorAll(".mo-inline-menu").forEach(m=>m.remove());
+  document.dispatchEvent(new CustomEvent("tp-lock-changed"));
+  showLockIndicator();
+}
 
 // ── Toegangspoort: zonder inloggen is er alleen een zwart scherm met 'Wie ben je?' ──
 let gatePrompt = null, firstLoadSettled = false;
@@ -628,7 +652,7 @@ function gateOn(){
   document.documentElement.classList.add("tp-gated");
   try{ closeAllOverlays(); }catch(e){}   // geen openstaande vensters van een vorige gebruiker
   if(gatePrompt && document.querySelector(".tp-overlay[data-gate]")) return;   // het inlogvenster staat al open
-  gatePrompt = promptUnlock({ gate: true }).then(()=>{ gatePrompt = null; if(editUnlocked) gateOff(); });
+  gatePrompt = promptUnlock({ gate: true }).then(()=>{ gatePrompt = null; if(currentIdentity) gateOff(); });
 }
 function gateOff(){ document.documentElement.classList.remove("tp-gated"); }
 // Een blijvende login (Monitor) vervalt zodra de beheerder het wachtwoord heeft gereset; bij een storing blijft het scherm zoals het is
@@ -686,7 +710,7 @@ function auditEvent(action){
 
 async function promptUnlock(opts){
   const gate = !!(opts && opts.gate);
-  if(!gate && gatePrompt){ await gatePrompt; return editUnlocked; }   // het inlogvenster van de toegangspoort staat al open: daar inloggen
+  if(!gate && gatePrompt){ await gatePrompt; return !!currentIdentity; }   // het inlogvenster van de toegangspoort staat al open: daar inloggen
   return new Promise(resolve=>{
     const overlay = document.createElement("div");
     overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:950;display:flex;justify-content:center;" + (gate ? "" : "background:rgba(0,0,0,0.75);align-items:center;");   // poort: achtergrond en uitlijning komen uit de stijl
@@ -705,13 +729,10 @@ async function promptUnlock(opts){
     function finishLogin(user, after){
       const ws = guessWorkstation();   // automatisch: besturingssysteem · browser
       currentIdentity = makeIdentity(user, ws, machineInfoStr);
-      try{ localStorage.removeItem("tp_ws"); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); localStorage.setItem("tp_last_user", user); }catch(e){}
-      editUnlocked = true;
+      editUnlocked = false;            // na inloggen kun je alleen kijken; bewerken zet je zelf aan
       clearTimeout(unlockTimer);
-      // Onthoud op dit apparaat (alleen tot 10 minuten na de laatste wijziging)
-      try{ localStorage.setItem("tp_unlocked", Date.now().toString()); }catch(e){}
-      // Auto-vergrendel na 10 minuten zonder mutatie
-      touchEditTimer();
+      lastActivity = Date.now(); auditWho = currentIdentity;
+      try{ localStorage.removeItem("tp_ws"); localStorage.removeItem("tp_edit"); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); localStorage.setItem("tp_last_user", user); localStorage.setItem("tp_unlocked", String(lastActivity)); }catch(e){}   // onthoud op dit apparaat (tot 10 minuten na de laatste activiteit)
       document.dispatchEvent(new CustomEvent("tp-lock-changed"));
       showLockIndicator();
       overlay.remove();
@@ -816,7 +837,7 @@ async function promptUnlock(opts){
 
 // Je eigen wachtwoord wijzigen (ingelogd)
 async function showChangePassword(){
-  if(!await requireUnlock()) return;
+  if(!await requireLogin()) return;
   const me = currentIdentity && currentIdentity.user; if(!me) return;
   const old = document.getElementById("cp-overlay"); if(old) old.remove();
   const overlay = document.createElement("div");
@@ -909,10 +930,39 @@ async function showUsersModal(){
 }
 
 
-// Controleer of bewerken is toegestaan, vraag anders wachtwoord
+// Alleen ingelogd zijn is genoeg (kijken, Admin, je eigen wachtwoord wijzigen)
+async function requireLogin(){
+  if(currentIdentity) return true;
+  return await promptUnlock();   // de toegangspoort: eerst naam + wachtwoord
+}
+// Bewerken moet aan staan. Staat het uit, dan vraagt een venster om het aan te zetten (zonder opnieuw wachtwoord: je bent al ingelogd)
 async function requireUnlock(){
   if(editUnlocked) return true;   // alleen openen/kijken verlengt het bewerken niet; alleen een mutatie doet dat
-  return await promptUnlock();
+  if(!await requireLogin()) return false;
+  return await promptEnableEdit();
+}
+function promptEnableEdit(){
+  return new Promise(resolve=>{
+    const old = document.getElementById("edit-overlay"); if(old) old.remove();
+    const overlay = document.createElement("div");
+    overlay.className = "tp-overlay"; overlay.id = "edit-overlay";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:950;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+    const BTN = "border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;";
+    overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:28px 24px;min-width:280px;max-width:92vw;text-align:center;">
+      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">✏️ Bewerken aanzetten?</div>
+      <div id="ed-who" style="font-size:11px;color:#777;margin-bottom:16px;line-height:1.5;"></div>
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button id="ed-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">Annuleren</button>
+        <button id="ed-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;${BTN}">Bewerken aanzetten</button>
+      </div></div>`;
+    overlay.querySelector("#ed-who").textContent = "Je bent ingelogd als " + (currentIdentity ? currentIdentity.user : "") + ". Bewerken staat uit en gaat na 10 minuten zonder wijziging vanzelf weer uit.";
+    document.body.appendChild(overlay);
+    const done = v=>{ overlay.remove(); resolve(v); };
+    overlay.querySelector("#ed-ok").onclick = ()=>{ enableEditing(); done(!!editUnlocked); };
+    overlay.querySelector("#ed-cancel").onclick = ()=>done(false);
+    overlay.addEventListener("keydown", e=>{ if(e.key === "Escape") done(false); });
+    overlay.querySelector("#ed-ok").focus();
+  });
 }
 const GH_REPO   = "buas-it/teamplanning-ict";
 const GH_BRANCH = "data";   // aparte branch → geen Pages deployment bij elke save
@@ -2280,7 +2330,7 @@ function showMaandOverzicht(){
           td.style.cursor="pointer";
           td.addEventListener("click", async (e)=>{
               e.stopPropagation();
-              if(!editUnlocked){ const ok=await promptUnlock(); if(!ok) return; }
+              if(!await requireUnlock()) return;
               const existing=overlay.querySelector(".mo-inline-menu");
               if(existing){ existing.remove(); if(existing._td===td) return; }
               const rect=td.getBoundingClientRect();
@@ -2391,7 +2441,7 @@ function showMaandOverzicht(){
       render(); // render() vervangt box, btn bestaat niet meer daarna
     };
     box.querySelector("#mo-periode").onclick=()=>{ showPeriodeModal(); };
-    box.querySelector("#mo-lock").onclick=async()=>{ if(editUnlocked){ lock(); render(); } else { const ok=await promptUnlock(); if(ok) render(); } };
+    box.querySelector("#mo-lock").onclick=()=>{ if(editUnlocked) disableEditing(); else enableEditing(); render(); };
     box.querySelector("#mo-close").onclick=()=>overlay.remove();
   }
 
@@ -2616,7 +2666,7 @@ async function showRestoreModal(){
 
 // ── Periode invoer ────────────────────────────────────────────────
 async function showPeriodeModal(){
-  if(!editUnlocked){ const ok=await promptUnlock(); if(!ok) return; }
+  if(!await requireUnlock()) return;
 
   const STATUSES_SIMPLE = [
     {key:"vrij",    label:"Vrij",    color:"rgba(229,57,53,0.55)"},
@@ -2778,7 +2828,7 @@ async function showPeriodeModal(){
   box.querySelector("#pd-cancel").onclick = ()=>overlay.remove();
 
   box.querySelector("#pd-save").onclick = async ()=>{
-    if(!editUnlocked){ const ok = await promptUnlock(); if(!ok) return; }
+    if(!await requireUnlock()) return;
     const person = box.querySelector("#pd-person").value;
     const statusEl = box.querySelector('input[name="pd-status"]:checked');
     const workOnly = box.querySelector("#pd-workdays").checked;
@@ -2965,32 +3015,34 @@ document.getElementById("btn-admin").addEventListener("click",()=>{ showAuditMod
 const tplModal=document.getElementById("tpl-modal");
 document.getElementById("btn-template").addEventListener("click",async ()=>{ if(!await requireUnlock()) return; buildTemplateGrid(); tplModal.style.display="block"; });
 
-// Herstel unlock-status van dit apparaat (alleen binnen 10 minuten na de laatste wijziging)
+// Herstel de sessie van dit apparaat: toegang tot 10 minuten na de laatste activiteit (Monitor: onbeperkt); bewerken alleen als het aan stond en de laatste wijziging korter dan 10 minuten geleden is
 try{
   const saved = localStorage.getItem("tp_unlocked");
   if(saved){
     const age = Date.now() - parseInt(saved);
     let ident = null;
     try{ ident = JSON.parse(localStorage.getItem("tp_user") || "null"); }catch(e){}
-    const kept = !!(ident && KEEP_LOGINS.includes(ident.user));   // Monitor: geen tijdslimiet
-    if(((age >= 0 && age < EDIT_IDLE_MS) || (kept && age >= 0)) && ident && ident.user && ident.id){
+    const kept = !!(ident && KEEP_LOGINS.includes(ident.user));   // Monitor: geen tijdslimiet voor de toegang
+    if(((age >= 0 && age < ACCESS_IDLE_MS) || (kept && age >= 0)) && ident && ident.user && ident.id){
       currentIdentity = ident;
-      editUnlocked = true;
-      lastEditAt = Date.now() - age;          // niet verlengen: de 10 minuten lopen vanaf de laatste wijziging
-      armEditTimer(EDIT_IDLE_MS - age);
       auditWho = currentIdentity;
+      lastActivity = kept ? Date.now() : Date.now() - age;      // niet verlengen: de 10 minuten lopen vanaf de laatste activiteit
+      const eAt = parseInt(localStorage.getItem("tp_edit") || "0"), eAge = Date.now() - eAt;
+      if(eAt && eAge >= 0 && eAge < EDIT_IDLE_MS){ editUnlocked = true; lastEditAt = eAt; armEditTimer(EDIT_IDLE_MS - eAge); }
+      else localStorage.removeItem("tp_edit");
     } else {
-      localStorage.removeItem("tp_unlocked"); localStorage.removeItem("tp_user");   // langer dan 10 minuten geleden, of onvolledig: opnieuw inloggen
+      localStorage.removeItem("tp_unlocked"); localStorage.removeItem("tp_user"); localStorage.removeItem("tp_edit");   // te lang geleden, of onvolledig: opnieuw inloggen
     }
   }
 }catch(e){}
 // Toegangspoort: zonder geldige sessie eerst aangeven wie je bent (anders blijft het zwart)
-if(editUnlocked){ gateOff(); if(keptNow()) revalidateKept(); } else { gateOn(); }
+if(currentIdentity){ gateOff(); if(keptNow()) revalidateKept(); } else { gateOn(); }
 // Slot-indicator klikbaar maken
 showLockIndicator();
 document.getElementById("lock-ind").addEventListener("click", async ()=>{
-  if(editUnlocked){ lock(); } else { await promptUnlock(); }
+  if(editUnlocked) disableEditing(); else if(currentIdentity) enableEditing(); else await promptUnlock();   // het slotje schakelt bewerken aan/uit; uitloggen doe je met de link ernaast
 });
+document.getElementById("logout-link").addEventListener("click", e=>{ e.preventDefault(); lock(); });
 document.getElementById("pw-change-link").addEventListener("click", e=>{ e.preventDefault(); showChangePassword(); });
 document.getElementById("tpl-close").addEventListener("click",()=>{ closePopup(); tplModal.style.display="none"; });
 tplModal.addEventListener("click",e=>{ if(e.target===tplModal){ closePopup(); tplModal.style.display="none"; } });
@@ -3097,8 +3149,7 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
 
 // ── Inactiviteit: na 10 minuten zonder gebruik altijd terug naar het hoofdscherm ──
 const IDLE_HOME_MS = 10 * 60 * 1000;
-let lastActivity = Date.now();
-let idleHandled = false;
+let idleHandled = false, lastPersist = 0;
 function closeAllOverlays(){
   document.querySelectorAll(".tp-overlay:not([data-gate]), .mo-inline-menu, #health-popup").forEach(el=>el.remove());
   try{ closePopup(); }catch(e){}
@@ -3115,21 +3166,25 @@ function goHome(){
 }
 function markActive(){
   const now = Date.now();
+  if(currentIdentity && !keptNow() && now - lastActivity >= ACCESS_IDLE_MS){ lock(); return; }   // te lang weggeweest (slaapstand/achtergrond): de login is verlopen
   if(!idleHandled && now - lastActivity >= IDLE_HOME_MS){ goHome(); }   // timers stonden stil (slaapstand/achtergrond): alsnog terug
   lastActivity = now; idleHandled = false;
+  if(currentIdentity && now - lastPersist > 15000){ lastPersist = now; try{ localStorage.setItem("tp_unlocked", String(now)); }catch(e){} }   // onthoud de laatste activiteit op dit apparaat (voor verversen)
 }
 ["pointerdown","pointermove","keydown","wheel","touchstart","scroll","click"].forEach(t=>document.addEventListener(t, markActive, {capture:true, passive:true}));
 setInterval(()=>{
   if(!idleHandled && Date.now() - lastActivity >= IDLE_HOME_MS){ idleHandled = true; goHome(); }
 }, 10000);
 
-// ── Slot: 10 minuten zonder wijziging = uitgelogd, ook als timers stilstonden ──
+// ── Bewerken uit na 10 minuten zonder wijziging; uitgelogd na 10 minuten zonder activiteit (ook als timers stilstonden) ──
 setInterval(checkEditExpiry, 10000);
+setInterval(checkAccessExpiry, 10000);
 // Vangnet: niet ingelogd = nooit iets van de planning zichtbaar; ingelogd = nooit een zwart scherm
-setInterval(()=>{ if(editUnlocked) gateOff(); else gateOn(); }, 5000);
-document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkEditExpiry(); });
-window.addEventListener("focus", checkEditExpiry);
-window.addEventListener("pageshow", checkEditExpiry);
+setInterval(()=>{ if(currentIdentity) gateOff(); else gateOn(); }, 5000);
+const checkBoth = ()=>{ checkEditExpiry(); checkAccessExpiry(); };
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkBoth(); });
+window.addEventListener("focus", checkBoth);
+window.addEventListener("pageshow", checkBoth);
 
 // Elk uur: vergelijk lokale staat met GitHub, merge onopgeslagen wijzigingen, herlaad dan
 // Uurlijkse pagina-reload: simpelweg herladen, remote wint altijd via loadFromGitHub bij opstart
