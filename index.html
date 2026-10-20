@@ -232,12 +232,17 @@ let editUnlocked = false;
 let unlockTimer = null;
 // Bewerken gaat automatisch uit na 10 minuten zonder mutatie
 const EDIT_IDLE_MS = 10 * 60 * 1000;
+let lastEditAt = 0;   // tijdstip van de laatste wijziging of inlog; ook bewaard op het apparaat, zodat de 10 minuten gelden zonder dat de pagina hoeft te draaien
+function armEditTimer(ms){ clearTimeout(unlockTimer); unlockTimer = setTimeout(lock, Math.max(0, ms)); }
 function touchEditTimer(){
   if(!editUnlocked) return;
-  clearTimeout(unlockTimer);
-  unlockTimer = setTimeout(lock, EDIT_IDLE_MS);
+  lastEditAt = Date.now();
+  try{ localStorage.setItem("tp_unlocked", String(lastEditAt)); }catch(e){}
+  armEditTimer(EDIT_IDLE_MS);
   if(currentIdentity) auditWho = currentIdentity;   // wie heeft het laatst gemuteerd (voor het audit-logboek)
 }
+// Vangnet: een timer loopt niet in een slapende laptop of een bevroren/verborgen tabblad; kijk dan alsnog naar de klok
+function checkEditExpiry(){ if(editUnlocked && Date.now() - lastEditAt >= EDIT_IDLE_MS) lock(); }
 
 // ── Gebruiker + werkstation: ID voor wie een wijziging doet ─────────────
 let currentIdentity = null;   // {user, workstation, device, id} zolang bewerken aan staat
@@ -690,7 +695,7 @@ async function promptUnlock(){
         try{ localStorage.removeItem("tp_ws"); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); localStorage.setItem("tp_last_user", user); }catch(e){}
         editUnlocked = true;
         clearTimeout(unlockTimer);
-        // Onthoud op dit apparaat (30 dagen geldig)
+        // Onthoud op dit apparaat (alleen tot 10 minuten na de laatste wijziging)
         try{ localStorage.setItem("tp_unlocked", Date.now().toString()); }catch(e){}
         // Auto-vergrendel na 10 minuten zonder mutatie
         touchEditTimer();
@@ -2765,19 +2770,21 @@ document.getElementById("btn-admin").addEventListener("click",()=>{ showAuditMod
 const tplModal=document.getElementById("tpl-modal");
 document.getElementById("btn-template").addEventListener("click",async ()=>{ if(!await requireUnlock()) return; buildTemplateGrid(); tplModal.style.display="block"; });
 
-// Herstel unlock-status van dit apparaat (geldig 30 dagen)
+// Herstel unlock-status van dit apparaat (alleen binnen 10 minuten na de laatste wijziging)
 try{
   const saved = localStorage.getItem("tp_unlocked");
   if(saved){
     const age = Date.now() - parseInt(saved);
     let ident = null;
     try{ ident = JSON.parse(localStorage.getItem("tp_user") || "null"); }catch(e){}
-    if(age < 30 * 24 * 60 * 60 * 1000 && ident && ident.user && ident.id){
+    if(age >= 0 && age < EDIT_IDLE_MS && ident && ident.user && ident.id){
       currentIdentity = ident;
       editUnlocked = true;
-      touchEditTimer();
+      lastEditAt = Date.now() - age;          // niet verlengen: de 10 minuten lopen vanaf de laatste wijziging
+      armEditTimer(EDIT_IDLE_MS - age);
+      auditWho = currentIdentity;
     } else {
-      localStorage.removeItem("tp_unlocked"); // verlopen, of geen gebruiker bekend: opnieuw inloggen
+      localStorage.removeItem("tp_unlocked"); localStorage.removeItem("tp_user");   // langer dan 10 minuten geleden, of onvolledig: opnieuw inloggen
     }
   }
 }catch(e){}
@@ -2917,6 +2924,12 @@ function markActive(){
 setInterval(()=>{
   if(!idleHandled && Date.now() - lastActivity >= IDLE_HOME_MS){ idleHandled = true; goHome(); }
 }, 10000);
+
+// ── Slot: 10 minuten zonder wijziging = uitgelogd, ook als timers stilstonden ──
+setInterval(checkEditExpiry, 10000);
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkEditExpiry(); });
+window.addEventListener("focus", checkEditExpiry);
+window.addEventListener("pageshow", checkEditExpiry);
 
 // Elk uur: vergelijk lokale staat met GitHub, merge onopgeslagen wijzigingen, herlaad dan
 // Uurlijkse pagina-reload: simpelweg herladen, remote wint altijd via loadFromGitHub bij opstart
