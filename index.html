@@ -659,6 +659,8 @@ function lock(){
 
 // ── Persoonlijke wachtwoorden: per naam een salt + PBKDF2-hash in users.json op de data-branch ──
 const USER_ITER = 210000, USERS_PATH = "users.json", PW_MIN = 10;
+const EXTRA_LOGINS = ["Monitor"];   // mogen inloggen maar zijn geen teamlid: geen rij in de planning, niet in Systeembeheer of Support
+const loginNames = () => TEAM.filter(n=>n!=="__divider__").concat(EXTRA_LOGINS.filter(n=>!TEAM.includes(n)));
 async function usersLoad(){
   const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${USERS_PATH}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
   if(r.status === 404) return { users: {}, sha: null };       // nog nooit iemand een eigen wachtwoord ingesteld
@@ -748,8 +750,10 @@ async function promptUnlock(){
       const input = box.querySelector("#pw-input"), error = box.querySelector("#pw-error"), userSel = box.querySelector("#pw-user");
       { const ph = document.createElement("option"); ph.value = ""; ph.disabled = true; ph.selected = true; ph.textContent = "— Kies je naam —"; userSel.appendChild(ph); }
       TEAM.filter(n=>n!=="__divider__").forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; userSel.appendChild(o); });
+      const extra = EXTRA_LOGINS.filter(n=>!TEAM.includes(n));
+      if(extra.length){ const g = document.createElement("optgroup"); g.label = "Overig (geen teamlid)"; extra.forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; g.appendChild(o); }); userSel.appendChild(g); }
       let lastUser = preUser || ""; if(!lastUser){ try{ lastUser = localStorage.getItem("tp_last_user") || ""; }catch(e){} }
-      if(lastUser && TEAM.includes(lastUser)) userSel.value = lastUser;   // laatst gebruikte naam op dit werkstation
+      if(lastUser && loginNames().includes(lastUser)) userSel.value = lastUser;   // laatst gebruikte naam op dit werkstation
       if(msg) error.textContent = msg;
       const wrong = ()=>{ error.textContent = "Onjuist wachtwoord"; input.value = ""; input.focus(); };   // venster blijft open: na een juist wachtwoord gaat de oorspronkelijke actie gewoon door
 
@@ -871,12 +875,12 @@ async function showUsersModal(){
   async function renderList(){
     let reg; try{ reg = await usersLoad(); }catch(e){ list.textContent = "Laden mislukt: " + e.message; return; }
     list.innerHTML = "";
-    const names = TEAM.filter(n=>n!=="__divider__").concat(Object.keys(reg.users).filter(n=>!TEAM.includes(n)));
+    const names = loginNames().concat(Object.keys(reg.users).filter(n=>!loginNames().includes(n)));
     names.forEach(name=>{
       const rec = reg.users[name];
       const row = document.createElement("div"); row.dataset.user = name;
       row.style.cssText = "display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.06);";
-      const nm = document.createElement("span"); nm.style.cssText = "min-width:90px;color:#fff;"; nm.textContent = name + (TEAM.includes(name) ? "" : " (niet in team)");
+      const nm = document.createElement("span"); nm.style.cssText = "min-width:90px;color:#fff;"; nm.textContent = name + (TEAM.includes(name) ? "" : (EXTRA_LOGINS.includes(name) ? " (geen teamlid)" : " (niet in team)"));
       const st = document.createElement("span"); st.style.cssText = "flex:1;color:" + (rec ? "#80cbc4" : "rgba(255,255,255,0.4)") + ";";
       st.textContent = rec ? "eigen wachtwoord sinds " + fmt(rec.set) : "nog niet ingesteld (startwachtwoord)";
       row.append(nm, st);
