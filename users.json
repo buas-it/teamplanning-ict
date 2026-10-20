@@ -12,6 +12,12 @@
    "hash": "9Gjq3qCAhcVKGD8UmoJXbiWhvLiGWZrV6y/gNKSsmQA=",
    "iter": 210000,
    "set": "2026-10-20T10:30:15.517Z"
+  },
+  "Bas": {
+   "salt": "Ceg0lm57v0XT0QOWOscZ3w==",
+   "hash": "VNxboAPEHCLBIEd6BVcqJF6lpktFd48+zdJIUZHQrwM=",
+   "iter": 210000,
+   "set": "2026-10-20T11:17:38.058Z"
   }
  }
 }
