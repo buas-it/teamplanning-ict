@@ -127,7 +127,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <button class="nav-btn" id="btn-goto" title="Ga naar week" style="font-size:11px;padding:0 8px;width:auto;">→</button>
   </div>
   <button class="nav-btn" id="btn-refresh" onclick="sessionStorage.setItem('tp_baseMonday',baseMonday.getTime());saveState();setTimeout(()=>location.reload(),300)" title="Ververs" style="font-size:14px;">↻</button>
-  <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span><a id="pw-change-link" href="#" title="Je eigen wachtwoord wijzigen" style="display:none;font-size:11px;color:rgba(255,255,255,0.3);margin-left:8px;text-decoration:underline;">wachtwoord wijzigen</a><a id="logout-link" href="#" title="Uitloggen" style="display:none;font-size:11px;color:rgba(255,255,255,0.3);margin-left:8px;text-decoration:underline;">uitloggen</a>
+  <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span><a id="pw-change-link" href="#" title="Je eigen wachtwoord wijzigen" style="display:none;font-size:11px;color:rgba(255,255,255,0.3);margin-left:8px;text-decoration:underline;">wachtwoord wijzigen</a>
   <span id="save-ind" style="font-size: 11px; opacity: 0; transition: opacity 0.3s; min-width: 20px; text-align: center; color: rgb(128, 203, 196);">✓ opgeslagen</span>
   <button class="nav-btn" id="btn-maand" style="font-size:10px;padding:6px 10px;color:#80cbc4;border-color:rgba(128,203,196,0.4);background:rgba(128,203,196,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">📅 Maand</button>
   <button class="nav-btn" id="btn-periode" style="font-size:10px;padding:6px 10px;color:#ce93d8;border-color:rgba(206,147,216,0.4);background:rgba(206,147,216,0.06);width:auto;font-weight:700;">📆 Periode</button>
@@ -146,7 +146,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 29</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 30</span>
   </div>
   <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
@@ -713,7 +713,6 @@ function showLockIndicator(){
   }
   const on = !!currentIdentity;
   const lnk = document.getElementById("pw-change-link"); if(lnk) lnk.style.display = on ? "" : "none";
-  const out = document.getElementById("logout-link"); if(out) out.style.display = on ? "" : "none";
   // Rechtsboven: onder wie er is ingelogd, met een pulldown (alleen tekst, nooit HTML)
   const wb = document.getElementById("who-badge");
   if(wb){
@@ -3266,9 +3265,8 @@ if(currentIdentity){ gateOff(); if(keptNow()) revalidateKept(); } else { gateOn(
 showLockIndicator();
 groupsLoad();   // de indeling van de groepen ophalen (daarna elke minuut en bij het inloggen)
 document.getElementById("lock-ind").addEventListener("click", async ()=>{
-  if(editUnlocked) disableEditing(); else if(currentIdentity) enableEditing(); else await promptUnlock();   // het slotje schakelt bewerken aan/uit; uitloggen doe je met de link ernaast
+  if(editUnlocked) disableEditing(); else if(currentIdentity) enableEditing(); else await promptUnlock();   // het slotje schakelt bewerken aan/uit; uitloggen doe je via de pulldown rechtsboven
 });
-document.getElementById("logout-link").addEventListener("click", e=>{ e.preventDefault(); lock(); });
 document.getElementById("pw-change-link").addEventListener("click", e=>{ e.preventDefault(); showChangePassword(); });
 document.getElementById("tpl-close").addEventListener("click",()=>{ closePopup(); tplModal.style.display="none"; });
 tplModal.addEventListener("click",e=>{ if(e.target===tplModal){ closePopup(); tplModal.style.display="none"; } });
