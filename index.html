@@ -146,7 +146,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 26</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 27</span>
   </div>
   <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
@@ -261,6 +261,15 @@ let lastEditAt = 0;               // tijdstip van het aanzetten van bewerken of 
 let lastActivity = Date.now();    // laatste activiteit van de gebruiker (muis, toets, aanraking); ook bewaard op het apparaat (tp_unlocked)
 const KEEP_LOGINS = ["Monitor"];   // scherm op de afdeling: de toegang blijft op dit apparaat bewaard (geen uitlog na 10 minuten zonder activiteit, ook niet na het uurlijks verversen) tot iemand uitlogt of de beheerder het wachtwoord reset; bewerken gaat ook voor Monitor na 10 minuten uit
 function keptNow(){ return !!(currentIdentity && KEEP_LOGINS.includes(currentIdentity.user)); }
+// ── Groepen ──  (Sam, de teamleider, en Monitor zitten in geen groep)
+const GROUPS = {
+  "ICT-Support": ["Wim","Wouter","Annies","Bas"],
+  "ICT-Systeembeheer": ["Bram","Marco","Hans","Ted","Sercan"]
+};
+const RESTORE_GROUP = "ICT-Systeembeheer";   // alleen deze groep mag een backup terugzetten
+function groupOf(user){ return Object.keys(GROUPS).find(g=>GROUPS[g].includes(user)) || null; }
+function canRestore(){ return !!(currentIdentity && GROUPS[RESTORE_GROUP].includes(currentIdentity.user)); }
+function denyRestore(){ adminNotice("Een backup terugzetten mag alleen " + RESTORE_GROUP + ".", "♻ Backup terugzetten"); }
 function armEditTimer(ms){ clearTimeout(unlockTimer); unlockTimer = setTimeout(disableEditing, Math.max(0, ms)); }
 function touchEditTimer(){   // er is gemuteerd (of bewerken is net aangezet): de 10 minuten beginnen opnieuw
   if(!editUnlocked) return;
@@ -483,16 +492,17 @@ async function adminDerive(pw, salt, iter){
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
   return new Uint8Array(await crypto.subtle.deriveBits({name:"PBKDF2", hash:"SHA-256", salt, iterations: iter}, key, 256));
 }
-function adminNotice(text){
+function adminNotice(text, title){
   const old = document.getElementById("admin-notice"); if(old) old.remove();
   const overlay = document.createElement("div");
   overlay.className = "tp-overlay"; overlay.id = "admin-notice";
   overlay.style.cssText = "position:fixed;inset:0;z-index:955;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
   overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:26px 24px;min-width:280px;max-width:92vw;text-align:center;font-family:'Courier New',monospace;">
-    <div style="font-size:15px;font-weight:700;color:#ffcc80;margin-bottom:10px;">⚙ Admin</div>
+    <div id="adm-title" style="font-size:15px;font-weight:700;color:#ffcc80;margin-bottom:10px;">⚙ Admin</div>
     <div id="adm-msg" style="font-size:12px;color:rgba(255,255,255,0.8);margin-bottom:16px;"></div>
     <button id="adm-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#ddd;border-radius:8px;padding:8px 18px;font-size:12px;cursor:pointer;font-family:inherit;">Sluiten</button></div>`;
   overlay.querySelector("#adm-msg").textContent = text;
+  if(title) overlay.querySelector("#adm-title").textContent = title;
   overlay.querySelector("#adm-close").onclick = ()=>overlay.remove();
   document.body.appendChild(overlay);
 }
@@ -624,7 +634,7 @@ document.addEventListener("keydown", e=>{ if(e.key === "Escape" && document.getE
 function showLockIndicator(){
   const ind = document.getElementById("lock-ind");
   if(!ind) return;
-  const idLine = currentIdentity ? "Ingelogd als " + currentIdentity.id + " (" + currentIdentity.workstation + ")" + (currentIdentity.info ? "\n" + currentIdentity.info : "") : "";
+  const idLine = currentIdentity ? "Ingelogd als " + currentIdentity.id + " (" + currentIdentity.workstation + ")\nGroep: " + (groupOf(currentIdentity.user) || "geen") + (currentIdentity.info ? "\n" + currentIdentity.info : "") : "";
   if(currentIdentity && editUnlocked){
     ind.textContent = "🔓 bewerken aan · " + currentIdentity.user;
     ind.style.color = "#80cbc4";
@@ -635,6 +645,12 @@ function showLockIndicator(){
     ind.title = currentIdentity ? idLine + "\nBewerken staat uit. Klik om het aan te zetten (het gaat na 10 minuten zonder wijziging vanzelf weer uit)." : "Eerst inloggen";
   }
   ind.style.cursor = "pointer";
+  const rb = document.getElementById("btn-restore-backup");   // terugzetten: alleen ICT-Systeembeheer
+  if(rb){
+    const ok = canRestore();
+    if(!ok){ rb.disabled = true; rb.dataset.denied = "1"; rb.title = "Een backup terugzetten mag alleen " + RESTORE_GROUP; rb.style.cursor = "not-allowed"; rb.style.opacity = "0.45"; }
+    else if(rb.dataset.denied){ delete rb.dataset.denied; rb.disabled = false; rb.title = "Herstel een backup"; rb.style.cursor = ""; rb.style.opacity = ""; }
+  }
   const on = !!currentIdentity;
   const lnk = document.getElementById("pw-change-link"); if(lnk) lnk.style.display = on ? "" : "none";
   const out = document.getElementById("logout-link"); if(out) out.style.display = on ? "" : "none";
@@ -2016,7 +2032,7 @@ function buildWeekPanel(monday){
   hdr.appendChild(badge); hdr.appendChild(lbl); hdr.appendChild(resetBtn); panel.appendChild(hdr);
   const dayHdr=document.createElement("div"); dayHdr.className="day-header";
   // Personen die altijd op kantoor moeten zijn
-  const MUST_KANTOOR = ["Bram","Marco","Hans","Ted","Sercan"];
+  const MUST_KANTOOR = GROUPS["ICT-Systeembeheer"];
 
   DAYS.forEach((day,i)=>{
     const dayDate=addDays(monday,i), isToday=isSameDay(dayDate,today);
@@ -2035,7 +2051,7 @@ function buildWeekPanel(monday){
       const sel = (dayData[p]||{})[day]||[];
       return sel.includes("kantoor") || sel.includes("vm_kantoor") || sel.includes("nm_kantoor");
     };
-    const SUPPORT_GRP = ["Wim","Wouter","Annies","Bas"];
+    const SUPPORT_GRP = GROUPS["ICT-Support"];
     const isPersonZiek      = p => { const s=(dayData[p]||{})[day]||[]; return s.includes("ziek"); };
     const isPersonOnKantoor = p => !isPersonZiek(p) && (()=>{ const s=(dayData[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("vm_kantoor")||s.includes("nm_kantoor"); })();
     const isPersonThuis     = p => !isPersonZiek(p) && (()=>{ const s=(dayData[p]||{})[day]||[]; return s.includes("thuis")||s.includes("vm_thuis")||s.includes("nm_thuis"); })();
@@ -2573,7 +2589,8 @@ async function showBackupContents(){
 
     box.querySelector("#bc-content").innerHTML = html_inner;
 
-    // Voeg herstel-knoppen toe als DOM-elementen (zodat async+wachtwoord werkt)
+    // Voeg herstel-knoppen toe als DOM-elementen; alleen ICT-Systeembeheer mag terugzetten, de rest ziet alleen de lijst
+    if(!canRestore()){ const note = document.createElement("div"); note.style.cssText = "font-size:10px;color:#777;margin-bottom:8px;"; note.textContent = "Een backup terugzetten mag alleen " + RESTORE_GROUP + "."; box.querySelector("#bc-content").appendChild(note); }
     sorted.forEach(f=>{
       const naam = f.name.replace(".json","");
       const row = document.createElement("div");
@@ -2586,7 +2603,7 @@ async function showBackupContents(){
       btn.style.cssText = "background:rgba(255,183,77,0.1);border:1px solid rgba(255,183,77,0.3);color:#ffb74d;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:inherit;";
       btn.addEventListener("click", ()=>restoreFromBackup(f.name, f.sha));
       row.appendChild(lbl);
-      row.appendChild(btn);
+      if(canRestore()) row.appendChild(btn);
       box.querySelector("#bc-content").appendChild(row);
     });
   } catch(e){
@@ -2595,6 +2612,7 @@ async function showBackupContents(){
 }
 
 async function restoreFromBackup(filename, sha){
+  if(!canRestore()){ denyRestore(); return; }   // alleen ICT-Systeembeheer
   if(!await requireUnlock()) return;
   if(!confirm(`Backup '${filename.replace(".json","")}' terugzetten?\nDe huidige planning wordt overschreven.`)) return;
   try {
@@ -2629,6 +2647,7 @@ async function restoreFromBackup(filename, sha){
 
 // ── Backup Herstel modal ──────────────────────────────────────────
 async function showRestoreModal(){
+  if(!canRestore()){ denyRestore(); return; }   // alleen ICT-Systeembeheer
   if(!await requireUnlock()) return;
 
   const overlay = document.createElement("div");
@@ -3098,6 +3117,8 @@ tplModal.addEventListener("click",e=>{ if(e.target===tplModal){ closePopup(); tp
 
 // ── Backup herstellen ────────────────────────────────────────────
 document.getElementById("btn-restore-backup").addEventListener("click", async ()=>{
+  if(!canRestore()){ denyRestore(); return; }   // alleen ICT-Systeembeheer
+  if(!await requireUnlock()) return;            // en bewerken moet aan staan
   const btn = document.getElementById("btn-restore-backup");
   btn.textContent = "⟳ laden...";
   btn.disabled = true;
@@ -3171,6 +3192,7 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
     overlay.onclick = e=>{ if(e.target===overlay) overlay.remove(); };
 
     document.getElementById("backup-confirm").onclick = async ()=>{
+      if(!canRestore()){ overlay.remove(); denyRestore(); return; }   // nog eens controleren op het moment van terugzetten
       const url = document.getElementById("backup-select").value;
       const confirmBtn = document.getElementById("backup-confirm");
       confirmBtn.textContent = "Bezig..."; confirmBtn.disabled = true;
