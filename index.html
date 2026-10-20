@@ -146,7 +146,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 31</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 32</span>
   </div>
   <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
@@ -251,16 +251,13 @@ const GH_TOKEN = ["github_pat_11AWVCIPQ0AIakeamzqF", "45_3ZlBcrlc8WOcANxLNPsYrOe
 // Wachtwoord hash (SHA-256 van het wachtwoord)
 const PW_HASH = "b980ef247db770228acf922dbb07e5a555da45a84d8b8a399246367e0c2f3c08";
 // Toegang en bewerken zijn twee aparte dingen:
-//  - Toegang: naam + wachtwoord (de toegangspoort). Daarna kun je alleen kijken. De login vervalt na 10 minuten zonder activiteit (Monitor: nooit).
+//  - Toegang: naam + wachtwoord (de toegangspoort). Daarna kun je alleen kijken. Je blijft ingelogd (ook na verversen of herstarten van de browser) tot je uitlogt of het wachtwoord waarmee je inlogde wordt gereset.
 //  - Bewerken: staat na het inloggen UIT; je zet het zelf aan en het gaat na 10 minuten zonder wijziging vanzelf weer uit (je blijft dan ingelogd).
 let editUnlocked = false;   // bewerken staat aan (kan alleen als je bent ingelogd)
 let unlockTimer = null;
 const EDIT_IDLE_MS = 10 * 60 * 1000;     // bewerken gaat uit na 10 minuten zonder wijziging
-const ACCESS_IDLE_MS = 10 * 60 * 1000;   // de login vervalt na 10 minuten zonder activiteit
 let lastEditAt = 0;               // tijdstip van het aanzetten van bewerken of de laatste wijziging; ook bewaard op het apparaat (tp_edit), zodat de 10 minuten gelden zonder dat de pagina hoeft te draaien
-let lastActivity = Date.now();    // laatste activiteit van de gebruiker (muis, toets, aanraking); ook bewaard op het apparaat (tp_unlocked)
-const KEEP_LOGINS = ["Monitor"];   // scherm op de afdeling: de toegang blijft op dit apparaat bewaard (geen uitlog na 10 minuten zonder activiteit, ook niet na het uurlijks verversen) tot iemand uitlogt of de beheerder het wachtwoord reset; bewerken gaat ook voor Monitor na 10 minuten uit
-function keptNow(){ return !!(currentIdentity && KEEP_LOGINS.includes(currentIdentity.user)); }
+let lastActivity = Date.now();    // laatste activiteit van de gebruiker (muis, toets, aanraking): voor de regel 'na 10 minuten inactiviteit terug naar het hoofdscherm' (je blijft wel ingelogd)
 // ── Groepen ──  (Monitor is geen teamlid en zit in geen groep)
 // De indeling staat in groups.json op de data-branch (buiten de planning, dus een teruggezette backup verandert hem niet) en kan door een lid van
 // ICT-Systeembeheer worden aangepast (Admin > Groepen). Zolang er nog geen bestand is, geldt de standaardindeling hieronder.
@@ -280,6 +277,21 @@ function groupOf(user){ return GROUP_NAMES.find(g=>GROUPS[g].includes(user)) || 
 function inGroup(user, g){ return !!(groupsReady && user && GROUPS[g] && GROUPS[g].includes(user)); }
 function canRestore(){ return !!(currentIdentity && inGroup(currentIdentity.user, RESTORE_GROUP)); }
 function canEditGroups(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }
+// ── Niet jezelf buitensluiten ──
+// Een beheerder mag zichzelf niet buitensluiten: je naam moet in het team blijven (anders staat hij niet meer in het inlogscherm en kom je niet meer bij Admin),
+// je blijft zelf lid van ICT-Systeembeheer (een collega kan dat wel veranderen) en ICT-Systeembeheer houdt altijd minstens één lid in het team.
+function teamLockoutReason(newTeam, what){   // geeft een tekst als dit team de ingelogde gebruiker of ICT-Systeembeheer buitensluit, anders null
+  if(!Array.isArray(newTeam)) return null;   // geen team in de data: het team verandert niet
+  const t = newTeam.filter(n=>n!=="__divider__"), me = currentIdentity && currentIdentity.user;
+  if(me && TEAM.includes(me) && !t.includes(me)){
+    if(what === "rename") return "Je kunt je eigen naam niet wijzigen terwijl je bent ingelogd: je zou niet meer kunnen inloggen.";
+    if(what === "restore") return "Deze backup bevat jou niet in het team. Als je hem terugzet, kun je niet meer inloggen en niet meer bij Admin komen. Kies een nieuwere backup.";
+    return "Je kunt jezelf niet uit het team halen: je zou niet meer kunnen inloggen en niet meer bij Admin komen.";
+  }
+  const admins = GROUPS[GROUP_ADMIN] || [];
+  if(groupsReady && admins.length && !admins.some(n=>t.includes(n))) return GROUP_ADMIN + " zou dan geen lid meer in het team hebben.";
+  return null;
+}
 function canResetPasswords(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }   // wachtwoorden van anderen resetten: alleen leden van ICT-Systeembeheer (je eigen wachtwoord wijzigen kan iedereen)
 function denyRestore(){ adminNotice(groupsReady ? "Een backup terugzetten mag alleen " + RESTORE_GROUP + "." : "De groepen konden niet worden opgehaald, dus terugzetten kan nu niet. Probeer het zo opnieuw.", "♻ Backup terugzetten"); }
 function applyGroups(g){ GROUP_NAMES.forEach(n=>{ GROUPS[n] = g[n].slice(); }); }
@@ -342,7 +354,6 @@ function touchEditTimer(){   // er is gemuteerd (of bewerken is net aangezet): d
 }
 // Vangnet: een timer loopt niet in een slapende laptop of een bevroren/verborgen tabblad; kijk dan alsnog naar de klok
 function checkEditExpiry(){ if(editUnlocked && Date.now() - lastEditAt >= EDIT_IDLE_MS) disableEditing(); }
-function checkAccessExpiry(){ if(currentIdentity && !keptNow() && Date.now() - lastActivity >= ACCESS_IDLE_MS) lock(); }
 
 // ── Gebruiker + werkstation: ID voor wie een wijziging doet ─────────────
 let currentIdentity = null;   // {user, workstation, device, id} zolang bewerken aan staat
@@ -780,11 +791,13 @@ function gateOff(){
   document.documentElement.classList.remove("tp-gated");
   if(was && firstLoadSettled){ try{ renderAndSync(); }catch(e){ console.warn("opnieuw opbouwen na de poort mislukt:", e); } }   // tijdens de poort was alles verborgen: nu opnieuw opbouwen en meten
 }
-// Een blijvende login (Monitor) vervalt zodra de beheerder het wachtwoord heeft gereset; bij een storing blijft het scherm zoals het is
-async function revalidateKept(){
+// Een sessie eindigt zodra het wachtwoord waarmee je inlogde is gereset of verwijderd (ook op andere apparaten); bij een storing, of zolang er nog geen wachtwoordbestand is, blijft alles zoals het is
+async function revalidateSession(){
+  if(!currentIdentity || !currentIdentity.pw) return;   // alleen sessies die met een eigen wachtwoord zijn aangemaakt
+  const who = currentIdentity.user;
   try{
     const reg = await usersLoad();
-    if(currentIdentity && KEEP_LOGINS.includes(currentIdentity.user) && !reg.users[currentIdentity.user]) lock();
+    if(reg.sha && currentIdentity && currentIdentity.user === who && !reg.users[who]) lock();
   }catch(e){}
 }
 
@@ -854,6 +867,7 @@ async function promptUnlock(opts){
     function finishLogin(user, after){
       const ws = guessWorkstation();   // automatisch: besturingssysteem · browser
       currentIdentity = makeIdentity(user, ws, machineInfoStr);
+      currentIdentity.pw = true;       // ingelogd met een eigen wachtwoord: de sessie eindigt als dat wachtwoord wordt gereset
       editUnlocked = false;            // na inloggen kun je alleen kijken; bewerken zet je zelf aan
       clearTimeout(unlockTimer);
       lastActivity = Date.now(); auditWho = currentIdentity;
@@ -1032,14 +1046,17 @@ async function showUsersModal(){
       const rec = reg.users[name];
       const row = document.createElement("div"); row.dataset.user = name;
       row.style.cssText = "display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.06);";
-      const nm = document.createElement("span"); nm.style.cssText = "min-width:90px;color:#fff;"; nm.textContent = name + (TEAM.includes(name) ? "" : (EXTRA_LOGINS.includes(name) ? " (geen teamlid)" : " (niet in team)"));
+      const mij = !!(currentIdentity && currentIdentity.user === name);
+      const nm = document.createElement("span"); nm.style.cssText = "min-width:90px;color:#fff;"; nm.textContent = name + (TEAM.includes(name) ? "" : (EXTRA_LOGINS.includes(name) ? " (geen teamlid)" : " (niet in team)")) + (mij ? " (jij)" : "");
+      if(mij) nm.title = "Je eigen wachtwoord wijzig je via 'wachtwoord wijzigen' (met je huidige wachtwoord); resetten kan hier niet, zodat je jezelf niet buitensluit.";
       const st = document.createElement("span"); st.style.cssText = "flex:1;color:" + (rec ? "#80cbc4" : "rgba(255,255,255,0.4)") + ";";
       st.textContent = rec ? "eigen wachtwoord sinds " + fmt(rec.set) : "nog niet ingesteld (startwachtwoord)";
       row.append(nm, st);
-      if(rec && canReset){
+      if(rec && canReset && !mij){   // je eigen wachtwoord reset je niet (dan moet je met het startwachtwoord opnieuw beginnen): wijzigen kan via 'wachtwoord wijzigen'
         const b = document.createElement("button"); b.textContent = "Reset";
         b.style.cssText = "background:rgba(244,143,177,0.1);border:1px solid rgba(244,143,177,0.35);color:#f48fb1;border-radius:8px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:inherit;";
         b.onclick = async ()=>{
+          if(currentIdentity && currentIdentity.user === name){ alert("Je eigen wachtwoord kun je hier niet resetten. Gebruik 'wachtwoord wijzigen'."); return; }   // niet jezelf buitensluiten
           // de rechten worden op het moment van resetten nog eens gecontroleerd op de nieuwste indeling (niet op wat dit venster al wist)
           try{ await groupsRefresh(); }catch(e){ alert("De groepen konden niet worden opgehaald, dus resetten kan nu niet."); return; }
           if(!canResetPasswords()){ alert("Alleen leden van " + GROUP_ADMIN + " kunnen wachtwoorden resetten."); try{ showLockIndicator(); }catch(e){} renderList(); return; }
@@ -1092,18 +1109,21 @@ async function showGroupsModal(){
   };
   const render = ()=>{
     const editable = !!(currentIdentity && cur.groups[GROUP_ADMIN].includes(currentIdentity.user));
-    hint.textContent = "Elke persoon zit in één groep. Iedereen in het team kan de indeling bekijken; alleen een lid van " + GROUP_ADMIN + " kan hem aanpassen." + (editable ? "" : " Jij kunt de groepen niet aanpassen.") + " ICT-Systeembeheer mag backups terugzetten; ICT-Support en ICT-Systeembeheer bepalen de dekking-waarschuwingen." + (cur.sha ? "" : " (Nog niet aangepast: standaardindeling.)");
+    hint.textContent = "Elke persoon zit in één groep. Iedereen in het team kan de indeling bekijken; alleen een lid van " + GROUP_ADMIN + " kan hem aanpassen." + (editable ? " Jezelf uit " + GROUP_ADMIN + " halen kan niet (dat kan een collega wel)." : " Jij kunt de groepen niet aanpassen.") + " ICT-Systeembeheer mag backups terugzetten; ICT-Support en ICT-Systeembeheer bepalen de dekking-waarschuwingen." + (cur.sha ? "" : " (Nog niet aangepast: standaardindeling.)");
     list.innerHTML = "";
     const team = TEAM.filter(n=>n!=="__divider__"), extra = [];
     GROUP_NAMES.forEach(g=>cur.groups[g].forEach(n=>{ if(!team.includes(n) && !extra.includes(n)) extra.push(n); }));
     team.concat(extra).forEach(name=>{
       const row = document.createElement("div"); row.dataset.name = name;
       row.style.cssText = "display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,0.06);";
-      const lbl = document.createElement("span"); lbl.style.cssText = "flex:1;color:#fff;"; lbl.textContent = name + (extra.includes(name) ? " (niet in team)" : "");
+      const mij = !!(currentIdentity && currentIdentity.user === name);
+      const lbl = document.createElement("span"); lbl.style.cssText = "flex:1;color:#fff;"; lbl.textContent = name + (extra.includes(name) ? " (niet in team)" : "") + (mij ? " (jij)" : "");
       const s = document.createElement("select"); s.dataset.name = name;
       s.style.cssText = "background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);color:#eee;border-radius:8px;padding:5px 8px;font-family:inherit;font-size:12px;min-width:170px;";
       [["", "— geen groep —"]].concat(GROUP_NAMES.map(g=>[g, g])).forEach(([v, t])=>{ const o = document.createElement("option"); o.value = v; o.textContent = t; s.appendChild(o); });
-      s.value = curGroup(name); s.disabled = !editable; s.onchange = ()=>{ delete msg.dataset.keep; check(); };
+      s.value = curGroup(name); s.disabled = !editable;
+      if(editable && mij && curGroup(name) === GROUP_ADMIN){ s.disabled = true; s.title = "Jezelf uit " + GROUP_ADMIN + " halen kan niet; vraag een collega."; }   // niet jezelf buitensluiten
+      s.onchange = ()=>{ delete msg.dataset.keep; check(); };
       row.append(lbl, s); list.appendChild(row);
     });
     actions.innerHTML = "";
@@ -1141,6 +1161,7 @@ async function showGroupsModal(){
         const me = currentIdentity && currentIdentity.user;
         if(!me || !g[GROUP_ADMIN].includes(me)) return "Alleen een lid van " + GROUP_ADMIN + " kan de groepen aanpassen.";   // gecontroleerd op de nieuwste indeling, niet op wat dit venster al wist
         ms.forEach(m=>{ GROUP_NAMES.forEach(x=>{ g[x] = g[x].filter(n=>n!==m.name); }); if(m.to) g[m.to].push(m.name); });
+        if(!g[GROUP_ADMIN].includes(me)) return "Je kunt jezelf niet uit " + GROUP_ADMIN + " halen. Vraag een collega uit " + GROUP_ADMIN + " om dat te doen.";   // niet jezelf buitensluiten
         if(g[GROUP_ADMIN].filter(n=>TEAM.includes(n)).length < 1) return GROUP_ADMIN + " moet minstens één lid houden.";
         return false;
       }, commitMessage("Groepen aangepast"));
@@ -1998,6 +2019,8 @@ function renamePerson(oldName, newName){
   if(!newName || newName === oldName || TEAM.includes(newName)) return false;
   const idx = TEAM.indexOf(oldName);
   if(idx === -1) return false;
+  const why = teamLockoutReason(TEAM.map(n=>n===oldName ? newName : n), "rename");
+  if(why){ alert(why); try{ buildTemplateGrid(); }catch(e){} return false; }   // niet je eigen naam (of die van de laatste beheerder) wijzigen
   TEAM[idx] = newName;
   // Kopieer template data
   template[newName] = template[oldName];
@@ -2042,6 +2065,7 @@ function addPerson(name){
 function removePerson(name){
   const idx = TEAM.indexOf(name);
   if(idx === -1) return;
+  const why = teamLockoutReason(TEAM.filter(n=>n!==name), "remove"); if(why){ alert(why); return; }   // niet jezelf of de laatste beheerder uit het team halen
   TEAM.splice(idx, 1);
   delete template[name];
   Object.keys(store).forEach(k=>{ delete store[k][name]; });
@@ -2782,6 +2806,7 @@ async function restoreFromBackup(filename, sha){
       {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
     const bd = await br.json();
     const backupState = JSON.parse(atob(bd.content.replace(/\n/g,"")));
+    const lockWhy = teamLockoutReason(backupState.team, "restore"); if(lockWhy){ alert("❌ " + lockWhy); return; }   // niet jezelf buitensluiten
     const sr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
       {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
     const sd = await sr.json();
@@ -2855,6 +2880,7 @@ async function showRestoreModal(){
             {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
           const bd = await br.json();
           const backupState = JSON.parse(atob(bd.content.replace(/\n/g,"")));
+          const lockWhy = teamLockoutReason(backupState.team, "restore"); if(lockWhy){ alert("❌ " + lockWhy); row.querySelector("button").textContent = "Herstellen"; return; }   // niet jezelf buitensluiten
 
           // Haal huidige SHA op
           const sr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
@@ -3249,24 +3275,22 @@ document.getElementById("btn-template").addEventListener("click",async ()=>{ if(
 try{
   const saved = localStorage.getItem("tp_unlocked");
   if(saved){
-    const age = Date.now() - parseInt(saved);
     let ident = null;
     try{ ident = JSON.parse(localStorage.getItem("tp_user") || "null"); }catch(e){}
-    const kept = !!(ident && KEEP_LOGINS.includes(ident.user));   // Monitor: geen tijdslimiet voor de toegang
-    if(((age >= 0 && age < ACCESS_IDLE_MS) || (kept && age >= 0)) && ident && ident.user && ident.id){
+    if(ident && ident.user && ident.id){   // je blijft ingelogd, hoe lang het ook geleden is
       currentIdentity = ident;
       auditWho = currentIdentity;
-      lastActivity = kept ? Date.now() : Date.now() - age;      // niet verlengen: de 10 minuten lopen vanaf de laatste activiteit
+      lastActivity = Date.now();
       const eAt = parseInt(localStorage.getItem("tp_edit") || "0"), eAge = Date.now() - eAt;
       if(eAt && eAge >= 0 && eAge < EDIT_IDLE_MS){ editUnlocked = true; lastEditAt = eAt; armEditTimer(EDIT_IDLE_MS - eAge); }
       else localStorage.removeItem("tp_edit");
     } else {
-      localStorage.removeItem("tp_unlocked"); localStorage.removeItem("tp_user"); localStorage.removeItem("tp_edit");   // te lang geleden, of onvolledig: opnieuw inloggen
+      localStorage.removeItem("tp_unlocked"); localStorage.removeItem("tp_user"); localStorage.removeItem("tp_edit");   // onvolledig: opnieuw inloggen
     }
   }
 }catch(e){}
 // Toegangspoort: zonder geldige sessie eerst aangeven wie je bent (anders blijft het zwart)
-if(currentIdentity){ gateOff(); if(keptNow()) revalidateKept(); } else { gateOn(); }
+if(currentIdentity){ gateOff(); revalidateSession(); } else { gateOn(); }
 // Slot-indicator klikbaar maken
 showLockIndicator();
 groupsLoad();   // de indeling van de groepen ophalen (daarna elke minuut en bij het inloggen)
@@ -3362,6 +3386,7 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
         const dr = await fetch(url+"?t="+Date.now());
         const data = await dr.json();
         if(data && data.store){
+          const lockWhy = teamLockoutReason(data.team, "restore"); if(lockWhy){ alert("❌ " + lockWhy); return; }   // niet jezelf buitensluiten
           applyState(data);
           auditSetHint("backup hersteld: " + decodeURIComponent((url.split("?")[0].split("/").pop() || "")));
           touchEditTimer();
@@ -3382,7 +3407,7 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
 
 // ── Inactiviteit: na 10 minuten zonder gebruik altijd terug naar het hoofdscherm ──
 const IDLE_HOME_MS = 10 * 60 * 1000;
-let idleHandled = false, lastPersist = 0;
+let idleHandled = false;
 function closeAllOverlays(){
   closeWhoMenu();
   document.querySelectorAll(".tp-overlay:not([data-gate]), .mo-inline-menu, #health-popup").forEach(el=>el.remove());
@@ -3400,25 +3425,22 @@ function goHome(){
 }
 function markActive(){
   const now = Date.now();
-  if(currentIdentity && !keptNow() && now - lastActivity >= ACCESS_IDLE_MS){ lock(); return; }   // te lang weggeweest (slaapstand/achtergrond): de login is verlopen
   if(!idleHandled && now - lastActivity >= IDLE_HOME_MS){ goHome(); }   // timers stonden stil (slaapstand/achtergrond): alsnog terug
   lastActivity = now; idleHandled = false;
-  if(currentIdentity && now - lastPersist > 15000){ lastPersist = now; try{ localStorage.setItem("tp_unlocked", String(now)); }catch(e){} }   // onthoud de laatste activiteit op dit apparaat (voor verversen)
 }
 ["pointerdown","pointermove","keydown","wheel","touchstart","scroll","click"].forEach(t=>document.addEventListener(t, markActive, {capture:true, passive:true}));
 setInterval(()=>{
   if(!idleHandled && Date.now() - lastActivity >= IDLE_HOME_MS){ idleHandled = true; goHome(); }
 }, 10000);
 
-// ── Bewerken uit na 10 minuten zonder wijziging; uitgelogd na 10 minuten zonder activiteit (ook als timers stilstonden) ──
+// ── Bewerken uit na 10 minuten zonder wijziging (ook als timers stilstonden); je blijft ingelogd ──
 setInterval(checkEditExpiry, 10000);
-setInterval(checkAccessExpiry, 10000);
+setInterval(revalidateSession, 5 * 60 * 1000);   // een gereset wachtwoord beëindigt ook sessies op andere apparaten
 // Vangnet: niet ingelogd = nooit iets van de planning zichtbaar; ingelogd = nooit een zwart scherm
 setInterval(()=>{ if(currentIdentity) gateOff(); else gateOn(); }, 5000);
-const checkBoth = ()=>{ checkEditExpiry(); checkAccessExpiry(); };
-document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkBoth(); });
-window.addEventListener("focus", checkBoth);
-window.addEventListener("pageshow", checkBoth);
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkEditExpiry(); });
+window.addEventListener("focus", checkEditExpiry);
+window.addEventListener("pageshow", checkEditExpiry);
 
 // Elk uur: vergelijk lokale staat met GitHub, merge onopgeslagen wijzigingen, herlaad dan
 // Uurlijkse pagina-reload: simpelweg herladen, remote wint altijd via loadFromGitHub bij opstart
