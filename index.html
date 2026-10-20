@@ -94,10 +94,14 @@ button { font-family:inherit; cursor:pointer; }
 /* Toegangspoort: zonder inloggen alleen een zwart scherm met het inlogvenster */
 html.tp-gated, html.tp-gated body { background:#000 !important; }
 html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { display:none !important; }
+/* Wie is er ingelogd: rechtsboven in het scherm (niet aanklikbaar, dus nooit in de weg); op een smal scherm boven de titel */
+#who-badge { position:fixed; top:10px; right:14px; z-index:100; pointer-events:none; font-size:12px; color:rgba(255,255,255,0.5); background:rgba(13,13,26,0.88); border:1px solid rgba(128,203,196,0.35); border-radius:999px; padding:5px 13px; white-space:nowrap; max-width:60vw; overflow:hidden; text-overflow:ellipsis; }
+#who-badge b { color:#80cbc4; font-weight:700; }
+@media (max-width:640px){ #who-badge { position:static; display:block; width:max-content; max-width:100%; margin:0 0 8px auto; } }
 </style>
 </head>
 <body>
-<div class="header"><h1>Aanwezigheid Teams</h1></div>
+<div class="header"><div id="who-badge" style="display:none;"></div><h1>Aanwezigheid Teams</h1></div>
 <div class="nav">
   <button class="nav-btn" id="btn-prev">◀◀</button>
   <button class="nav-btn" id="btn-prev1">◀</button>
@@ -587,6 +591,17 @@ function showLockIndicator(){
     ind.title = "Klik om te bewerken";
   }
   const lnk = document.getElementById("pw-change-link"); if(lnk) lnk.style.display = editUnlocked ? "" : "none";
+  // Rechtsboven: onder wie er is ingelogd (alleen tekst, nooit HTML)
+  const wb = document.getElementById("who-badge");
+  if(wb){
+    wb.textContent = "";
+    if(editUnlocked && currentIdentity){
+      wb.append("Ingelogd als ");
+      const b = document.createElement("b"); b.textContent = currentIdentity.user; wb.appendChild(b);
+      wb.title = "Ingelogd als " + currentIdentity.id + " (" + currentIdentity.workstation + ")";
+      wb.style.display = "";
+    } else { wb.title = ""; wb.style.display = "none"; }
+  }
 }
 
 function lock(){
