@@ -97,6 +97,8 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 /* Wie is er ingelogd: rechtsboven in het scherm (niet aanklikbaar, dus nooit in de weg); op een smal scherm boven de titel */
 #who-badge { position:fixed; top:10px; right:14px; z-index:100; pointer-events:none; font-size:12px; color:rgba(255,255,255,0.5); background:rgba(13,13,26,0.88); border:1px solid rgba(128,203,196,0.35); border-radius:999px; padding:5px 13px; white-space:nowrap; max-width:60vw; overflow:hidden; text-overflow:ellipsis; }
 #who-badge b { color:#80cbc4; font-weight:700; }
+#who-badge a { pointer-events:auto; color:#80cbc4; text-decoration:underline; cursor:pointer; }   /* de badge laat klikken door; alleen deze link is aanklikbaar */
+#who-badge a:hover { color:#fff; }
 @media (max-width:640px){ #who-badge { position:static; display:block; width:max-content; max-width:100%; margin:0 0 8px auto; } }
 /* Toegangspoort: de campusfoto over de volle breedte in de echte beeldverhouding (1881:592; niets afgesneden of uitgerekt). De rest van het scherm is een uitgerekte, vervaagde en verduisterde versie van dezelfde foto; het venster staat in de ruimte onder de foto; zwart is de terugval als de foto niet laadt */
 .tp-overlay[data-gate] { background-color:#000; align-items:flex-start; overflow:auto; box-sizing:border-box; padding-top:max(0px, min(calc(100vw * 592 / 1881), calc(100vh - 290px))); }
@@ -610,6 +612,11 @@ function showLockIndicator(){
     if(currentIdentity){
       wb.append("Ingelogd als ");
       const b = document.createElement("b"); b.textContent = currentIdentity.user; wb.appendChild(b);
+      wb.append(" · ");
+      const outBtn = document.createElement("a"); outBtn.id = "badge-logout"; outBtn.href = "#"; outBtn.textContent = "Uitloggen";
+      outBtn.title = "Uitloggen, bijvoorbeeld om als iemand anders in te loggen";
+      outBtn.onclick = e=>{ e.preventDefault(); lock(); };
+      wb.appendChild(outBtn);
       wb.title = idLine;
       wb.style.display = "";
     } else { wb.title = ""; wb.style.display = "none"; }
