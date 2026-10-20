@@ -75,12 +75,16 @@ button { font-family:inherit; cursor:pointer; }
 }
 .divider { width:1px; background:rgba(255,255,255,0.06); flex-shrink:0; border-radius:1px; }
 .popup { position:fixed; z-index:600; background:#1a1a2e; border:1px solid rgba(255,255,255,0.18); border-radius:10px; padding:8px 6px; min-width:172px; box-shadow:0 8px 32px rgba(0,0,0,0.6); }
-.popup-title { font-size:9px; color:#555; letter-spacing:2px; text-transform:uppercase; text-align:center; margin-bottom:6px; }
+.popup-title { font-size:9px; color:#555; letter-spacing:2px; text-transform:uppercase; text-align:center; margin-bottom:6px; padding:0 22px; }
 .popup-item { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:7px; cursor:pointer; margin-bottom:2px; transition:all 0.1s; border:1px solid transparent; }
 .popup-item:hover { background:rgba(255,255,255,0.06); }
 .popup-dot { width:13px; height:13px; border-radius:50%; flex-shrink:0; }
 .popup-label { font-size:11px; transition:color 0.1s; }
 .popup-check { margin-left:auto; font-size:12px; }
+/* Sluiten: elk venster heeft alleen een kruis rechtsboven in dat venster (geen 'Sluiten'- of 'Annuleren'-knoppen) */
+.win-x { position:absolute; top:10px; right:10px; z-index:5; width:30px; height:30px; display:flex; align-items:center; justify-content:center; padding:0; font:inherit; font-size:14px; line-height:1; color:#aaa; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:8px; cursor:pointer; }
+.win-x:hover, .win-x:focus-visible { color:#fff; background:rgba(244,143,177,0.18); border-color:rgba(244,143,177,0.55); outline:none; }
+.win-x.small { top:6px; right:6px; width:22px; height:22px; font-size:11px; border-radius:6px; }
 .popup-close { margin-top:6px; padding:6px 8px; font-size:10px; color:#555; text-align:center; cursor:pointer; border-top:1px solid rgba(255,255,255,0.06); }
 .popup-close:hover { color:#aaa; }
 .legend { max-width:1100px; margin:16px auto 0; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:12px 16px; display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center; }
@@ -146,22 +150,22 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 32</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 33</span>
   </div>
   <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
 
 <!-- Standaard modal -->
 <div id="tpl-modal" style="display: none;">
-  <div style="max-width:600px;margin:40px auto 40px;background:#111827;border:1px solid rgba(0,150,255,0.35);border-radius:16px;padding:24px 20px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+  <div style="position:relative;max-width:600px;margin:40px auto 40px;background:#111827;border:1px solid rgba(0,150,255,0.35);border-radius:16px;padding:24px 20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-right:40px;">
       <div>
         <span style="font-size:18px;font-weight:800;color:#60b0ff;letter-spacing:1px;">★ Standaard week</span>
         <div style="font-size:10px;color:#555;letter-spacing:2px;text-transform:uppercase;margin-top:3px;">Wijzigingen worden direct doorgevoerd in alle komende weken</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button id="btn-restore-backup" title="Herstel een backup" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.2);border-radius:8px;padding:6px 10px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;" onmouseover="this.style.color='rgba(255,255,255,0.6)';this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.color='rgba(255,255,255,0.2)';this.style.borderColor='rgba(255,255,255,0.07)'">⟳ backup</button>
-        <button id="tpl-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>
+        <button id="tpl-close" type="button" class="win-x" aria-label="Sluiten" title="Sluiten">✕</button>
       </div>
     </div>
     <div id="tpl-grid"></div>
@@ -570,12 +574,11 @@ function adminNotice(text, title){
   overlay.className = "tp-overlay"; overlay.id = "admin-notice";
   overlay.style.cssText = "position:fixed;inset:0;z-index:955;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
   overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:26px 24px;min-width:280px;max-width:92vw;text-align:center;font-family:'Courier New',monospace;">
-    <div id="adm-title" style="font-size:15px;font-weight:700;color:#ffcc80;margin-bottom:10px;">⚙ Admin</div>
-    <div id="adm-msg" style="font-size:12px;color:rgba(255,255,255,0.8);margin-bottom:16px;"></div>
-    <button id="adm-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#ddd;border-radius:8px;padding:8px 18px;font-size:12px;cursor:pointer;font-family:inherit;">Sluiten</button></div>`;
+    <div id="adm-title" style="font-size:15px;font-weight:700;color:#ffcc80;margin-bottom:10px;padding:0 28px;">⚙ Admin</div>
+    <div id="adm-msg" style="font-size:12px;color:rgba(255,255,255,0.8);"></div></div>`;
   overlay.querySelector("#adm-msg").textContent = text;
   if(title) overlay.querySelector("#adm-title").textContent = title;
-  overlay.querySelector("#adm-close").onclick = ()=>overlay.remove();
+  addWinX(overlay.firstElementChild, ()=>overlay.remove(), "adm-close");
   document.body.appendChild(overlay);
 }
 // Toegang tot het logboek: eerst gewoon inloggen, daarna alleen als teamlid (Monitor is geen teamlid)
@@ -597,7 +600,7 @@ async function showAuditModal(){
   box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:900px;max-width:98vw;font-family:'Courier New',monospace;";
   const SEL = "background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 8px;font-family:inherit;font-size:12px;";
   box.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding-right:40px;">
       <div style="font-size:14px;font-weight:700;color:#80cbc4;">📜 Audit</div>
       <select id="au-user" style="${SEL}"></select>
       <select id="au-dev" style="${SEL}"></select>
@@ -605,11 +608,10 @@ async function showAuditModal(){
       <span style="flex:1"></span>
       <button id="au-groups" style="background:rgba(255,204,128,0.08);border:1px solid rgba(255,204,128,0.35);color:#ffcc80;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">👥 Groepen</button>
       <button id="au-users" style="background:rgba(255,204,128,0.08);border:1px solid rgba(255,204,128,0.35);color:#ffcc80;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">🔑 Wachtwoorden</button>
-      <button id="au-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>
     </div>
     <div id="au-list" style="font-size:11px;color:rgba(255,255,255,0.7);">Laden...</div>`;
   overlay.appendChild(box); document.body.appendChild(overlay);
-  box.querySelector("#au-close").onclick = ()=>overlay.remove();
+  addWinX(box, ()=>overlay.remove(), "au-close");
   box.querySelector("#au-users").onclick = ()=>showUsersModal();
   box.querySelector("#au-groups").onclick = ()=>showGroupsModal();
   const list = box.querySelector("#au-list"), userSel = box.querySelector("#au-user"), devSel = box.querySelector("#au-dev"), count = box.querySelector("#au-count");
@@ -677,6 +679,18 @@ async function showAuditModal(){
 async function hashPassword(pw){
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+// ── Vensters sluit je alleen met een kruis rechtsboven in dat venster; het kruis sluit alleen dát venster ──
+function addWinX(box, onClose, id, opts){
+  opts = opts || {};
+  const x = document.createElement("button");
+  x.type = "button"; x.className = "win-x" + (opts.small ? " small" : ""); if(id) x.id = id;
+  x.textContent = "✕"; x.setAttribute("aria-label", "Sluiten"); x.title = "Sluiten";
+  x.addEventListener("click", e=>{ e.stopPropagation(); onClose(); });
+  if(!opts.keepPosition && !/fixed|absolute|sticky/.test(box.style.position || "")) box.style.position = "relative";
+  box.insertBefore(x, box.firstChild);
+  return x;
 }
 
 // ── Pulldown rechtsboven: Wachtwoord wijzigen / Uitloggen ──
@@ -890,7 +904,6 @@ async function promptUnlock(opts){
       <div style="text-align:left;font-size:10px;color:#666;margin-bottom:4px;">Eerste keer? Voer het startwachtwoord in, daarna kies je een eigen wachtwoord. Vergeten? Vraag een lid van ${GROUP_ADMIN} om een reset.</div>
       <div id="pw-error" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
       <div style="display:flex;gap:8px;justify-content:center;">
-        ${gate ? "" : `<button id="pw-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">Annuleren</button>`}
         <button id="pw-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;${BTN}">${gate ? "Inloggen" : "Ontgrendelen"}</button>
       </div>`;
       const input = box.querySelector("#pw-input"), error = box.querySelector("#pw-error"), userSel = box.querySelector("#pw-user");
@@ -938,7 +951,7 @@ async function promptUnlock(opts){
         }
       }
       box.querySelector("#pw-ok").onclick = tryUnlock;
-      { const cb = box.querySelector("#pw-cancel"); if(cb) cb.onclick = cancel; }
+      if(!gate) addWinX(box, cancel, "pw-close");   // (de toegangspoort zelf heeft geen kruis: die kan niet dicht)
       input.addEventListener("keydown", e=>{ if(e.key==="Enter") tryUnlock(); if(e.key==="Escape" && !gate) cancel(); });
       (userSel.value ? input : userSel).focus();
     }
@@ -951,7 +964,7 @@ async function promptUnlock(opts){
       <input id="pw-new2" type="password" placeholder="Herhaal wachtwoord" autocomplete="new-password" style="${FIELD}margin-bottom:8px;">
       <div id="pw-error" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
       <div style="display:flex;gap:8px;justify-content:center;">
-        <button id="pw-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">Annuleren</button>
+        <button id="pw-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">← Terug</button>
         <button id="pw-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;${BTN}">Opslaan en inloggen</button>
       </div>`;
       box.querySelector("#pw2-intro").textContent = "Hallo " + user + ". Daarmee log je voortaan in; het startwachtwoord werkt dan niet meer voor jouw naam.";
@@ -986,14 +999,13 @@ async function showChangePassword(){
   const F = "width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;outline:none;margin-bottom:8px;";
   const B = "border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;";
   overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:28px 24px;min-width:280px;max-width:92vw;text-align:center;">
-    <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">🔑 Wachtwoord wijzigen</div>
+    <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;padding:0 28px;">🔑 Wachtwoord wijzigen</div>
     <div id="cp-who" style="font-size:11px;color:#777;margin-bottom:14px;"></div>
     <input id="cp-old" type="password" placeholder="Huidig wachtwoord" autocomplete="off" style="${F}">
     <input id="cp-new1" type="password" placeholder="Nieuw wachtwoord (min. ${PW_MIN} tekens)" autocomplete="new-password" style="${F}">
     <input id="cp-new2" type="password" placeholder="Herhaal nieuw wachtwoord" autocomplete="new-password" style="${F}">
     <div id="cp-err" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
     <div style="display:flex;gap:8px;justify-content:center;">
-      <button id="cp-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${B}">Annuleren</button>
       <button id="cp-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;${B}">Wijzigen</button>
     </div></div>`;
   overlay.querySelector("#cp-who").textContent = "Ingelogd als " + me;
@@ -1014,7 +1026,7 @@ async function showChangePassword(){
       close(); alert("✅ Wachtwoord gewijzigd");
     }catch(e){ err.textContent = "Wijzigen mislukt (" + e.message + ")"; okBtn.disabled = false; }
   }
-  okBtn.onclick = submit; q("#cp-cancel").onclick = close;
+  okBtn.onclick = submit; addWinX(overlay.firstElementChild, close, "cp-close");
   ["#cp-old", "#cp-new1", "#cp-new2"].forEach(s=>q(s).addEventListener("keydown", e=>{ if(e.key==="Enter") submit(); if(e.key==="Escape") close(); }));
   q("#cp-old").focus();
 }
@@ -1027,12 +1039,11 @@ async function showUsersModal(){
   overlay.className = "tp-overlay"; overlay.id = "usr-overlay";
   overlay.style.cssText = "position:fixed;inset:0;z-index:870;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
   overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:560px;max-width:98vw;font-family:'Courier New',monospace;">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="font-size:14px;font-weight:700;color:#80cbc4;">🔑 Wachtwoorden</div><span style="flex:1"></span>
-      <button id="usr-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;padding-right:40px;"><div style="font-size:14px;font-weight:700;color:#80cbc4;">🔑 Wachtwoorden</div></div>
     <div id="usr-hint" style="font-size:10px;color:#777;margin-bottom:12px;">Wie een eigen wachtwoord heeft gekozen. Na een reset kiest die persoon opnieuw een eigen wachtwoord, met het startwachtwoord.</div>
     <div id="usr-list" style="font-size:12px;color:rgba(255,255,255,0.75);">Laden...</div></div>`;
   document.body.appendChild(overlay);
-  overlay.querySelector("#usr-close").onclick = ()=>overlay.remove();
+  addWinX(overlay.firstElementChild, ()=>overlay.remove(), "usr-close");
   const hint = overlay.querySelector("#usr-hint"), baseHint = hint.textContent;   // iedereen in het team ziet de lijst; alleen leden van ICT-Systeembeheer kunnen wachtwoorden van anderen resetten
   const list = overlay.querySelector("#usr-list");
   const fmt = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit",year:"numeric"}) + " " + d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"}); };
@@ -1085,15 +1096,14 @@ async function showGroupsModal(){
   overlay.style.cssText = "position:fixed;inset:0;z-index:870;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
   const BTN = "border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;";
   overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:520px;max-width:98vw;font-family:'Courier New',monospace;">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="font-size:14px;font-weight:700;color:#80cbc4;">👥 Groepen</div><span style="flex:1"></span>
-      <button id="grp-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;padding-right:40px;"><div style="font-size:14px;font-weight:700;color:#80cbc4;">👥 Groepen</div></div>
     <div id="grp-hint" style="font-size:10px;color:#777;margin-bottom:12px;line-height:1.5;"></div>
     <div id="grp-list" style="font-size:12px;color:rgba(255,255,255,0.75);">Laden...</div>
     <div id="grp-msg" style="font-size:11px;min-height:16px;margin:12px 0 8px;"></div>
     <div id="grp-actions" style="display:flex;gap:8px;justify-content:flex-end;"></div></div>`;
   document.body.appendChild(overlay);
   const q = s=>overlay.querySelector(s), list = q("#grp-list"), msg = q("#grp-msg"), hint = q("#grp-hint"), actions = q("#grp-actions");
-  q("#grp-close").onclick = ()=>overlay.remove();
+  addWinX(overlay.firstElementChild, ()=>overlay.remove(), "grp-close");
   const setMsg = (t, ok)=>{ msg.textContent = t || ""; msg.style.color = ok ? "#80cbc4" : "#f48fb1"; };
   let cur = null;   // laatst opgehaalde indeling {groups, sha}
   const curGroup = n => GROUP_NAMES.find(g=>cur.groups[g].includes(n)) || "";
@@ -1127,8 +1137,6 @@ async function showGroupsModal(){
       row.append(lbl, s); list.appendChild(row);
     });
     actions.innerHTML = "";
-    const cancel = document.createElement("button"); cancel.id = "grp-cancel"; cancel.textContent = editable ? "Annuleren" : "Sluiten";
-    cancel.style.cssText = "background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;" + BTN; cancel.onclick = ()=>overlay.remove(); actions.appendChild(cancel);
     if(editable){
       const save = document.createElement("button"); save.id = "grp-save"; save.textContent = "Opslaan";
       save.style.cssText = "background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;" + BTN;
@@ -1194,17 +1202,16 @@ function promptEnableEdit(){
     overlay.style.cssText = "position:fixed;inset:0;z-index:950;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
     const BTN = "border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;";
     overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:28px 24px;min-width:280px;max-width:92vw;text-align:center;">
-      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">✏️ Bewerken aanzetten?</div>
+      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;padding:0 28px;">✏️ Bewerken aanzetten?</div>
       <div id="ed-who" style="font-size:11px;color:#777;margin-bottom:16px;line-height:1.5;"></div>
       <div style="display:flex;gap:8px;justify-content:center;">
-        <button id="ed-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">Annuleren</button>
         <button id="ed-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;${BTN}">Bewerken aanzetten</button>
       </div></div>`;
     overlay.querySelector("#ed-who").textContent = "Je bent ingelogd als " + (currentIdentity ? currentIdentity.user : "") + ". Bewerken staat uit en gaat na 10 minuten zonder wijziging vanzelf weer uit.";
     document.body.appendChild(overlay);
     const done = v=>{ overlay.remove(); resolve(v); };
     overlay.querySelector("#ed-ok").onclick = ()=>{ enableEditing(); done(!!editUnlocked); };
-    overlay.querySelector("#ed-cancel").onclick = ()=>done(false);
+    addWinX(overlay.firstElementChild, ()=>done(false), "ed-close");
     overlay.addEventListener("keydown", e=>{ if(e.key === "Escape") done(false); });
     overlay.querySelector("#ed-ok").focus();
   });
@@ -1835,9 +1842,7 @@ async function showPopup(cellWrap,monday,person,day,isTemplate){
   const title=document.createElement("div"); title.className="popup-title";
   title.textContent=(isTemplate?"★ Standaard · ":"")+person+" · "+DAY_LABELS[day];
   popup.appendChild(title);
-  const closeBtn=document.createElement("div"); closeBtn.className="popup-close"; closeBtn.textContent="Sluiten";
-  closeBtn.addEventListener("click",closePopup);
-  popup.appendChild(closeBtn);
+  addWinX(popup, closePopup, "popup-close", { small:true, keepPosition:true });   // alleen een kruis rechtsboven in het venster
   function renderItems(){
     popup.querySelectorAll(".popup-item").forEach(e=>e.remove());
     const sel=isTemplate?(template[person][day]||[]):(getData(monday)[person][day]||[]);
@@ -1848,7 +1853,7 @@ async function showPopup(cellWrap,monday,person,day,isTemplate){
         if(lastGroup!==null){
           const div=document.createElement("div");
           div.style.cssText="height:1px;background:rgba(255,255,255,0.1);margin:4px 6px;";
-          popup.insertBefore(div,closeBtn);
+          popup.appendChild(div);
         }
         lastGroup=s.group;
       }
@@ -1869,7 +1874,7 @@ async function showPopup(cellWrap,monday,person,day,isTemplate){
           });
         }
       });
-      popup.insertBefore(item,closeBtn);
+      popup.appendChild(item);
     });
   }
   renderItems();
@@ -2644,7 +2649,7 @@ function showMaandOverzicht(){
 
     // Header
     const hdr=document.createElement("div");
-    hdr.style.cssText="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;";
+    hdr.style.cssText="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;padding-right:40px;";
     hdr.innerHTML=`
       <button id="mo-prev" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">◀◀</button>
       <button id="mo-prev1" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">◀</button>
@@ -2653,9 +2658,7 @@ function showMaandOverzicht(){
       <button id="mo-today" style="background:rgba(255,183,77,0.1);border:1px solid rgba(255,183,77,0.4);color:#ffb74d;border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">Deze week</button>
       <button id="mo-refresh" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-family:inherit;">↻</button>
       <button id="mo-periode" style="background:rgba(206,147,216,0.08);border:1px solid rgba(206,147,216,0.3);color:#ce93d8;border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">📆 Periode</button>
-      <button id="mo-lock" style="background:rgba(255,255,255,0.04);border:1px solid ${editUnlocked?"rgba(128,203,196,0.3)":"rgba(255,255,255,0.1)"};color:${editUnlocked?"#80cbc4":"rgba(255,255,255,0.35)"};border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">${editUnlocked?"🔓 Bewerken aan":"🔒 Alleen lezen"}</button>
-      <span style="flex:1"></span>
-      <button id="mo-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>`;
+      <button id="mo-lock" style="background:rgba(255,255,255,0.04);border:1px solid ${editUnlocked?"rgba(128,203,196,0.3)":"rgba(255,255,255,0.1)"};color:${editUnlocked?"#80cbc4":"rgba(255,255,255,0.35)"};border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">${editUnlocked?"🔓 Bewerken aan":"🔒 Alleen lezen"}</button>`;
     box.appendChild(hdr);
 
     // 3 rijen van elk 4 weken
@@ -2693,7 +2696,7 @@ function showMaandOverzicht(){
     };
     box.querySelector("#mo-periode").onclick=()=>{ showPeriodeModal(); };
     box.querySelector("#mo-lock").onclick=()=>{ if(editUnlocked) disableEditing(); else enableEditing(); render(); };
-    box.querySelector("#mo-close").onclick=()=>overlay.remove();
+    addWinX(box, ()=>overlay.remove(), "mo-close");
   }
 
   render();
@@ -2733,15 +2736,14 @@ async function showBackupContents(){
   const box = document.createElement("div");
   box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:24px;width:520px;max-width:95vw;max-height:85vh;overflow-y:auto;font-family:'Courier New',monospace;";
 
-  box.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  box.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-right:40px;">
     <div style="font-size:14px;font-weight:700;color:#80cbc4;">📦 Backup overzicht</div>
-    <button id="bc-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;">✕</button>
   </div>
   <div id="bc-content" style="font-size:11px;color:rgba(255,255,255,0.7);">Laden...</div>`;
 
   overlay.appendChild(box);
   document.body.appendChild(overlay);
-  box.querySelector("#bc-close").onclick = ()=>overlay.remove();
+  addWinX(box, ()=>overlay.remove(), "bc-close");
 
   try {
     const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups?ref=${GH_BRANCH}&t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2),
@@ -2843,17 +2845,14 @@ async function showRestoreModal(){
   const box = document.createElement("div");
   box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:24px;width:480px;max-width:95vw;font-family:'Courier New',monospace;";
 
-  box.innerHTML = `<div style="font-size:14px;font-weight:700;color:#ffb74d;margin-bottom:16px;">♻ Backup herstellen</div>
+  box.innerHTML = `<div style="font-size:14px;font-weight:700;color:#ffb74d;margin-bottom:16px;padding-right:40px;">♻ Backup herstellen</div>
     <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:12px;">Kies een backup om volledig terug te zetten. Dit overschrijft de huidige planning.</div>
-    <div id="restore-list" style="max-height:300px;overflow-y:auto;margin-bottom:16px;"></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button id="restore-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:8px 16px;cursor:pointer;font-family:inherit;">Annuleren</button>
-    </div>`;
+    <div id="restore-list" style="max-height:300px;overflow-y:auto;margin-bottom:16px;"></div>`;
 
   overlay.appendChild(box);
   document.body.appendChild(overlay);
 
-  box.querySelector("#restore-cancel").onclick = ()=>overlay.remove();
+  addWinX(box, ()=>overlay.remove(), "restore-close");
 
   // Laad backup lijst
   const listDiv = box.querySelector("#restore-list");
@@ -2956,7 +2955,7 @@ async function showPeriodeModal(){
   const weekEnd = new Date(now); weekEnd.setDate(now.getDate()+(5-now.getDay()||5));
 
   box.innerHTML = `
-    <div style="font-size:14px;font-weight:700;color:#ce93d8;margin-bottom:16px;">📆 Periode invoeren</div>
+    <div style="font-size:14px;font-weight:700;color:#ce93d8;margin-bottom:16px;padding-right:40px;">📆 Periode invoeren</div>
     <div style="display:grid;gap:14px;">
       <div>
         <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:5px;letter-spacing:1px;">PERSOON</div>
@@ -3026,7 +3025,6 @@ async function showPeriodeModal(){
       </label>
       <div id="pd-result" style="font-size:11px;color:#ce93d8;min-height:18px;"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button id="pd-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:9px 18px;cursor:pointer;font-family:inherit;font-size:12px;">Annuleren</button>
         <button id="pd-save" style="background:rgba(206,147,216,0.2);border:1px solid rgba(206,147,216,0.5);color:#ce93d8;border-radius:8px;padding:9px 18px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;">Opslaan</button>
       </div>
     </div>`;
@@ -3081,7 +3079,7 @@ async function showPeriodeModal(){
   { const me = currentIdentity && currentIdentity.user; if(me && TEAM.includes(me)) box.querySelector("#pd-person").value = me; }
   updateResult();
 
-  box.querySelector("#pd-cancel").onclick = ()=>overlay.remove();
+  addWinX(box, ()=>overlay.remove(), "pd-close");
 
   box.querySelector("#pd-save").onclick = async ()=>{
     if(!await requireUnlock()) return;
@@ -3218,7 +3216,7 @@ function showGeenBeheerModal(){
   const box = document.createElement("div");
   box.style.cssText = "background:#111827;border:1px solid rgba(244,143,177,0.3);border-radius:14px;padding:24px 22px;min-width:320px;max-width:420px;max-height:80vh;overflow-y:auto;";
 
-  let html_inner = `<div style="font-size:14px;font-weight:700;color:#f48fb1;margin-bottom:14px;">⚠ Geen Systeembeheer</div>`;
+  let html_inner = `<div style="font-size:14px;font-weight:700;color:#f48fb1;margin-bottom:14px;padding-right:34px;">⚠ Geen Systeembeheer</div>`;
 
   if(results.length === 0){
     html_inner += `<div style="color:#80cbc4;font-size:12px;padding:12px 0;">✓ Alle komende dagen is er iemand van Systeembeheer aanwezig.</div>`;
@@ -3240,13 +3238,10 @@ function showGeenBeheerModal(){
     });
   }
 
-  html_inner += `<div style="margin-top:16px;text-align:right;">
-    <button onclick="this.closest('[style*=fixed]').remove()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:7px 16px;font-size:12px;cursor:pointer;font-family:inherit;">Sluiten</button>
-  </div>`;
 
   box.innerHTML = html_inner;
   overlay.appendChild(box);
-  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+  addWinX(box, ()=>overlay.remove(), "gb-close");
   document.body.appendChild(overlay);
 }
 
@@ -3320,7 +3315,7 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
     const overlay = document.createElement("div");
     overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
     const box = document.createElement("div");
-    box.style.cssText="background:#111827;border:1px solid rgba(255,165,0,0.4);border-radius:14px;padding:24px 22px;min-width:280px;max-width:340px;";
+    box.style.cssText="background:#111827;border:1px solid rgba(255,165,0,0.4);border-radius:14px;padding:44px 22px 24px;min-width:280px;max-width:340px;";
     // Maak-backup knop bovenaan
     const makeBtn = document.createElement("button");
     makeBtn.textContent = "＋ Maak nu een backup";
@@ -3368,14 +3363,12 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
 
     const btnRow = document.createElement("div");
     btnRow.style.cssText = "display:flex;gap:8px;justify-content:flex-end;";
-    btnRow.innerHTML = `<button id="backup-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;">Annuleren</button>
-      <button id="backup-confirm" style="background:rgba(255,165,0,0.15);border:1px solid rgba(255,165,0,0.4);color:#ffb74d;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700;">Terugzetten</button>`;
+    btnRow.innerHTML = `<button id="backup-confirm" style="background:rgba(255,165,0,0.15);border:1px solid rgba(255,165,0,0.4);color:#ffb74d;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700;">Terugzetten</button>`;
     box.appendChild(btnRow);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
-    document.getElementById("backup-cancel").onclick = ()=>overlay.remove();
-    overlay.onclick = e=>{ if(e.target===overlay) overlay.remove(); };
+    addWinX(box, ()=>overlay.remove(), "backup-close");
 
     document.getElementById("backup-confirm").onclick = async ()=>{
       if(!canRestore()){ overlay.remove(); denyRestore(); return; }   // nog eens controleren op het moment van terugzetten
