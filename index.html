@@ -98,6 +98,8 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 #who-badge { position:fixed; top:10px; right:14px; z-index:100; pointer-events:none; font-size:12px; color:rgba(255,255,255,0.5); background:rgba(13,13,26,0.88); border:1px solid rgba(128,203,196,0.35); border-radius:999px; padding:5px 13px; white-space:nowrap; max-width:60vw; overflow:hidden; text-overflow:ellipsis; }
 #who-badge b { color:#80cbc4; font-weight:700; }
 @media (max-width:640px){ #who-badge { position:static; display:block; width:max-content; max-width:100%; margin:0 0 8px auto; } }
+/* Toegangspoort: de campusfoto als schermvullende achtergrond (licht verduisterd zodat het venster leesbaar blijft); zwart is de terugval als de foto niet laadt */
+.tp-overlay[data-gate] { background-color:#000; background-image:linear-gradient(rgba(6,12,24,0.28), rgba(6,12,24,0.5)), url("login-achtergrond.jpg"); background-size:cover; background-position:62% 50%; background-repeat:no-repeat; }
 </style>
 </head>
 <body>
@@ -684,8 +686,8 @@ async function promptUnlock(opts){
   if(!gate && gatePrompt){ await gatePrompt; return editUnlocked; }   // het inlogvenster van de toegangspoort staat al open: daar inloggen
   return new Promise(resolve=>{
     const overlay = document.createElement("div");
-    overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:950;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
-    if(gate){ overlay.dataset.gate = "1"; overlay.style.background = "#000"; }   // poort: volledig zwart, niet te sluiten
+    overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:950;" + (gate ? "" : "background:rgba(0,0,0,0.75);") + "display:flex;align-items:center;justify-content:center;";
+    if(gate) overlay.dataset.gate = "1";   // poort: de achtergrondfoto komt uit de stijl (.tp-overlay[data-gate]); het venster is niet te sluiten
     const box = document.createElement("div");
     box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:28px 24px;min-width:280px;max-width:92vw;text-align:center;";
     overlay.appendChild(box); document.body.appendChild(overlay);
