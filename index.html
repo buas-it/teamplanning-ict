@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl"><head>
+<html lang="nl" class="tp-gated"><head>
 <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
@@ -91,6 +91,9 @@ button { font-family:inherit; cursor:pointer; }
 .legend-hint { font-size:10px; color:#444; margin-left:auto; }
 /* Template modal */
 #tpl-modal { display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); overflow-y:auto; }
+/* Toegangspoort: zonder inloggen alleen een zwart scherm met het inlogvenster */
+html.tp-gated, html.tp-gated body { background:#000 !important; }
+html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { display:none !important; }
 </style>
 </head>
 <body>
@@ -113,7 +116,7 @@ button { font-family:inherit; cursor:pointer; }
   <button class="nav-btn" id="btn-periode" style="font-size:10px;padding:6px 10px;color:#ce93d8;border-color:rgba(206,147,216,0.4);background:rgba(206,147,216,0.06);width:auto;font-weight:700;">📆 Periode</button>
   <button class="nav-btn" id="btn-geen-beheer" onclick="showGeenBeheerModal()" style="font-size:10px;padding:6px 10px;color:#f48fb1;border-color:rgba(244,143,177,0.4);background:rgba(244,143,177,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚠ Geen Beheer</button>
   <button class="nav-btn" id="btn-template" style="font-size:10px;padding:6px 10px;color:#60b0ff;border-color:rgba(0,150,255,0.3);background:rgba(0,100,220,0.08);width:auto;letter-spacing:1px;">★ Standaard</button>
-  <button class="nav-btn" id="btn-admin" title="Beheer: audit-logboek (alleen Hans, beheerderswachtwoord)" style="font-size:10px;padding:6px 10px;color:#ffcc80;border-color:rgba(255,204,128,0.4);background:rgba(255,204,128,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚙ Admin</button>
+  <button class="nav-btn" id="btn-admin" title="Beheer: audit-logboek en wachtwoordenlijst (voor teamleden)" style="font-size:10px;padding:6px 10px;color:#ffcc80;border-color:rgba(255,204,128,0.4);background:rgba(255,204,128,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚙ Admin</button>
 </div>
 
 <div class="scroll-wrap">
@@ -215,6 +218,7 @@ function applyState(data){
   });
 
   // data-store tag blijft leeg — GitHub is de enige bron van waarheid
+  document.dispatchEvent(new CustomEvent("tp-team-changed"));   // o.a. het inlogvenster ververst zijn namenlijst
 }
 
 
@@ -233,7 +237,9 @@ let unlockTimer = null;
 // Bewerken gaat automatisch uit na 10 minuten zonder mutatie
 const EDIT_IDLE_MS = 10 * 60 * 1000;
 let lastEditAt = 0;   // tijdstip van de laatste wijziging of inlog; ook bewaard op het apparaat, zodat de 10 minuten gelden zonder dat de pagina hoeft te draaien
-function armEditTimer(ms){ clearTimeout(unlockTimer); unlockTimer = setTimeout(lock, Math.max(0, ms)); }
+const KEEP_LOGINS = ["Monitor"];   // scherm op de afdeling: blijft ingelogd op dit apparaat (geen uitlog na 10 minuten, ook niet na het uurlijks verversen) tot iemand uitlogt of de beheerder het wachtwoord reset
+function keptNow(){ return !!(currentIdentity && KEEP_LOGINS.includes(currentIdentity.user)); }
+function armEditTimer(ms){ clearTimeout(unlockTimer); if(keptNow()) return; unlockTimer = setTimeout(lock, Math.max(0, ms)); }
 function touchEditTimer(){
   if(!editUnlocked) return;
   lastEditAt = Date.now();
@@ -242,7 +248,7 @@ function touchEditTimer(){
   if(currentIdentity) auditWho = currentIdentity;   // wie heeft het laatst gemuteerd (voor het audit-logboek)
 }
 // Vangnet: een timer loopt niet in een slapende laptop of een bevroren/verborgen tabblad; kijk dan alsnog naar de klok
-function checkEditExpiry(){ if(editUnlocked && Date.now() - lastEditAt >= EDIT_IDLE_MS) lock(); }
+function checkEditExpiry(){ if(editUnlocked && !keptNow() && Date.now() - lastEditAt >= EDIT_IDLE_MS) lock(); }
 
 // ── Gebruiker + werkstation: ID voor wie een wijziging doet ─────────────
 let currentIdentity = null;   // {user, workstation, device, id} zolang bewerken aan staat
@@ -446,23 +452,13 @@ function updateAuditDot(){
   if(!el._clickSet){ el._clickSet = true; el.onclick = ()=>showAuditModal(); }
 }
 
-// ── Admin: het audit-logboek is alleen voor Hans, met een eigen beheerderswachtwoord ──
+// ── Admin: het audit-logboek en de wachtwoordenlijst zijn voor alle teamleden (geen apart wachtwoord voor Admin); alleen ADMIN_USER kan wachtwoorden resetten ──
 const ADMIN_USER = "Hans";
-const ADMIN_ITER = 210000;
-let adminOk = false;   // beheerderswachtwoord ingevoerd tijdens deze login (gewist bij vergrendelen en bij terug naar het hoofdscherm)
 function b64e(u8){ let s = ""; for(let i=0;i<u8.length;i++) s += String.fromCharCode(u8[i]); return btoa(s); }
 function b64d(s){ const bin = atob(s), u = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i); return u; }
 async function adminDerive(pw, salt, iter){
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
   return new Uint8Array(await crypto.subtle.deriveBits({name:"PBKDF2", hash:"SHA-256", salt, iterations: iter}, key, 256));
-}
-async function adminFetchVerifier(){
-  const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit/admin.json?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
-  if(r.status === 404) return {state:"none"};            // alleen een echte 404 betekent: nog niet ingesteld
-  if(!r.ok) throw new Error("HTTP " + r.status);
-  const v = JSON.parse(auditDecode((await r.json()).content));
-  if(!v || !v.salt || !v.hash || !v.iter) throw new Error("ongeldig bestand");
-  return {state:"ok", v};
 }
 function adminNotice(text){
   const old = document.getElementById("admin-notice"); if(old) old.remove();
@@ -477,66 +473,15 @@ function adminNotice(text){
   overlay.querySelector("#adm-close").onclick = ()=>overlay.remove();
   document.body.appendChild(overlay);
 }
-async function promptAdmin(){
-  let info;
-  try{ info = await adminFetchVerifier(); }
-  catch(e){ adminNotice("Het beheerderswachtwoord kon niet worden opgehaald (" + e.message + "). Probeer het later opnieuw."); return false; }
-  const setup = info.state === "none";
-  return new Promise(resolve=>{
-    const overlay = document.createElement("div");
-    overlay.className = "tp-overlay"; overlay.id = "admin-overlay";
-    overlay.style.cssText = "position:fixed;inset:0;z-index:955;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
-    const FIELD = "width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;margin-bottom:8px;outline:none;";
-    const BTN = "border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;";
-    overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:26px 24px;min-width:280px;max-width:92vw;text-align:center;font-family:'Courier New',monospace;">
-      <div style="font-size:15px;font-weight:700;color:#ffcc80;margin-bottom:6px;">${setup ? "⚙ Beheerderswachtwoord instellen" : "⚙ Beheerder"}</div>
-      <div style="font-size:11px;color:#777;margin-bottom:14px;">${setup ? "Kies een eigen wachtwoord voor het audit-logboek (minimaal 10 tekens)." : "Voer het beheerderswachtwoord in."}</div>
-      <input id="adm-pw" type="password" placeholder="${setup ? "Nieuw beheerderswachtwoord" : "Beheerderswachtwoord"}" autocomplete="off" style="${FIELD}">
-      ${setup ? `<input id="adm-pw2" type="password" placeholder="Herhaal wachtwoord" autocomplete="off" style="${FIELD}">` : ""}
-      <div id="adm-err" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
-      <div style="display:flex;gap:8px;justify-content:center;">
-        <button id="adm-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">Annuleren</button>
-        <button id="adm-ok" style="background:rgba(255,204,128,0.15);border:1px solid rgba(255,204,128,0.4);color:#ffcc80;font-weight:700;${BTN}">${setup ? "Instellen" : "Openen"}</button>
-      </div></div>`;
-    document.body.appendChild(overlay);
-    const pw1 = overlay.querySelector("#adm-pw"), pw2 = overlay.querySelector("#adm-pw2"), err = overlay.querySelector("#adm-err");
-    const done = v=>{ overlay.remove(); resolve(v); };
-    pw1.focus();
-    const submit = async ()=>{
-      err.textContent = "";
-      try{
-        const pw = pw1.value;
-        if(setup){
-          if(pw.length < 10){ err.textContent = "Minimaal 10 tekens"; return; }
-          if(pw !== pw2.value){ err.textContent = "De wachtwoorden komen niet overeen"; return; }
-          const salt = crypto.getRandomValues(new Uint8Array(16));
-          const hash = await adminDerive(pw, salt, ADMIN_ITER);
-          const content = encodeBase64(JSON.stringify({v:1, kdf:"PBKDF2-SHA256", iter:ADMIN_ITER, salt:b64e(salt), hash:b64e(hash)}));
-          const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit/admin.json`, {method:"PUT", headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify({message: commitMessage("Beheerderswachtwoord ingesteld"), content, branch: GH_BRANCH})});
-          if(r.status === 422 || r.status === 409){ err.textContent = "Er is intussen al een beheerderswachtwoord ingesteld. Sluit dit venster en probeer opnieuw."; return; }
-          if(!r.ok){ err.textContent = "Opslaan mislukt (HTTP " + r.status + ")"; return; }
-          adminOk = true; done(true); return;
-        }
-        const got = await adminDerive(pw, b64d(info.v.salt), info.v.iter), want = b64d(info.v.hash);
-        let diff = got.length ^ want.length; for(let i=0;i<Math.min(got.length, want.length);i++) diff |= got[i] ^ want[i];
-        if(diff === 0){ adminOk = true; done(true); }
-        else { err.textContent = "Onjuist beheerderswachtwoord"; pw1.value = ""; pw1.focus(); }
-      }catch(e){ err.textContent = "Fout: " + e.message; }
-    };
-    overlay.querySelector("#adm-ok").onclick = submit;
-    overlay.querySelector("#adm-cancel").onclick = ()=>done(false);
-    [pw1, pw2].forEach(el=>{ if(el) el.addEventListener("keydown", e=>{ if(e.key === "Enter") submit(); if(e.key === "Escape") done(false); }); });
-  });
-}
-// Toegang tot het logboek: eerst gewoon inloggen, dan alleen als Hans, dan het beheerderswachtwoord
+// Toegang tot het logboek: eerst gewoon inloggen, daarna alleen als teamlid (Monitor is geen teamlid)
 async function ensureAdmin(){
   if(!await requireUnlock()) return false;
-  if(!currentIdentity || currentIdentity.user !== ADMIN_USER){ adminNotice("Alleen toegankelijk voor " + ADMIN_USER + "."); return false; }
-  if(adminOk) return true;
-  return await promptAdmin();
+  const me = currentIdentity && currentIdentity.user;
+  if(!me || !TEAM.includes(me)){ adminNotice("Alleen toegankelijk voor teamleden."); return false; }
+  return true;
 }
 
-// Logboek bekijken: laatste 14 dagen, filter op naam en machine (alleen voor Hans, met beheerderswachtwoord)
+// Logboek bekijken: laatste 14 dagen, filter op naam en machine (voor alle teamleden)
 async function showAuditModal(){
   if(!await ensureAdmin()) return;
   const old = document.getElementById("audit-overlay"); if(old) old.remove();
@@ -649,12 +594,29 @@ function lock(){
   clearTimeout(unlockTimer);
   try{ localStorage.removeItem("tp_unlocked"); localStorage.removeItem("tp_user"); }catch(e){}
   currentIdentity = null;
-  adminOk = false;
   // Open keuzemenu's/popups sluiten, zodat daarmee niets meer gemuteerd kan worden
   try{ closePopup(); }catch(e){}
   document.querySelectorAll(".mo-inline-menu").forEach(m=>m.remove());
   showLockIndicator();
   document.dispatchEvent(new CustomEvent("tp-lock-changed"));
+  gateOn();   // uitgelogd = weer een zwart scherm: eerst aangeven wie je bent
+}
+
+// ── Toegangspoort: zonder inloggen is er alleen een zwart scherm met 'Wie ben je?' ──
+let gatePrompt = null, firstLoadSettled = false;
+function gateOn(){
+  document.documentElement.classList.add("tp-gated");
+  try{ closeAllOverlays(); }catch(e){}   // geen openstaande vensters van een vorige gebruiker
+  if(gatePrompt && document.querySelector(".tp-overlay[data-gate]")) return;   // het inlogvenster staat al open
+  gatePrompt = promptUnlock({ gate: true }).then(()=>{ gatePrompt = null; if(editUnlocked) gateOff(); });
+}
+function gateOff(){ document.documentElement.classList.remove("tp-gated"); }
+// Een blijvende login (Monitor) vervalt zodra de beheerder het wachtwoord heeft gereset; bij een storing blijft het scherm zoals het is
+async function revalidateKept(){
+  try{
+    const reg = await usersLoad();
+    if(currentIdentity && KEEP_LOGINS.includes(currentIdentity.user) && !reg.users[currentIdentity.user]) lock();
+  }catch(e){}
 }
 
 // ── Persoonlijke wachtwoorden: per naam een salt + PBKDF2-hash in users.json op de data-branch ──
@@ -702,10 +664,13 @@ function auditEvent(action){
   }catch(e){ console.warn("audit fout:", e); }
 }
 
-async function promptUnlock(){
+async function promptUnlock(opts){
+  const gate = !!(opts && opts.gate);
+  if(!gate && gatePrompt){ await gatePrompt; return editUnlocked; }   // het inlogvenster van de toegangspoort staat al open: daar inloggen
   return new Promise(resolve=>{
     const overlay = document.createElement("div");
     overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:950;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+    if(gate){ overlay.dataset.gate = "1"; overlay.style.background = "#000"; }   // poort: volledig zwart, niet te sluiten
     const box = document.createElement("div");
     box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:28px 24px;min-width:280px;max-width:92vw;text-align:center;";
     overlay.appendChild(box); document.body.appendChild(overlay);
@@ -715,7 +680,7 @@ async function promptUnlock(){
     const mBase = machineBase();
     let machineInfoStr = machineText(mBase);
     machineEnrich(mBase).then(o=>{ machineInfoStr = machineText(o); });
-    const cancel = ()=>{ overlay.remove(); resolve(false); };
+    const cancel = gate ? (()=>{ render1(); }) : (()=>{ overlay.remove(); resolve(false); });   // in de poort: Annuleren in stap 2 gaat terug naar stap 1
 
     function finishLogin(user, after){
       const ws = guessWorkstation();   // automatisch: besturingssysteem · browser
@@ -736,24 +701,41 @@ async function promptUnlock(){
 
     // Stap 1: naam + wachtwoord (het eigen wachtwoord, of de eerste keer het startwachtwoord)
     function render1(msg, preUser){
-      box.innerHTML = `<div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">🔒 Wachtwoord vereist</div>
-      <div style="font-size:11px;color:#777;margin-bottom:14px;">Kies wie je bent en voer je wachtwoord in om te bewerken</div>
+      box.innerHTML = `<div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">${gate ? "🔒 Inloggen" : "🔒 Wachtwoord vereist"}</div>
+      <div style="font-size:11px;color:#777;margin-bottom:14px;">${gate ? "Kies wie je bent en voer je wachtwoord in om de planning te zien" : "Kies wie je bent en voer je wachtwoord in om te bewerken"}</div>
       <div style="text-align:left;font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:4px;">WIE BEN JE?</div>
       <select id="pw-user" style="${FIELD}margin-bottom:10px;"></select>
       <input id="pw-input" type="password" placeholder="Wachtwoord" autocomplete="off" style="${FIELD}margin-bottom:8px;">
       <div style="text-align:left;font-size:10px;color:#666;margin-bottom:4px;">Eerste keer? Voer het startwachtwoord in, daarna kies je een eigen wachtwoord. Vergeten? Vraag ${ADMIN_USER} om een reset.</div>
       <div id="pw-error" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
       <div style="display:flex;gap:8px;justify-content:center;">
-        <button id="pw-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">Annuleren</button>
-        <button id="pw-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;${BTN}">Ontgrendelen</button>
+        ${gate ? "" : `<button id="pw-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">Annuleren</button>`}
+        <button id="pw-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;${BTN}">${gate ? "Inloggen" : "Ontgrendelen"}</button>
       </div>`;
       const input = box.querySelector("#pw-input"), error = box.querySelector("#pw-error"), userSel = box.querySelector("#pw-user");
-      { const ph = document.createElement("option"); ph.value = ""; ph.disabled = true; ph.selected = true; ph.textContent = "— Kies je naam —"; userSel.appendChild(ph); }
-      TEAM.filter(n=>n!=="__divider__").forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; userSel.appendChild(o); });
-      const extra = EXTRA_LOGINS.filter(n=>!TEAM.includes(n));
-      if(extra.length){ const g = document.createElement("optgroup"); g.label = "Overig (geen teamlid)"; extra.forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; g.appendChild(o); }); userSel.appendChild(g); }
-      let lastUser = preUser || ""; if(!lastUser){ try{ lastUser = localStorage.getItem("tp_last_user") || ""; }catch(e){} }
-      if(lastUser && loginNames().includes(lastUser)) userSel.value = lastUser;   // laatst gebruikte naam op dit werkstation
+      function fillNames(){
+        const loading = gate && !firstLoadSettled;   // de teamlijst is nog niet binnen: nog geen (verouderde) namen tonen
+        const names = loading ? [] : loginNames();
+        const sig = (loading ? "laden" : "klaar") + "|" + names.join("|");
+        if(userSel.dataset.sig === sig) return;      // niets veranderd: keuzelijst met rust laten
+        const wasLoading = (userSel.dataset.sig || "").startsWith("laden");
+        userSel.dataset.sig = sig;
+        const cur = userSel.value;
+        userSel.innerHTML = "";
+        const ph = document.createElement("option"); ph.value = ""; ph.disabled = true; ph.selected = true; ph.textContent = loading ? "— Planning laden… —" : "— Kies je naam —"; userSel.appendChild(ph);
+        userSel.disabled = loading;
+        if(loading) return;
+        TEAM.filter(n=>n!=="__divider__").forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; userSel.appendChild(o); });
+        const extra = EXTRA_LOGINS.filter(n=>!TEAM.includes(n));
+        if(extra.length){ const g = document.createElement("optgroup"); g.label = "Overig (geen teamlid)"; extra.forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; g.appendChild(o); }); userSel.appendChild(g); }
+        let pick = names.includes(cur) ? cur : (preUser || ""); if(!pick){ try{ pick = localStorage.getItem("tp_last_user") || ""; }catch(e){} }
+        if(pick && names.includes(pick)) userSel.value = pick;   // laatst gebruikte naam op dit werkstation
+        if(wasLoading) (userSel.value ? input : userSel).focus();   // de lijst is net binnen: focus op de naam, of op het wachtwoord als de naam al staat
+        else if(userSel.value && document.activeElement === userSel) input.focus();
+      }
+      fillNames();
+      const onTeam = ()=>{ if(!userSel.isConnected){ document.removeEventListener("tp-team-changed", onTeam); return; } fillNames(); };
+      document.addEventListener("tp-team-changed", onTeam);
       if(msg) error.textContent = msg;
       const wrong = ()=>{ error.textContent = "Onjuist wachtwoord"; input.value = ""; input.focus(); };   // venster blijft open: na een juist wachtwoord gaat de oorspronkelijke actie gewoon door
 
@@ -775,8 +757,8 @@ async function promptUnlock(){
         }
       }
       box.querySelector("#pw-ok").onclick = tryUnlock;
-      box.querySelector("#pw-cancel").onclick = cancel;
-      input.addEventListener("keydown", e=>{ if(e.key==="Enter") tryUnlock(); if(e.key==="Escape") cancel(); });
+      { const cb = box.querySelector("#pw-cancel"); if(cb) cb.onclick = cancel; }
+      input.addEventListener("keydown", e=>{ if(e.key==="Enter") tryUnlock(); if(e.key==="Escape" && !gate) cancel(); });
       (userSel.value ? input : userSel).focus();
     }
 
@@ -866,10 +848,12 @@ async function showUsersModal(){
   overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:560px;max-width:98vw;font-family:'Courier New',monospace;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="font-size:14px;font-weight:700;color:#80cbc4;">🔑 Wachtwoorden</div><span style="flex:1"></span>
       <button id="usr-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button></div>
-    <div style="font-size:10px;color:#777;margin-bottom:12px;">Wie een eigen wachtwoord heeft gekozen. Na een reset kiest die persoon opnieuw een eigen wachtwoord, met het startwachtwoord.</div>
+    <div id="usr-hint" style="font-size:10px;color:#777;margin-bottom:12px;">Wie een eigen wachtwoord heeft gekozen. Na een reset kiest die persoon opnieuw een eigen wachtwoord, met het startwachtwoord.</div>
     <div id="usr-list" style="font-size:12px;color:rgba(255,255,255,0.75);">Laden...</div></div>`;
   document.body.appendChild(overlay);
   overlay.querySelector("#usr-close").onclick = ()=>overlay.remove();
+  const canReset = !!(currentIdentity && currentIdentity.user === ADMIN_USER);   // iedereen in het team ziet de lijst; alleen ADMIN_USER kan resetten (een reset + het gedeelde startwachtwoord zou anders inloggen als een collega mogelijk maken)
+  if(!canReset) overlay.querySelector("#usr-hint").textContent += " Alleen " + ADMIN_USER + " kan een reset doen.";
   const list = overlay.querySelector("#usr-list");
   const fmt = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit",year:"numeric"}) + " " + d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"}); };
   async function renderList(){
@@ -884,10 +868,11 @@ async function showUsersModal(){
       const st = document.createElement("span"); st.style.cssText = "flex:1;color:" + (rec ? "#80cbc4" : "rgba(255,255,255,0.4)") + ";";
       st.textContent = rec ? "eigen wachtwoord sinds " + fmt(rec.set) : "nog niet ingesteld (startwachtwoord)";
       row.append(nm, st);
-      if(rec){
+      if(rec && canReset){
         const b = document.createElement("button"); b.textContent = "Reset";
         b.style.cssText = "background:rgba(244,143,177,0.1);border:1px solid rgba(244,143,177,0.35);color:#f48fb1;border-radius:8px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:inherit;";
         b.onclick = async ()=>{
+          if(!(currentIdentity && currentIdentity.user === ADMIN_USER)){ alert("Alleen " + ADMIN_USER + " kan wachtwoorden resetten."); return; }
           if(!confirm("Wachtwoord van " + name + " resetten?\n" + name + " moet daarna opnieuw een eigen wachtwoord kiezen, met het startwachtwoord.")) return;
           try{
             const r = await usersMutate(u=>{ if(!u[name]) return "Heeft geen eigen wachtwoord"; delete u[name]; return false; }, "Wachtwoord gereset voor " + name);
@@ -1496,11 +1481,12 @@ function propagateTemplateToAll(){
     // Verwijder eventuele oude localStorage data
     try{
       const keep = {};
-      ["tp_device","tp_ws","tp_audit_queue","tp_last_user"].forEach(k=>{ const v = localStorage.getItem(k); if(v !== null) keep[k] = v; });
+      ["tp_device","tp_ws","tp_audit_queue","tp_last_user","tp_unlocked","tp_user"].forEach(k=>{ const v = localStorage.getItem(k); if(v !== null) keep[k] = v; });
       localStorage.clear();
       Object.keys(keep).forEach(k=>localStorage.setItem(k, keep[k]));
     }catch(e){}
   }
+  firstLoadSettled = true; document.dispatchEvent(new CustomEvent("tp-team-changed"));   // eerste laadpoging klaar: het inlogvenster mag de namen tonen
   TEAM = TEAM.filter(p => p !== "__divider__");
   propagateTemplateToAll();
   renderAndSync();
@@ -2966,7 +2952,8 @@ try{
     const age = Date.now() - parseInt(saved);
     let ident = null;
     try{ ident = JSON.parse(localStorage.getItem("tp_user") || "null"); }catch(e){}
-    if(age >= 0 && age < EDIT_IDLE_MS && ident && ident.user && ident.id){
+    const kept = !!(ident && KEEP_LOGINS.includes(ident.user));   // Monitor: geen tijdslimiet
+    if(((age >= 0 && age < EDIT_IDLE_MS) || (kept && age >= 0)) && ident && ident.user && ident.id){
       currentIdentity = ident;
       editUnlocked = true;
       lastEditAt = Date.now() - age;          // niet verlengen: de 10 minuten lopen vanaf de laatste wijziging
@@ -2977,6 +2964,8 @@ try{
     }
   }
 }catch(e){}
+// Toegangspoort: zonder geldige sessie eerst aangeven wie je bent (anders blijft het zwart)
+if(editUnlocked){ gateOff(); if(keptNow()) revalidateKept(); } else { gateOn(); }
 // Slot-indicator klikbaar maken
 showLockIndicator();
 document.getElementById("lock-ind").addEventListener("click", async ()=>{
@@ -3091,12 +3080,11 @@ const IDLE_HOME_MS = 10 * 60 * 1000;
 let lastActivity = Date.now();
 let idleHandled = false;
 function closeAllOverlays(){
-  document.querySelectorAll(".tp-overlay, .mo-inline-menu, #health-popup").forEach(el=>el.remove());
+  document.querySelectorAll(".tp-overlay:not([data-gate]), .mo-inline-menu, #health-popup").forEach(el=>el.remove());
   try{ closePopup(); }catch(e){}
   try{ tplModal.style.display = "none"; }catch(e){}
 }
 function goHome(){
-  adminOk = false;   // na inactiviteit opnieuw het beheerderswachtwoord vragen
   closeAllOverlays();
   const now = new Date(), dow = now.getDay();
   const def = (dow === 0 || dow === 6) ? addWeeks(mondayOf(now), 1) : mondayOf(now);   // zelfde startweek als bij het openen (in het weekend: komende week)
@@ -3117,6 +3105,8 @@ setInterval(()=>{
 
 // ── Slot: 10 minuten zonder wijziging = uitgelogd, ook als timers stilstonden ──
 setInterval(checkEditExpiry, 10000);
+// Vangnet: niet ingelogd = nooit iets van de planning zichtbaar; ingelogd = nooit een zwart scherm
+setInterval(()=>{ if(editUnlocked) gateOff(); else gateOn(); }, 5000);
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) checkEditExpiry(); });
 window.addEventListener("focus", checkEditExpiry);
 window.addEventListener("pageshow", checkEditExpiry);
