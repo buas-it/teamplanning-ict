@@ -107,7 +107,7 @@ button { font-family:inherit; cursor:pointer; }
     <button class="nav-btn" id="btn-goto" title="Ga naar week" style="font-size:11px;padding:0 8px;width:auto;">→</button>
   </div>
   <button class="nav-btn" id="btn-refresh" onclick="sessionStorage.setItem('tp_baseMonday',baseMonday.getTime());saveState();setTimeout(()=>location.reload(),300)" title="Ververs" style="font-size:14px;">↻</button>
-  <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span>
+  <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span><a id="pw-change-link" href="#" title="Je eigen wachtwoord wijzigen" style="display:none;font-size:11px;color:rgba(255,255,255,0.3);margin-left:8px;text-decoration:underline;">wachtwoord wijzigen</a>
   <span id="save-ind" style="font-size: 11px; opacity: 0; transition: opacity 0.3s; min-width: 20px; text-align: center; color: rgb(128, 203, 196);">✓ opgeslagen</span>
   <button class="nav-btn" id="btn-maand" style="font-size:10px;padding:6px 10px;color:#80cbc4;border-color:rgba(128,203,196,0.4);background:rgba(128,203,196,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">📅 Maand</button>
   <button class="nav-btn" id="btn-periode" style="font-size:10px;padding:6px 10px;color:#ce93d8;border-color:rgba(206,147,216,0.4);background:rgba(206,147,216,0.06);width:auto;font-weight:700;">📆 Periode</button>
@@ -553,11 +553,13 @@ async function showAuditModal(){
       <select id="au-dev" style="${SEL}"></select>
       <span id="au-count" style="font-size:11px;color:rgba(255,255,255,0.4);"></span>
       <span style="flex:1"></span>
+      <button id="au-users" style="background:rgba(255,204,128,0.08);border:1px solid rgba(255,204,128,0.35);color:#ffcc80;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">🔑 Wachtwoorden</button>
       <button id="au-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button>
     </div>
     <div id="au-list" style="font-size:11px;color:rgba(255,255,255,0.7);">Laden...</div>`;
   overlay.appendChild(box); document.body.appendChild(overlay);
   box.querySelector("#au-close").onclick = ()=>overlay.remove();
+  box.querySelector("#au-users").onclick = ()=>showUsersModal();
   const list = box.querySelector("#au-list"), userSel = box.querySelector("#au-user"), devSel = box.querySelector("#au-dev"), count = box.querySelector("#au-count");
 
   const hdrs = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
@@ -639,6 +641,7 @@ function showLockIndicator(){
     ind.style.cursor = "pointer";
     ind.title = "Klik om te bewerken";
   }
+  const lnk = document.getElementById("pw-change-link"); if(lnk) lnk.style.display = editUnlocked ? "" : "none";
 }
 
 function lock(){
@@ -654,68 +657,248 @@ function lock(){
   document.dispatchEvent(new CustomEvent("tp-lock-changed"));
 }
 
+// ── Persoonlijke wachtwoorden: per naam een salt + PBKDF2-hash in users.json op de data-branch ──
+const USER_ITER = 210000, USERS_PATH = "users.json", PW_MIN = 10;
+async function usersLoad(){
+  const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${USERS_PATH}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+  if(r.status === 404) return { users: {}, sha: null };       // nog nooit iemand een eigen wachtwoord ingesteld
+  if(!r.ok) throw new Error("HTTP " + r.status);              // bij twijfel NIET terugvallen op het startwachtwoord
+  const d = await r.json();
+  const parsed = JSON.parse(auditDecode(d.content));
+  return { users: (parsed && typeof parsed.users === "object" && parsed.users) || {}, sha: d.sha };
+}
+// Lezen, wijzigen, schrijven; bij een schrijfconflict opnieuw. mutator(users) wijzigt de lijst en geeft een tekst terug om te weigeren.
+async function usersMutate(mutator, message){
+  for(let i=0;i<4;i++){
+    const cur = await usersLoad();
+    const refuse = mutator(cur.users);
+    if(refuse) return { error: refuse };
+    const body = { message, content: encodeBase64(JSON.stringify({ v: 1, users: cur.users }, null, 1)), branch: GH_BRANCH };
+    if(cur.sha) body.sha = cur.sha;
+    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${USERS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
+    if(r.ok) return { ok: true };
+    if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
+  }
+  throw new Error("conflict");
+}
+async function verifyUserPw(pw, rec){
+  const got = await adminDerive(pw, b64d(rec.salt), rec.iter), want = b64d(rec.hash);
+  let diff = got.length ^ want.length; for(let i=0;i<Math.min(got.length, want.length);i++) diff |= got[i] ^ want[i];
+  return diff === 0;
+}
+async function newUserRecord(pw){
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return { salt: b64e(salt), hash: b64e(await adminDerive(pw, salt, USER_ITER)), iter: USER_ITER, set: new Date().toISOString() };
+}
+function pwProblem(p1, p2){ if(p1.length < PW_MIN) return "Minimaal " + PW_MIN + " tekens"; if(p1 !== p2) return "De wachtwoorden komen niet overeen"; return null; }
+// Gebeurtenis zonder celwijziging (wachtwoord ingesteld/gewijzigd/gereset) in het logboek zetten
+function auditEvent(action){
+  try{
+    const who = currentIdentity;
+    auditQueue.push({ v: 1, eid: auditEid(), t: new Date().toISOString(), user: who ? who.user : "onbekend", ws: who ? who.workstation : "", device: who ? who.device : "", id: who ? who.id : "", wsinfo: who ? (who.info || "") : "", action, n: 0, trunc: false, changes: [] });
+    auditPersist(); auditFlush();
+  }catch(e){ console.warn("audit fout:", e); }
+}
+
 async function promptUnlock(){
   return new Promise(resolve=>{
     const overlay = document.createElement("div");
     overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:950;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
-    overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:28px 24px;min-width:280px;text-align:center;">
-      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">🔒 Wachtwoord vereist</div>
-      <div style="font-size:11px;color:#777;margin-bottom:14px;">Kies wie je bent en voer het wachtwoord in om te bewerken</div>
-      <div style="text-align:left;font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:4px;">WIE BEN JE?</div>
-      <select id="pw-user" style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;outline:none;margin-bottom:10px;"></select>
-      <input id="pw-input" type="password" placeholder="Wachtwoord" autocomplete="off"
-        style="width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;margin-bottom:8px;outline:none;">
-      <div id="pw-error" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
-      <div style="display:flex;gap:8px;justify-content:center;">
-        <button id="pw-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;">Annuleren</button>
-        <button id="pw-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700;">Ontgrendelen</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-    const input = overlay.querySelector("#pw-input");
-    const error = overlay.querySelector("#pw-error");
-    const userSel = overlay.querySelector("#pw-user");
-    { const ph = document.createElement("option"); ph.value = ""; ph.disabled = true; ph.selected = true; ph.textContent = "— Kies je naam —"; userSel.appendChild(ph); }
-    TEAM.filter(n=>n!=="__divider__").forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; userSel.appendChild(o); });
+    const box = document.createElement("div");
+    box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:28px 24px;min-width:280px;max-width:92vw;text-align:center;";
+    overlay.appendChild(box); document.body.appendChild(overlay);
+    const FIELD = "width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;outline:none;";
+    const BTN = "border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;";
     // Machine-gegevens worden op de achtergrond vastgelegd (niet gevraagd of getoond bij het inloggen)
     const mBase = machineBase();
     let machineInfoStr = machineText(mBase);
     machineEnrich(mBase).then(o=>{ machineInfoStr = machineText(o); });
-    let lastUser = ""; try{ lastUser = localStorage.getItem("tp_last_user") || ""; }catch(e){}
-    if(lastUser && TEAM.includes(lastUser)) userSel.value = lastUser;   // laatst gebruikte naam op dit werkstation
-    (userSel.value ? input : userSel).focus();
+    const cancel = ()=>{ overlay.remove(); resolve(false); };
 
-    async function tryUnlock(){
-      const user = userSel.value;
-      if(!user){ error.textContent = "Kies eerst wie je bent"; userSel.focus(); return; }
+    function finishLogin(user, after){
       const ws = guessWorkstation();   // automatisch: besturingssysteem · browser
-      const hash = await hashPassword(input.value);
-      if(hash === PW_HASH){
-        currentIdentity = makeIdentity(user, ws, machineInfoStr);
-        try{ localStorage.removeItem("tp_ws"); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); localStorage.setItem("tp_last_user", user); }catch(e){}
-        editUnlocked = true;
-        clearTimeout(unlockTimer);
-        // Onthoud op dit apparaat (alleen tot 10 minuten na de laatste wijziging)
-        try{ localStorage.setItem("tp_unlocked", Date.now().toString()); }catch(e){}
-        // Auto-vergrendel na 10 minuten zonder mutatie
-        touchEditTimer();
-        document.dispatchEvent(new CustomEvent("tp-lock-changed"));
-        showLockIndicator();
-        overlay.remove();
-        resolve(true);
-      } else {
-        error.textContent = "Onjuist wachtwoord";
-        input.value = "";
-        input.focus();
-        // venster blijft open: na een juist wachtwoord gaat de oorspronkelijke actie gewoon door
-      }
+      currentIdentity = makeIdentity(user, ws, machineInfoStr);
+      try{ localStorage.removeItem("tp_ws"); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); localStorage.setItem("tp_last_user", user); }catch(e){}
+      editUnlocked = true;
+      clearTimeout(unlockTimer);
+      // Onthoud op dit apparaat (alleen tot 10 minuten na de laatste wijziging)
+      try{ localStorage.setItem("tp_unlocked", Date.now().toString()); }catch(e){}
+      // Auto-vergrendel na 10 minuten zonder mutatie
+      touchEditTimer();
+      document.dispatchEvent(new CustomEvent("tp-lock-changed"));
+      showLockIndicator();
+      overlay.remove();
+      resolve(true);
+      if(after) after();
     }
 
-    overlay.querySelector("#pw-ok").onclick = tryUnlock;
-    overlay.querySelector("#pw-cancel").onclick = ()=>{ overlay.remove(); resolve(false); };
-    input.addEventListener("keydown", e=>{ if(e.key==="Enter") tryUnlock(); if(e.key==="Escape"){ overlay.remove(); resolve(false); } });
+    // Stap 1: naam + wachtwoord (het eigen wachtwoord, of de eerste keer het startwachtwoord)
+    function render1(msg, preUser){
+      box.innerHTML = `<div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">🔒 Wachtwoord vereist</div>
+      <div style="font-size:11px;color:#777;margin-bottom:14px;">Kies wie je bent en voer je wachtwoord in om te bewerken</div>
+      <div style="text-align:left;font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:4px;">WIE BEN JE?</div>
+      <select id="pw-user" style="${FIELD}margin-bottom:10px;"></select>
+      <input id="pw-input" type="password" placeholder="Wachtwoord" autocomplete="off" style="${FIELD}margin-bottom:8px;">
+      <div style="text-align:left;font-size:10px;color:#666;margin-bottom:4px;">Eerste keer? Voer het startwachtwoord in, daarna kies je een eigen wachtwoord. Vergeten? Vraag ${ADMIN_USER} om een reset.</div>
+      <div id="pw-error" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button id="pw-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">Annuleren</button>
+        <button id="pw-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;${BTN}">Ontgrendelen</button>
+      </div>`;
+      const input = box.querySelector("#pw-input"), error = box.querySelector("#pw-error"), userSel = box.querySelector("#pw-user");
+      { const ph = document.createElement("option"); ph.value = ""; ph.disabled = true; ph.selected = true; ph.textContent = "— Kies je naam —"; userSel.appendChild(ph); }
+      TEAM.filter(n=>n!=="__divider__").forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; userSel.appendChild(o); });
+      let lastUser = preUser || ""; if(!lastUser){ try{ lastUser = localStorage.getItem("tp_last_user") || ""; }catch(e){} }
+      if(lastUser && TEAM.includes(lastUser)) userSel.value = lastUser;   // laatst gebruikte naam op dit werkstation
+      if(msg) error.textContent = msg;
+      const wrong = ()=>{ error.textContent = "Onjuist wachtwoord"; input.value = ""; input.focus(); };   // venster blijft open: na een juist wachtwoord gaat de oorspronkelijke actie gewoon door
+
+      async function tryUnlock(){
+        const user = userSel.value;
+        if(!user){ error.textContent = "Kies eerst wie je bent"; userSel.focus(); return; }
+        error.textContent = "";
+        let reg;
+        try{ reg = await usersLoad(); }
+        catch(e){ error.textContent = "De wachtwoorden konden niet worden opgehaald. Probeer het opnieuw."; return; }
+        const rec = reg.users[user];
+        if(rec){
+          let ok = false; try{ ok = await verifyUserPw(input.value, rec); }catch(e){}
+          if(!ok){ wrong(); return; }
+          finishLogin(user);
+        } else {
+          if(await hashPassword(input.value) !== PW_HASH){ wrong(); return; }
+          render2(user);                 // startwachtwoord klopt: nu een eigen wachtwoord kiezen
+        }
+      }
+      box.querySelector("#pw-ok").onclick = tryUnlock;
+      box.querySelector("#pw-cancel").onclick = cancel;
+      input.addEventListener("keydown", e=>{ if(e.key==="Enter") tryUnlock(); if(e.key==="Escape") cancel(); });
+      (userSel.value ? input : userSel).focus();
+    }
+
+    // Stap 2 (alleen de eerste keer): een eigen wachtwoord kiezen
+    function render2(user){
+      box.innerHTML = `<div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">🔑 Kies je eigen wachtwoord</div>
+      <div id="pw2-intro" style="font-size:11px;color:#777;margin-bottom:14px;"></div>
+      <input id="pw-new1" type="password" placeholder="Nieuw wachtwoord (min. ${PW_MIN} tekens)" autocomplete="new-password" style="${FIELD}margin-bottom:8px;">
+      <input id="pw-new2" type="password" placeholder="Herhaal wachtwoord" autocomplete="new-password" style="${FIELD}margin-bottom:8px;">
+      <div id="pw-error" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button id="pw-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">Annuleren</button>
+        <button id="pw-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;${BTN}">Opslaan en inloggen</button>
+      </div>`;
+      box.querySelector("#pw2-intro").textContent = "Hallo " + user + ". Daarmee log je voortaan in; het startwachtwoord werkt dan niet meer voor jouw naam.";
+      const n1 = box.querySelector("#pw-new1"), n2 = box.querySelector("#pw-new2"), error = box.querySelector("#pw-error"), okBtn = box.querySelector("#pw-ok");
+      async function save(){
+        const prob = pwProblem(n1.value, n2.value); if(prob){ error.textContent = prob; return; }
+        error.textContent = ""; okBtn.disabled = true;
+        try{
+          const rec = await newUserRecord(n1.value);
+          const res = await usersMutate(u=>{ if(u[user]) return "bestaat al"; u[user] = rec; return false; }, "Wachtwoord ingesteld voor " + user);
+          if(res.error){ render1("Er is intussen al een eigen wachtwoord voor deze naam. Log in met dat wachtwoord.", user); return; }
+        }catch(e){ error.textContent = "Opslaan mislukt (" + e.message + "). Probeer het opnieuw."; okBtn.disabled = false; return; }
+        finishLogin(user, ()=>auditEvent("wachtwoord ingesteld"));
+      }
+      okBtn.onclick = save;
+      box.querySelector("#pw-cancel").onclick = cancel;
+      [n1, n2].forEach(el=>el.addEventListener("keydown", e=>{ if(e.key==="Enter") save(); if(e.key==="Escape") cancel(); }));
+      n1.focus();
+    }
+    render1();
   });
 }
+
+// Je eigen wachtwoord wijzigen (ingelogd)
+async function showChangePassword(){
+  if(!await requireUnlock()) return;
+  const me = currentIdentity && currentIdentity.user; if(!me) return;
+  const old = document.getElementById("cp-overlay"); if(old) old.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "tp-overlay"; overlay.id = "cp-overlay";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:960;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+  const F = "width:100%;box-sizing:border-box;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;outline:none;margin-bottom:8px;";
+  const B = "border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;";
+  overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:28px 24px;min-width:280px;max-width:92vw;text-align:center;">
+    <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">🔑 Wachtwoord wijzigen</div>
+    <div id="cp-who" style="font-size:11px;color:#777;margin-bottom:14px;"></div>
+    <input id="cp-old" type="password" placeholder="Huidig wachtwoord" autocomplete="off" style="${F}">
+    <input id="cp-new1" type="password" placeholder="Nieuw wachtwoord (min. ${PW_MIN} tekens)" autocomplete="new-password" style="${F}">
+    <input id="cp-new2" type="password" placeholder="Herhaal nieuw wachtwoord" autocomplete="new-password" style="${F}">
+    <div id="cp-err" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
+    <div style="display:flex;gap:8px;justify-content:center;">
+      <button id="cp-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${B}">Annuleren</button>
+      <button id="cp-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;${B}">Wijzigen</button>
+    </div></div>`;
+  overlay.querySelector("#cp-who").textContent = "Ingelogd als " + me;
+  document.body.appendChild(overlay);
+  const q = s => overlay.querySelector(s), err = q("#cp-err"), okBtn = q("#cp-ok"), close = ()=>overlay.remove();
+  async function submit(){
+    const o = q("#cp-old").value, n1 = q("#cp-new1").value, n2 = q("#cp-new2").value;
+    const prob = pwProblem(n1, n2); if(prob){ err.textContent = prob; return; }
+    err.textContent = ""; okBtn.disabled = true;
+    try{
+      const reg = await usersLoad(); const rec = reg.users[me];
+      const okOld = rec ? await verifyUserPw(o, rec).catch(()=>false) : (await hashPassword(o)) === PW_HASH;   // nog geen eigen wachtwoord (bijv. na een reset): het startwachtwoord geldt
+      if(!okOld){ err.textContent = "Het huidige wachtwoord klopt niet"; okBtn.disabled = false; return; }
+      const nr = await newUserRecord(n1);
+      const res = await usersMutate(u=>{ u[me] = nr; return false; }, "Wachtwoord gewijzigd voor " + me);
+      if(res.error){ err.textContent = res.error; okBtn.disabled = false; return; }
+      auditEvent("wachtwoord gewijzigd");
+      close(); alert("✅ Wachtwoord gewijzigd");
+    }catch(e){ err.textContent = "Wijzigen mislukt (" + e.message + ")"; okBtn.disabled = false; }
+  }
+  okBtn.onclick = submit; q("#cp-cancel").onclick = close;
+  ["#cp-old", "#cp-new1", "#cp-new2"].forEach(s=>q(s).addEventListener("keydown", e=>{ if(e.key==="Enter") submit(); if(e.key==="Escape") close(); }));
+  q("#cp-old").focus();
+}
+
+// Beheerder: wie heeft een eigen wachtwoord, en resetten
+async function showUsersModal(){
+  if(!await ensureAdmin()) return;
+  const old = document.getElementById("usr-overlay"); if(old) old.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "tp-overlay"; overlay.id = "usr-overlay";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:870;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
+  overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:560px;max-width:98vw;font-family:'Courier New',monospace;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="font-size:14px;font-weight:700;color:#80cbc4;">🔑 Wachtwoorden</div><span style="flex:1"></span>
+      <button id="usr-close" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">✕ Sluiten</button></div>
+    <div style="font-size:10px;color:#777;margin-bottom:12px;">Wie een eigen wachtwoord heeft gekozen. Na een reset kiest die persoon opnieuw een eigen wachtwoord, met het startwachtwoord.</div>
+    <div id="usr-list" style="font-size:12px;color:rgba(255,255,255,0.75);">Laden...</div></div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector("#usr-close").onclick = ()=>overlay.remove();
+  const list = overlay.querySelector("#usr-list");
+  const fmt = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit",year:"numeric"}) + " " + d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"}); };
+  async function renderList(){
+    let reg; try{ reg = await usersLoad(); }catch(e){ list.textContent = "Laden mislukt: " + e.message; return; }
+    list.innerHTML = "";
+    const names = TEAM.filter(n=>n!=="__divider__").concat(Object.keys(reg.users).filter(n=>!TEAM.includes(n)));
+    names.forEach(name=>{
+      const rec = reg.users[name];
+      const row = document.createElement("div"); row.dataset.user = name;
+      row.style.cssText = "display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.06);";
+      const nm = document.createElement("span"); nm.style.cssText = "min-width:90px;color:#fff;"; nm.textContent = name + (TEAM.includes(name) ? "" : " (niet in team)");
+      const st = document.createElement("span"); st.style.cssText = "flex:1;color:" + (rec ? "#80cbc4" : "rgba(255,255,255,0.4)") + ";";
+      st.textContent = rec ? "eigen wachtwoord sinds " + fmt(rec.set) : "nog niet ingesteld (startwachtwoord)";
+      row.append(nm, st);
+      if(rec){
+        const b = document.createElement("button"); b.textContent = "Reset";
+        b.style.cssText = "background:rgba(244,143,177,0.1);border:1px solid rgba(244,143,177,0.35);color:#f48fb1;border-radius:8px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:inherit;";
+        b.onclick = async ()=>{
+          if(!confirm("Wachtwoord van " + name + " resetten?\n" + name + " moet daarna opnieuw een eigen wachtwoord kiezen, met het startwachtwoord.")) return;
+          try{
+            const r = await usersMutate(u=>{ if(!u[name]) return "Heeft geen eigen wachtwoord"; delete u[name]; return false; }, "Wachtwoord gereset voor " + name);
+            if(!r.error) auditEvent("wachtwoord gereset: " + name);
+          }catch(e){ alert("Reset mislukt: " + e.message); }
+          renderList();
+        };
+        row.appendChild(b);
+      }
+      list.appendChild(row);
+    });
+  }
+  renderList();
+}
+
 
 // Controleer of bewerken is toegestaan, vraag anders wachtwoord
 async function requireUnlock(){
@@ -2795,6 +2978,7 @@ showLockIndicator();
 document.getElementById("lock-ind").addEventListener("click", async ()=>{
   if(editUnlocked){ lock(); } else { await promptUnlock(); }
 });
+document.getElementById("pw-change-link").addEventListener("click", e=>{ e.preventDefault(); showChangePassword(); });
 document.getElementById("tpl-close").addEventListener("click",()=>{ closePopup(); tplModal.style.display="none"; });
 tplModal.addEventListener("click",e=>{ if(e.target===tplModal){ closePopup(); tplModal.style.display="none"; } });
 
