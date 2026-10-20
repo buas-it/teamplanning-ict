@@ -2578,6 +2578,8 @@ async function showPeriodeModal(){
     const el=box.querySelector(id); if(el){ el.addEventListener("change",updateResult); el.addEventListener("input",updateResult); }
   });
   box.querySelector('input[name="pd-status"][value="vrij"]').checked = true;
+  // Wie is ingelogd? Die persoon staat standaard in het venster (te wijzigen); staat de naam niet in het team, dan blijft de keuze leeg
+  { const me = currentIdentity && currentIdentity.user; if(me && TEAM.includes(me)) box.querySelector("#pd-person").value = me; }
   updateResult();
 
   box.querySelector("#pd-cancel").onclick = ()=>overlay.remove();
