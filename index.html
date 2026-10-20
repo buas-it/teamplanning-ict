@@ -146,7 +146,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 30</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 31</span>
   </div>
   <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
@@ -280,6 +280,7 @@ function groupOf(user){ return GROUP_NAMES.find(g=>GROUPS[g].includes(user)) || 
 function inGroup(user, g){ return !!(groupsReady && user && GROUPS[g] && GROUPS[g].includes(user)); }
 function canRestore(){ return !!(currentIdentity && inGroup(currentIdentity.user, RESTORE_GROUP)); }
 function canEditGroups(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }
+function canResetPasswords(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }   // wachtwoorden van anderen resetten: alleen leden van ICT-Systeembeheer (je eigen wachtwoord wijzigen kan iedereen)
 function denyRestore(){ adminNotice(groupsReady ? "Een backup terugzetten mag alleen " + RESTORE_GROUP + "." : "De groepen konden niet worden opgehaald, dus terugzetten kan nu niet. Probeer het zo opnieuw.", "♻ Backup terugzetten"); }
 function applyGroups(g){ GROUP_NAMES.forEach(n=>{ GROUPS[n] = g[n].slice(); }); }
 function normalizeGroups(src){   // altijd precies de drie vaste groepen, alleen namen (tekst), niemand in twee groepen
@@ -301,11 +302,14 @@ async function groupsFetch(){   // {groups, sha}; gooit bij een storing of een o
   if(!g[GROUP_ADMIN].length) throw new Error("ongeldig bestand: " + GROUP_ADMIN + " is leeg");   // dan kan niemand de groepen nog herstellen
   return { groups: g, sha: d.sha };
 }
+async function groupsRefresh(){   // haalt de nieuwste indeling op en past hem toe; gooit bij een storing of ongeldig bestand
+  const cur = await groupsFetch();
+  applyGroups(cur.groups); groupsSha = cur.sha; groupsReady = true; groupsError = null;
+  return cur;
+}
 async function groupsLoad(){   // haalt de indeling op; bij een storing blijft de eerder opgehaalde indeling gelden
-  try{
-    const cur = await groupsFetch();
-    applyGroups(cur.groups); groupsSha = cur.sha; groupsReady = true; groupsError = null;
-  }catch(e){ groupsError = (e && e.message) || String(e); }
+  try{ await groupsRefresh(); }
+  catch(e){ groupsError = (e && e.message) || String(e); }
   try{ showLockIndicator(); }catch(e){}
   return groupsReady;
 }
@@ -542,8 +546,7 @@ function updateAuditDot(){
   if(!el._clickSet){ el._clickSet = true; el.onclick = ()=>showAuditModal(); }
 }
 
-// ── Admin: het audit-logboek en de wachtwoordenlijst zijn voor alle teamleden (geen apart wachtwoord voor Admin); alleen ADMIN_USER kan wachtwoorden resetten ──
-const ADMIN_USER = "Hans";
+// ── Admin: het audit-logboek en de wachtwoordenlijst zijn voor alle teamleden (geen apart wachtwoord voor Admin); alleen leden van ICT-Systeembeheer kunnen groepen aanpassen en wachtwoorden van anderen resetten ──
 function b64e(u8){ let s = ""; for(let i=0;i<u8.length;i++) s += String.fromCharCode(u8[i]); return btoa(s); }
 function b64d(s){ const bin = atob(s), u = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i); return u; }
 async function adminDerive(pw, salt, iter){
@@ -870,7 +873,7 @@ async function promptUnlock(opts){
       <div style="text-align:left;font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:4px;">WIE BEN JE?</div>
       <select id="pw-user" style="${FIELD}margin-bottom:10px;"></select>
       <input id="pw-input" type="password" placeholder="Wachtwoord" autocomplete="off" style="${FIELD}margin-bottom:8px;">
-      <div style="text-align:left;font-size:10px;color:#666;margin-bottom:4px;">Eerste keer? Voer het startwachtwoord in, daarna kies je een eigen wachtwoord. Vergeten? Vraag ${ADMIN_USER} om een reset.</div>
+      <div style="text-align:left;font-size:10px;color:#666;margin-bottom:4px;">Eerste keer? Voer het startwachtwoord in, daarna kies je een eigen wachtwoord. Vergeten? Vraag een lid van ${GROUP_ADMIN} om een reset.</div>
       <div id="pw-error" style="font-size:10px;color:#f48fb1;min-height:14px;margin-bottom:10px;"></div>
       <div style="display:flex;gap:8px;justify-content:center;">
         ${gate ? "" : `<button id="pw-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">Annuleren</button>`}
@@ -1016,12 +1019,13 @@ async function showUsersModal(){
     <div id="usr-list" style="font-size:12px;color:rgba(255,255,255,0.75);">Laden...</div></div>`;
   document.body.appendChild(overlay);
   overlay.querySelector("#usr-close").onclick = ()=>overlay.remove();
-  const canReset = !!(currentIdentity && currentIdentity.user === ADMIN_USER);   // iedereen in het team ziet de lijst; alleen ADMIN_USER kan resetten (een reset + het gedeelde startwachtwoord zou anders inloggen als een collega mogelijk maken)
-  if(!canReset) overlay.querySelector("#usr-hint").textContent += " Alleen " + ADMIN_USER + " kan een reset doen.";
+  const hint = overlay.querySelector("#usr-hint"), baseHint = hint.textContent;   // iedereen in het team ziet de lijst; alleen leden van ICT-Systeembeheer kunnen wachtwoorden van anderen resetten
   const list = overlay.querySelector("#usr-list");
   const fmt = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit",year:"numeric"}) + " " + d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"}); };
   async function renderList(){
     let reg; try{ reg = await usersLoad(); }catch(e){ list.textContent = "Laden mislukt: " + e.message; return; }
+    const canReset = canResetPasswords();
+    hint.textContent = baseHint + (canReset ? "" : (groupsReady ? " Alleen leden van " + GROUP_ADMIN + " kunnen een reset doen." : " De groepen zijn nog niet opgehaald, dus resetten kan nu niet."));
     list.innerHTML = "";
     const names = loginNames().concat(Object.keys(reg.users).filter(n=>!loginNames().includes(n)));
     names.forEach(name=>{
@@ -1036,7 +1040,9 @@ async function showUsersModal(){
         const b = document.createElement("button"); b.textContent = "Reset";
         b.style.cssText = "background:rgba(244,143,177,0.1);border:1px solid rgba(244,143,177,0.35);color:#f48fb1;border-radius:8px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:inherit;";
         b.onclick = async ()=>{
-          if(!(currentIdentity && currentIdentity.user === ADMIN_USER)){ alert("Alleen " + ADMIN_USER + " kan wachtwoorden resetten."); return; }
+          // de rechten worden op het moment van resetten nog eens gecontroleerd op de nieuwste indeling (niet op wat dit venster al wist)
+          try{ await groupsRefresh(); }catch(e){ alert("De groepen konden niet worden opgehaald, dus resetten kan nu niet."); return; }
+          if(!canResetPasswords()){ alert("Alleen leden van " + GROUP_ADMIN + " kunnen wachtwoorden resetten."); try{ showLockIndicator(); }catch(e){} renderList(); return; }
           if(!confirm("Wachtwoord van " + name + " resetten?\n" + name + " moet daarna opnieuw een eigen wachtwoord kiezen, met het startwachtwoord.")) return;
           try{
             const r = await usersMutate(u=>{ if(!u[name]) return "Heeft geen eigen wachtwoord"; delete u[name]; return false; }, "Wachtwoord gereset voor " + name);
