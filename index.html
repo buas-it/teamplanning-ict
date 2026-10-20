@@ -95,11 +95,17 @@ button { font-family:inherit; cursor:pointer; }
 html.tp-gated, html.tp-gated body { background:#000 !important; }
 html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { display:none !important; }
 /* Wie is er ingelogd: rechtsboven in het scherm (niet aanklikbaar, dus nooit in de weg); op een smal scherm boven de titel */
-#who-badge { position:fixed; top:10px; right:14px; z-index:100; pointer-events:none; font-size:12px; color:rgba(255,255,255,0.5); background:rgba(13,13,26,0.88); border:1px solid rgba(128,203,196,0.35); border-radius:999px; padding:5px 13px; white-space:nowrap; max-width:60vw; overflow:hidden; text-overflow:ellipsis; }
-#who-badge b { color:#80cbc4; font-weight:700; }
-#who-badge a { pointer-events:auto; color:#80cbc4; text-decoration:underline; cursor:pointer; }   /* de badge laat klikken door; alleen deze link is aanklikbaar */
-#who-badge a:hover { color:#fff; }
-@media (max-width:640px){ #who-badge { position:static; display:block; width:max-content; max-width:100%; margin:0 0 8px auto; } }
+#who-badge { position:fixed; top:10px; right:14px; z-index:100; pointer-events:none; font-size:12px; }   /* de badge zelf laat klikken door; alleen de knop en het menu zijn aanklikbaar */
+#who-btn { pointer-events:auto; display:inline-flex; align-items:center; gap:4px; font:inherit; font-size:12px; color:rgba(255,255,255,0.5); background:rgba(13,13,26,0.88); border:1px solid rgba(128,203,196,0.35); border-radius:999px; padding:5px 12px 5px 13px; white-space:nowrap; max-width:60vw; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+#who-btn:hover, #who-btn[aria-expanded="true"], #who-btn:focus-visible { border-color:rgba(128,203,196,0.75); color:rgba(255,255,255,0.8); outline:none; }
+#who-btn b { color:#80cbc4; font-weight:700; }
+#who-btn .caret { font-size:10px; opacity:0.75; transition:transform 0.15s; }
+#who-btn[aria-expanded="true"] .caret { transform:rotate(180deg); }
+#who-menu { pointer-events:auto; position:absolute; right:0; top:calc(100% + 6px); min-width:210px; padding:6px; background:#111827; border:1px solid rgba(255,255,255,0.15); border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,0.55); }
+#who-menu button { display:block; width:100%; text-align:left; font:inherit; font-size:12px; color:#e8e8f0; background:none; border:none; border-radius:7px; padding:8px 10px; cursor:pointer; }
+#who-menu button:hover, #who-menu button:focus { background:rgba(255,255,255,0.08); outline:none; }
+#who-menu button.out { color:#f48fb1; }
+@media (max-width:640px){ #who-badge { position:relative; display:block; width:max-content; max-width:100%; margin:0 0 8px auto; } }   /* smal scherm: boven de titel, het menu blijft eraan vast */
 /* Toegangspoort: de campusfoto over de volle breedte in de echte beeldverhouding (1881:592; niets afgesneden of uitgerekt). De rest van het scherm is een uitgerekte, vervaagde en verduisterde versie van dezelfde foto; het venster staat in de ruimte onder de foto; zwart is de terugval als de foto niet laadt */
 .tp-overlay[data-gate] { background-color:#000; align-items:flex-start; overflow:auto; box-sizing:border-box; padding-top:max(0px, min(calc(100vw * 592 / 1881), calc(100vh - 290px))); }
 .tp-overlay[data-gate]::before { content:""; position:fixed; inset:-40px; z-index:0; background:url("login-achtergrond.jpg") center / cover no-repeat; filter:blur(26px) brightness(0.5) saturate(1.15); }
@@ -140,7 +146,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 25</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 26</span>
   </div>
   <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
@@ -589,6 +595,32 @@ async function hashPassword(pw){
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
 }
 
+// ── Pulldown rechtsboven: Wachtwoord wijzigen / Uitloggen ──
+function closeWhoMenu(focusBtn){
+  const m = document.getElementById("who-menu"), b = document.getElementById("who-btn");
+  if(m) m.remove();
+  if(b){ b.setAttribute("aria-expanded", "false"); if(focusBtn) b.focus(); }
+}
+function openWhoMenu(){
+  const wb = document.getElementById("who-badge"), b = document.getElementById("who-btn");
+  if(!wb || !b || document.getElementById("who-menu")) return;
+  const m = document.createElement("div"); m.id = "who-menu"; m.setAttribute("role", "menu");
+  const item = (id, label, cls, fn)=>{ const x = document.createElement("button"); x.type = "button"; x.id = id; x.setAttribute("role", "menuitem"); x.textContent = label; if(cls) x.className = cls; x.onclick = ()=>{ closeWhoMenu(); fn(); }; m.appendChild(x); };
+  item("menu-pw", "🔑 Wachtwoord wijzigen", "", ()=>showChangePassword());
+  item("menu-logout", "↪ Uitloggen", "out", ()=>lock());
+  m.addEventListener("keydown", e=>{
+    const items = [...m.querySelectorAll("button")], i = items.indexOf(document.activeElement);
+    if(e.key === "ArrowDown"){ e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    else if(e.key === "ArrowUp"){ e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    else if(e.key === "Escape"){ e.preventDefault(); closeWhoMenu(true); }
+    else if(e.key === "Tab"){ closeWhoMenu(); }
+  });
+  wb.appendChild(m); b.setAttribute("aria-expanded", "true");
+  m.querySelector("button").focus();
+}
+document.addEventListener("click", e=>{ if(document.getElementById("who-menu") && !(e.target.closest && e.target.closest("#who-badge"))) closeWhoMenu(); }, true);
+document.addEventListener("keydown", e=>{ if(e.key === "Escape" && document.getElementById("who-menu")) closeWhoMenu(true); });
+
 function showLockIndicator(){
   const ind = document.getElementById("lock-ind");
   if(!ind) return;
@@ -606,21 +638,24 @@ function showLockIndicator(){
   const on = !!currentIdentity;
   const lnk = document.getElementById("pw-change-link"); if(lnk) lnk.style.display = on ? "" : "none";
   const out = document.getElementById("logout-link"); if(out) out.style.display = on ? "" : "none";
-  // Rechtsboven: onder wie er is ingelogd (alleen tekst, nooit HTML)
+  // Rechtsboven: onder wie er is ingelogd, met een pulldown (alleen tekst, nooit HTML)
   const wb = document.getElementById("who-badge");
   if(wb){
-    wb.textContent = "";
-    if(currentIdentity){
-      wb.append("Ingelogd als ");
-      const b = document.createElement("b"); b.textContent = currentIdentity.user; wb.appendChild(b);
-      wb.append(" · ");
-      const outBtn = document.createElement("a"); outBtn.id = "badge-logout"; outBtn.href = "#"; outBtn.textContent = "Uitloggen";
-      outBtn.title = "Uitloggen, bijvoorbeeld om als iemand anders in te loggen";
-      outBtn.onclick = e=>{ e.preventDefault(); lock(); };
-      wb.appendChild(outBtn);
-      wb.title = idLine;
-      wb.style.display = "";
-    } else { wb.title = ""; wb.style.display = "none"; }
+    const key = currentIdentity ? currentIdentity.id + "|" + currentIdentity.user : "";
+    if(wb.dataset.key !== key){   // alleen opnieuw opbouwen als de gebruiker wisselt: een open menu blijft open als bewerken aan/uit gaat
+      closeWhoMenu(); wb.textContent = ""; wb.dataset.key = key;
+      if(currentIdentity){
+        const btn = document.createElement("button"); btn.type = "button"; btn.id = "who-btn";
+        btn.setAttribute("aria-haspopup", "menu"); btn.setAttribute("aria-expanded", "false");
+        btn.append("Ingelogd als ");
+        const b = document.createElement("b"); b.textContent = currentIdentity.user; btn.appendChild(b);
+        const c = document.createElement("span"); c.className = "caret"; c.setAttribute("aria-hidden", "true"); c.textContent = "▾"; btn.append(" ", c);
+        btn.onclick = ()=>{ if(document.getElementById("who-menu")) closeWhoMenu(); else openWhoMenu(); };
+        wb.appendChild(btn);
+      }
+    }
+    wb.title = currentIdentity ? idLine : "";
+    wb.style.display = currentIdentity ? "" : "none";
   }
 }
 
@@ -3165,6 +3200,7 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
 const IDLE_HOME_MS = 10 * 60 * 1000;
 let idleHandled = false, lastPersist = 0;
 function closeAllOverlays(){
+  closeWhoMenu();
   document.querySelectorAll(".tp-overlay:not([data-gate]), .mo-inline-menu, #health-popup").forEach(el=>el.remove());
   try{ closePopup(); }catch(e){}
   try{ tplModal.style.display = "none"; }catch(e){}
