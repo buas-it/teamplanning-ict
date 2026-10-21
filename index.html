@@ -159,7 +159,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 50</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 51</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 </div>
@@ -323,8 +323,8 @@ function canSeeAdmin(){   // Admin (logboek, wachtwoorden, groepen): alleen team
   const me = currentIdentity && currentIdentity.user;
   return !!(me && groupsReady && TEAM.includes(me) && ADMIN_VIEW_GROUPS.some(g=>inGroup(me, g)));
 }
-function closeAdminWindows(){   // alle Admin-vensters dicht (rechten kwijt, of bewerken is uitgegaan)
-  ["au-close", "usr-close", "grp-close", "status-close", "bc-close", "restore-close", "backup-close"].forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o) o.remove(); });
+function closeAdminWindows(all){   // Admin-vensters dicht: bij verloren rechten allemaal; als bewerken uitgaat alleen de vensters waarmee je iets wijzigt (Audit, Status en het backup-overzicht zijn alleen kijken en blijven open)
+  (all ? ["au-close", "status-close", "bc-close", "usr-close", "grp-close", "restore-close", "backup-close"] : ["usr-close", "grp-close", "restore-close", "backup-close"]).forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o) o.remove(); });
 }
 function canResetPasswords(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }   // wachtwoorden van anderen resetten: alleen leden van ICT-Systeembeheer (je eigen wachtwoord wijzigen kan iedereen)
 function denyRestore(){ adminNotice(groupsReady ? "Een backup terugzetten mag alleen " + RESTORE_GROUP + "." : "De groepen konden niet worden opgehaald, dus terugzetten kan nu niet. Probeer het zo opnieuw.", "♻ Backup terugzetten"); }
@@ -620,10 +620,11 @@ function adminNotice(text, title){
   document.body.appendChild(overlay);
 }
 // Toegang tot Admin: eerst inloggen, daarna alleen voor ICT-Systeembeheer en ICT-Management (ICT-Support, ICT-Monitoring en wie in geen groep zit hoeven Admin niet te zien)
-async function ensureAdmin(){
+async function ensureAdmin(opts){
   if(!await requireLogin()) return false;
   if(!canSeeAdmin()){ adminNotice(groupsReady ? "Alleen toegankelijk voor " + ADMIN_VIEW_GROUPS.join(" en ") + "." : "De groepen konden niet worden opgehaald, dus Admin is nu niet beschikbaar. Probeer het zo opnieuw."); return false; }
-  if(!editUnlocked && !await requireUnlock({ admin: true })) return false;   // Admin werkt alleen als bewerken aan staat: eerst de vraag om dat aan te zetten, een bewuste tussenstap voor belangrijke wijzigingen
+  if(opts && opts.view) return true;   // alleen kijken (Audit, Status): geen vraag om bewerken aan te zetten; wel alleen voor wie Admin heeft
+  if(!editUnlocked && !await requireUnlock({ admin: true })) return false;   // wat iets wijzigt (Wachtwoorden, Groepen, Backup/Restore) werkt alleen als bewerken aan staat: eerst de vraag om dat aan te zetten, een bewuste tussenstap voor belangrijke wijzigingen
   if(!editUnlocked) return false;
   touchEditTimer();   // een Admin-onderdeel openen telt als bezig zijn: de 10 minuten beginnen opnieuw
   return true;
@@ -631,7 +632,7 @@ async function ensureAdmin(){
 
 // Logboek bekijken: laatste 14 dagen, filter op naam en machine (voor ICT-Systeembeheer en ICT-Management)
 async function showAuditModal(){
-  if(!await ensureAdmin()) return;
+  if(!await ensureAdmin({ view: true })) return;   // alleen kijken
   const old = document.getElementById("audit-overlay"); if(old) old.remove();
   const overlay = document.createElement("div");
   overlay.id = "audit-overlay";
@@ -763,7 +764,7 @@ function openWhoMenu(){
     bkTab.onclick = ()=>{ const open = bkTab.getAttribute("aria-expanded") !== "true"; bkTab.setAttribute("aria-expanded", String(open)); bkTab.textContent = "🗄 Backup/Restore " + (open ? "▾" : "▸"); bkSubs.forEach(x=>{ x.hidden = !open; }); };
     if(!canRestore()){ const t = m.querySelector("#menu-backup-terugzetten"); t.setAttribute("aria-disabled", "true"); t.title = "Een backup terugzetten mag alleen " + RESTORE_GROUP; }
     if(!editUnlocked){   // Admin werkt alleen als bewerken aan staat: een klik op een onderdeel geeft eerst de vraag om bewerken aan te zetten (bewuste tussenstap)
-      ["menu-audit", "menu-wachtwoorden", "menu-groepen", "menu-status", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{
+      ["menu-wachtwoorden", "menu-groepen", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{   // Audit en Status zijn alleen kijken: zonder vraag
         const x = m.querySelector("#" + id); if(!x) return;
         if(id === "menu-backup-terugzetten" && !canRestore()) return;   // terugzetten mag deze gebruiker niet: blijft uitgeschakeld met uitleg
         x.title = "Eerst volgt de vraag om bewerken aan te zetten";
@@ -813,7 +814,7 @@ function showLockIndicator(){
   }
   const on = !!currentIdentity;
   const ab = document.getElementById("btn-admin"); if(ab) ab.style.display = canSeeAdmin() ? "" : "none";   // Admin: alleen voor ICT-Systeembeheer en ICT-Management
-  if(!canSeeAdmin() || !editUnlocked) closeAdminWindows();                                                                     // verandert je groep terwijl Admin openstaat, dan gaat het dicht
+  if(!canSeeAdmin()) closeAdminWindows(true); else if(!editUnlocked) closeAdminWindows();                                                                     // verandert je groep terwijl Admin openstaat, dan gaat het dicht
   try{ updateAuditDot(); }catch(e){}
   try{ updateBadgeHealth(); }catch(e){}
   // Rechtsboven: onder wie er is ingelogd, met een pulldown (alleen tekst, nooit HTML)
@@ -2937,10 +2938,7 @@ function updateBadgeHealth(){
   d.title = bad ? "Er is een storing: open het menu en kies Admin › Status" : "";
 }
 async function showStatusWindow(){
-  if(!canSeeAdmin()) return;   // Status staat onder Admin
-  if(!editUnlocked && !await requireUnlock({ admin: true })) return;   // en werkt dus ook alleen als bewerken aan staat: eerst de vraag om dat aan te zetten
-  if(!editUnlocked) return;
-  touchEditTimer();
+  if(!canSeeAdmin()) return;   // Status staat onder Admin en is alleen kijken: geen vraag om bewerken aan te zetten
   const old = document.getElementById("status-overlay"); if(old) old.remove();
   const overlay = document.createElement("div");
   overlay.className = "tp-overlay"; overlay.id = "status-overlay";
