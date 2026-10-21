@@ -159,7 +159,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 40</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 41</span>
   </div>
   <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
@@ -1897,6 +1897,45 @@ function propagateTemplateToAll(){
     });});
   });
 }
+// ── Nieuwe versie: de pagina controleert elke minuut (en bij het openen en terugkomen) of er een nieuwere versie staat, en ververst zichzelf als dat veilig kan ──
+const RUNNING_VERSION = ((document.getElementById("app-version") || {}).textContent || "").trim();
+const PAGE_LOADED_AT = Date.now();
+function reloadNow(){
+  try{ sessionStorage.setItem("tp_baseMonday", baseMonday.getTime()); }catch(e){}
+  const u = new URL(location.href); u.searchParams.set("v", String(Date.now()));   // een andere webadres-variant: zo komt er zeker een verse pagina, ook als de browser de oude nog in de cache heeft
+  location.replace(u.toString());
+}
+function safeToReload(){   // ververs nooit midden in iets: bewerken, opslaan, een open venster, iets ingetypt, het menu of net nog bezig
+  if(editUnlocked || ghSaving || savePending || backupBusy || auditFlushing) return false;
+  if(lastActivity > PAGE_LOADED_AT + 100 && Date.now() - lastActivity < 15000) return false;   // je hebt iets aangeraakt en bent net nog bezig (een pagina die je nog niet hebt aangeraakt mag direct)
+  if(document.getElementById("who-menu") || openPopup) return false;
+  const open = [...document.querySelectorAll(".tp-overlay")];
+  if(open.some(o => !o.hasAttribute("data-gate"))) return false;
+  if(open.some(o => [...o.querySelectorAll("input")].some(i => i.value))) return false;   // bijvoorbeeld een half ingetypt wachtwoord
+  return true;
+}
+function showUpdateBanner(){
+  if(document.getElementById("update-banner")) return;
+  const b = document.createElement("div"); b.id = "update-banner";
+  b.style.cssText = "position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:950;background:#111827;border:1px solid rgba(128,203,196,0.5);color:#80cbc4;border-radius:10px;padding:10px 14px;font:12px 'Courier New',monospace;display:flex;gap:12px;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,0.5);";
+  const t = document.createElement("span"); t.textContent = "🔄 Er is een nieuwe versie"; b.appendChild(t);
+  const k = document.createElement("button"); k.id = "update-now"; k.type = "button"; k.textContent = "Nu verversen";
+  k.style.cssText = "background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.5);color:#80cbc4;border-radius:7px;padding:5px 10px;font:inherit;cursor:pointer;";
+  k.onclick = ()=>reloadNow(); b.appendChild(k); document.body.appendChild(b);
+}
+async function checkForNewVersion(){
+  try{
+    if(location.protocol === "file:" || !RUNNING_VERSION) return;
+    const r = await fetch("index.html?v=" + Date.now() + "&r=" + Math.random().toString(36).slice(2), { cache: "no-store" });
+    if(!r.ok) return;
+    const m = (await r.text()).match(/id="app-version"[^>]*>\s*(versie [^<]+?)\s*</);
+    if(!m) return;
+    const banner = document.getElementById("update-banner");
+    if(m[1].trim() === RUNNING_VERSION){ if(banner) banner.remove(); return; }
+    if(safeToReload()) reloadNow(); else showUpdateBanner();   // niet veilig: een melding met een knop; zodra het kan gaat het vanzelf
+  }catch(e){}
+}
+
 // Laad staat: GitHub heeft prioriteit, dan localStorage, dan data-store tag
 (async ()=>{
   // Verberg grid tot state geladen is (voorkomt flikkering met oude namen)
@@ -1921,17 +1960,26 @@ function propagateTemplateToAll(){
   if(ghLoaded) auditFlush();     // eventuele eerder niet-geüploade regels alsnog wegschrijven
   // Toon grid nu state geladen is
   if(mainGrid) mainGrid.style.visibility = "visible";
-  // Achtergrond-sync: herlaad van GitHub elke 60 seconden
-  setInterval(async ()=>{
-    groupsLoad();   // groepen elke minuut verversen
-    if(ghSaving) return;
-    const beforeJson = JSON.stringify(serializeState());
-    const loaded = await loadFromGitHub();
-    if(loaded && JSON.stringify(serializeState()) !== beforeJson){
-      renderAndSync();
-    }
-    auditFlush();   // audit: wachtrij opnieuw proberen
-  }, 60000);
+  // Achtergrond-sync: herlaad van GitHub elke 60 seconden, en meteen als je terugkomt op het tabblad of in de app (timers staan stil zolang een tabblad op de achtergrond staat of de telefoon slaapt)
+  let syncBusy = false, lastSyncRun = 0;
+  async function backgroundSync(){
+    if(syncBusy) return; syncBusy = true; lastSyncRun = Date.now();
+    try{
+      groupsLoad();   // groepen elke minuut verversen
+      if(ghSaving || savePending) return;   // er wordt net opgeslagen of er wacht een wijziging: die niet overschrijven
+      const beforeJson = JSON.stringify(serializeState());
+      const loaded = await loadFromGitHub();
+      if(loaded && JSON.stringify(serializeState()) !== beforeJson){
+        renderAndSync();
+      }
+      auditFlush();   // audit: wachtrij opnieuw proberen
+      checkForNewVersion();
+    }finally{ syncBusy = false; }
+  }
+  setInterval(backgroundSync, 60000);
+  const wake = ()=>{ if(!document.hidden && Date.now() - lastSyncRun > 10000) backgroundSync(); };   // hooguit eens per 10 seconden
+  document.addEventListener("visibilitychange", wake); window.addEventListener("focus", wake); window.addEventListener("pageshow", wake); window.addEventListener("online", wake);
+  setTimeout(checkForNewVersion, 5000);   // een pagina die uit de cache kwam, is binnen enkele seconden bij
 })();
 
 // ── Popup ────────────────────────────────────────────────────────
