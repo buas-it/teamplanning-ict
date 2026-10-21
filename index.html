@@ -159,7 +159,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 37</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 38</span>
   </div>
   <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
@@ -275,6 +275,14 @@ let lastActivity = Date.now();    // laatste activiteit van de gebruiker (muis, 
 // De indeling staat in groups.json op de data-branch (buiten de planning, dus een teruggezette backup verandert hem niet) en kan door een lid van
 // ICT-Systeembeheer worden aangepast (Admin > Groepen). Zolang er nog geen bestand is, geldt de standaardindeling hieronder.
 // De namen van de groepen staan vast: de regels (terugzetten, dekking-waarschuwingen) verwijzen ernaar.
+// Schrijfacties naar GitHub gaan één voor één. GitHub weigert (409) een schrijfactie die tegelijk met een andere naar dezelfde branch gaat. Opslaan, backup en audit starten na elke wijziging tegelijk; de backup (zonder herhaling) verloor die wedstrijd bijna altijd.
+let _ghWriteTail = Promise.resolve();
+let GH_WRITE_MAX_WAIT = 45000;   // een hangende verbinding houdt de rij hooguit zo lang vast
+function ghWriteFetch(url, opts){
+  const run = _ghWriteTail.then(()=>fetch(url, opts));
+  let t; _ghWriteTail = Promise.race([run.then(()=>{}, ()=>{}), new Promise(r=>{ t = setTimeout(r, GH_WRITE_MAX_WAIT); })]).then(()=>clearTimeout(t));
+  return run;
+}
 const GROUP_NAMES = ["ICT-Support", "ICT-Systeembeheer", "ICT-Management", "ICT-Monitoring"];
 const GROUP_DEFAULTS = {
   "ICT-Support": ["Wim","Wouter","Annies","Bas"],
@@ -354,7 +362,7 @@ async function groupsMutate(mutator, message){
     if(refuse) return { error: refuse };
     const body = { message, content: encodeBase64(JSON.stringify({ v: 1, groups: cur.groups }, null, 1)), branch: GH_BRANCH };
     if(cur.sha) body.sha = cur.sha;
-    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GROUPS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
+    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${GROUPS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
       applyGroups(cur.groups); groupsSha = sha; groupsReady = true; groupsError = null;
@@ -539,7 +547,7 @@ async function auditAppend(day, entries){
     const newText = text + (text && !text.endsWith("\n") ? "\n" : "") + add.map(e=>JSON.stringify(e)).join("\n") + "\n";
     const body = {message: commitMessage("Audit " + day), content: encodeBase64(newText), branch: GH_BRANCH};
     if(sha) body.sha = sha;
-    const p = await fetch(url, {method:"PUT", headers:{...hdr, "Content-Type":"application/json"}, body: JSON.stringify(body)});
+    const p = await ghWriteFetch(url, {method:"PUT", headers:{...hdr, "Content-Type":"application/json"}, body: JSON.stringify(body)});
     if(p.ok) return true;
     if(p.status === 409 || p.status === 422) continue;   // iemand was ons voor: opnieuw lezen en nogmaals proberen
     return false;
@@ -872,7 +880,7 @@ async function usersMutate(mutator, message){
     if(refuse) return { error: refuse };
     const body = { message, content: encodeBase64(JSON.stringify({ v: 1, users: cur.users }, null, 1)), branch: GH_BRANCH };
     if(cur.sha) body.sha = cur.sha;
-    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${USERS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
+    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${USERS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok) return { ok: true };
     if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
   }
@@ -1325,57 +1333,68 @@ async function ghPut(path, content, message){
     if(r.ok){ const d = await r.json(); sha = d.sha; }
   }catch(e){}
   const body = {message, content, branch: GH_BRANCH, ...(sha ? {sha} : {})};
-  return fetch(url, {method:"PUT", headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body:JSON.stringify(body)});
+  return ghWriteFetch(url, {method:"PUT", headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body:JSON.stringify(body)});
 }
 
 // Backup elke 10 minuten na een wijziging (maximaal 14 dagen bewaard)
-let lastBackupJson = null;   // staat bij vorige backup
-let lastBackupTime = 0;      // timestamp vorige backup
+let lastBackupJson = null;   // staat bij de laatste GESLAAGDE backup
+let lastBackupTime = 0;      // tijdstip van de laatste geslaagde backup
+let backupBusy = false;      // er loopt een backup (die zichzelf herhaalt bij een conflict)
+let backupPending = null;    // de laatste poging is mislukt: elke minuut opnieuw proberen tot het lukt
 const BACKUP_INTERVAL = 10 * 60 * 1000; // 10 minuten
+const BACKUP_RETRY_STATUS = [409, 422, 500, 502, 503, 504];   // conflict of storing: opnieuw; een andere fout (bijv. geen rechten) niet blijven proberen
 
 async function maybeBackup(stateJson){
   const now = Date.now();
-  // Sla alleen op als: er iets gewijzigd is én 10 min verstreken zijn
-  if(stateJson === lastBackupJson) return; // niets gewijzigd
-  if(now - lastBackupTime < BACKUP_INTERVAL) return; // nog geen 10 min
-
-  lastBackupJson = stateJson;
-  lastBackupTime = now;
-
+  if(stateJson === lastBackupJson && !backupPending) return;            // niets gewijzigd sinds de laatste geslaagde backup
+  if(now - lastBackupTime < BACKUP_INTERVAL && !backupPending) return;  // nog geen 10 min (een mislukte backup wacht daar niet op)
+  if(backupBusy){ backupPending = stateJson; return; }                  // er loopt er al een
+  backupBusy = true;
   const now_dt = new Date();
   const date = now_dt.toISOString().slice(0,10);
   const time = now_dt.toTimeString().slice(0,5).replace(":","-");
   const filename = `${date}_${time}`;
   const content = encodeBase64(stateJson);
-  const backupResult = await ghPut(`backups/${filename}.json`, content, `Auto-backup ${filename}`).catch(()=>null);
-  if(backupResult && backupResult.ok){
-    HEALTH.lastBackup = now;
-    HEALTH.lastBackupOk = true;
-    HEALTH.lastBackupLabel = now_dt.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit"})+" "+
-                             now_dt.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
-  } else {
-    HEALTH.lastBackupOk = false;
-  }
+  let res = null;
+  try{
+    for(let poging = 0; poging < 4; poging++){   // GitHub weigert schrijfacties die tegelijk binnenkomen (409): even wachten en nogmaals
+      if(poging) await new Promise(r=>setTimeout(r, 1500 * poging + Math.random() * 1000));
+      res = await ghPut(`backups/${filename}.json`, content, `Auto-backup ${filename}`).catch(()=>null);
+      if(res && res.ok) break;
+      if(res && !BACKUP_RETRY_STATUS.includes(res.status)) break;
+    }
+    if(res && res.ok){
+      lastBackupJson = stateJson; lastBackupTime = Date.now(); backupPending = null;
+      HEALTH.lastBackup = lastBackupTime; HEALTH.lastBackupOk = true; HEALTH.lastBackupErr = null;
+      HEALTH.lastBackupLabel = now_dt.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit"})+" "+
+                               now_dt.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+    } else {
+      backupPending = stateJson;   // niet als gedaan markeren: de volgende minuut opnieuw
+      HEALTH.lastBackupOk = false; HEALTH.lastBackupErr = res ? "HTTP " + res.status : "geen verbinding";
+    }
+  }finally{ backupBusy = false; }
   updateHealthBar();
-  // Verwijder backups ouder dan 14 dagen (fire-and-forget)
+  if(!(res && res.ok)) return;
+  // Verwijder backups ouder dan 14 dagen: op de achtergrond, hooguit 5 per keer (zodat het opslaan niet wordt opgehouden) en netjes achter elkaar
   try{
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 14);
+    const cut = cutoff.toISOString().slice(0,10);
     const listR = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups?ref=${GH_BRANCH}&t=` + Date.now(), {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
     if(listR.ok){
       const files = await listR.json();
-      for(const f of files){
+      files.filter(f=>f.name.replace(".json","").slice(0,10) < cut).slice(0, 5).forEach(f=>{
         const d = f.name.replace(".json","").slice(0,10); // YYYY-MM-DD prefix
-        if(d < cutoff.toISOString().slice(0,10)){
-          fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups/${f.name}`, {
-            method:"DELETE",
-            headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
-            body: JSON.stringify({message:`Verwijder oude backup ${d}`, sha: f.sha, branch: GH_BRANCH})
-          }).catch(()=>{});
-        }
-      }
+        ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/backups/${f.name}`, {
+          method:"DELETE",
+          headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
+          body: JSON.stringify({message:`Verwijder oude backup ${d}`, sha: f.sha, branch: GH_BRANCH})
+        }).catch(()=>{});
+      });
     }
   }catch(e){}
 }
+function retryPendingBackup(){ if(backupPending && !backupBusy){ try{ maybeBackup(JSON.stringify(serializeState())); }catch(e){} } }   // een mislukte backup wordt elke minuut opnieuw geprobeerd, met de actuele staat
+setInterval(retryPendingBackup, 60 * 1000);
 
 async function saveToGitHub(){
   if(ghSaving) return;
@@ -1391,7 +1410,7 @@ async function saveToGitHub(){
     const content = encodeBase64(json);
 
     const body = {message:commitMessage("Update planning"), content, sha: ghSha, branch: GH_BRANCH};
-    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`, {
+    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`, {
       method:"PUT",
       headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
       body: JSON.stringify(body)
@@ -1517,7 +1536,7 @@ function hideSyncErrorBanner(){
 }
 
 // ── Health status ─────────────────────────────────────────────────
-const HEALTH = { github: "unknown", data: "unknown", lastSync: null, lastSyncOk: false, lastBackup: null, lastBackupOk: false, lastBackupLabel: null };
+const HEALTH = { github: "unknown", data: "unknown", lastSync: null, lastSyncOk: false, lastBackup: null, lastBackupOk: false, lastBackupLabel: null, lastBackupErr: null };
 
 function updateHealthBar(){
   const el = {
@@ -1565,10 +1584,14 @@ function updateHealthBar(){
         return bDt.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit"})+" "+
                bDt.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
       })();
-      elBackup.title = (HEALTH.lastBackupOk ? "Backup OK" : "Backup mislukt") + ` — ${bLabel} (klik voor inhoud)`;
-      el.detail.textContent += (HEALTH.lastBackupOk ? "  backup ✓ " : "  backup ✗ ") + bLabel;
+      elBackup.title = HEALTH.lastBackupOk ? `Backup OK — ${bLabel} (klik voor inhoud)` : `Laatste backup mislukt${HEALTH.lastBackupErr ? " (" + HEALTH.lastBackupErr + ")" : ""}; er wordt opnieuw geprobeerd. Laatste geslaagde backup: ${bLabel} (klik voor inhoud)`;
+      el.detail.textContent += HEALTH.lastBackupOk ? "  backup ✓ " + bLabel : "  backup ✗ (laatste geslaagd: " + bLabel + ")";
       elBackup.style.cursor = "pointer";
       elBackup.onclick = ()=>showBackupContents();
+    } else if(backupPending || HEALTH.lastBackupErr){   // een poging is mislukt en er is nog geen eerdere backup bekend: dat niet verstoppen achter "nog geen backup"
+      elBackup.style.color = dot("error");
+      elBackup.title = `Laatste backup mislukt${HEALTH.lastBackupErr ? " (" + HEALTH.lastBackupErr + ")" : ""}; er wordt opnieuw geprobeerd. Nog geen geslaagde backup bekend (klik voor inhoud)`;
+      el.detail.textContent += "  backup ✗ (nog geen geslaagde)";
     } else {
       elBackup.style.color = dot("unknown");
       elBackup.title = "Nog geen backup gemaakt";
@@ -1639,7 +1662,7 @@ _prefetchBackupList.then(async r=>{
     ? raw.slice(8,10)+"-"+raw.slice(5,7)+" "+raw.slice(11,16).replace("-",":")
     : raw.slice(8,10)+"-"+raw.slice(5,7);
   HEALTH.lastBackupLabel = label;
-  HEALTH.lastBackupOk = true;
+  if(!backupPending) HEALTH.lastBackupOk = true;   // de lijst zegt niets over een mislukte poging in deze sessie
   HEALTH.lastBackup = Date.now(); // voor kleur-berekening (groen)
   updateHealthBar();
 }).catch(()=>{});
@@ -2898,7 +2921,7 @@ async function restoreFromBackup(filename, sha){
     const sr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
       {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
     const sd = await sr.json();
-    const wr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`,{
+    const wr = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`,{
       method:"PUT",
       headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
       body: JSON.stringify({message:commitMessage(`Herstel backup ${filename}`), content: btoa(unescape(encodeURIComponent(JSON.stringify(backupState)))), sha: sd.sha, branch: GH_BRANCH})
@@ -2973,7 +2996,7 @@ async function showRestoreModal(){
           const sd = await sr.json();
 
           // Schrijf backup terug
-          const wr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`,{
+          const wr = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`,{
             method:"PUT",
             headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
             body: JSON.stringify({
