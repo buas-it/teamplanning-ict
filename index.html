@@ -159,7 +159,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 52</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 53</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 </div>
@@ -3001,15 +3001,23 @@ async function showStatsWindow(){
   const chart = box.querySelector("#stat-chart"), foot = box.querySelector("#stat-foot");
   const hdrs = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
   const nc = ()=>`&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`;
-  const entries = [];
+  const entries = []; let mislukt = 0;   // mislukt: dagbestanden van het logboek die niet te lezen waren
   try{
     const lr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit?ref=${GH_BRANCH}${nc()}`, {headers: hdrs});
+    if(!lr.ok && lr.status !== 404){   // het logboek is niet op te halen: dat is geen 'geen gebruik'; dan geen grafiek met alleen wat lokaal in de wachtrij staat
+      chart.textContent = "";
+      const t = document.createElement("div"); t.textContent = "Laden mislukt (HTTP " + lr.status + "): het logboek kon niet worden opgehaald, dus er is geen betrouwbare grafiek te tonen.";
+      const k = document.createElement("button"); k.id = "stat-retry"; k.type = "button"; k.textContent = "Opnieuw proberen";
+      k.style.cssText = "margin-top:10px;background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.5);color:#80cbc4;border-radius:7px;padding:5px 10px;font:inherit;cursor:pointer;";
+      k.onclick = ()=>showStatsWindow(); chart.append(t, k); return;
+    }
     if(lr.ok){
       const eersteDag = new Date(Date.now() - (STATS_DAYS + 1) * 86400000).toISOString().slice(0, 10);   // een dag ruimer: de dagbestanden gaan op UTC-datum
       const files = (await lr.json()).filter(f=>/^\d{4}-\d\d-\d\d\.jsonl$/.test(f.name) && f.name.slice(0, 10) >= eersteDag);
       const texts = await Promise.all(files.map(async f=>{
         const fr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit/${f.name}?ref=${GH_BRANCH}${nc()}`, {headers: hdrs});
-        return fr.ok ? auditDecode((await fr.json()).content) : "";
+        if(!fr.ok){ mislukt++; return ""; }
+        return auditDecode((await fr.json()).content);
       }));
       texts.forEach(t=>t.split("\n").forEach(l=>{ if(!l.trim()) return; try{ entries.push(JSON.parse(l)); }catch(e){} }));
     }
@@ -3021,6 +3029,7 @@ async function showStatsWindow(){
   else chart.appendChild(statsChartSvg(st.users));
   const regels = [];
   regels.push("Totaal: " + st.totaalBezoeken + " bezoeken en " + st.totaalWijzigingen + " keer wijzigingen opgeslagen door " + st.users.length + " gebruiker" + (st.users.length === 1 ? "" : "s") + ".");
+  if(mislukt) regels.push("⚠ " + mislukt + " dagbestand" + (mislukt === 1 ? "" : "en") + " van het logboek " + (mislukt === 1 ? "kon" : "konden") + " niet worden opgehaald: de cijfers zijn mogelijk te laag.");
   if(st.anon) regels.push("Daarnaast " + st.anon + "× de poort geopend zonder in te loggen (staat niet in de grafiek).");
   if(st.from < Date.parse("2026-10-21T00:00:00")) regels.push("Let op: bezoeken worden pas vastgelegd sinds 21-10-2026; daarvoor staan alleen wijzigingen in de grafiek.");
   regels.forEach(t=>{ const d = document.createElement("div"); d.textContent = t; foot.appendChild(d); });
