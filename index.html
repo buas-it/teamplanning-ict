@@ -159,7 +159,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 49</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 50</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 </div>
@@ -550,7 +550,10 @@ async function auditAppend(day, entries){
     else if(g.status !== 404){ return false; }
     const have = new Set();
     text.split("\n").forEach(l=>{ if(!l.trim()) return; try{ have.add(JSON.parse(l).eid); }catch(e){} });
-    const add = entries.filter(e=>!have.has(e.eid));
+    let add = entries.filter(e=>!have.has(e.eid));
+    // iemand zonder naam kan het logboek niet vullen: hooguit 3 regels 'niet ingelogd' per 10 minuten in het hele logboek (de rest wordt weggelaten)
+    let ruimte = 3 - text.split("\n").filter(Boolean).map(l=>{ try{ return JSON.parse(l); }catch(e){ return null; } }).filter(e=>e && e.anon && Date.now() - Date.parse(e.t) < 10 * 60 * 1000).length;
+    add = add.filter(e=>{ if(!e.anon) return true; if(ruimte > 0){ ruimte--; return true; } return false; });
     if(!add.length) return true;
     const newText = text + (text && !text.endsWith("\n") ? "\n" : "") + add.map(e=>JSON.stringify(e)).join("\n") + "\n";
     const body = {message: commitMessage("Audit " + day), content: encodeBase64(newText), branch: GH_BRANCH};
@@ -930,14 +933,45 @@ async function newUserRecord(pw){
 }
 function pwProblem(p1, p2){ if(p1.length < PW_MIN) return "Minimaal " + PW_MIN + " tekens"; if(p1 !== p2) return "De wachtwoorden komen niet overeen"; return null; }
 // Gebeurtenis zonder celwijziging (wachtwoord ingesteld/gewijzigd/gereset) in het logboek zetten
-function auditEvent(action){
+function auditEvent(action, opts){
   try{
-    const who = currentIdentity;
-    auditQueue.push({ v: 1, eid: auditEid(), t: new Date().toISOString(), user: who ? who.user : "onbekend", ws: who ? who.workstation : "", device: who ? who.device : "", id: who ? who.id : "", wsinfo: who ? (who.info || "") : "", action, n: 0, trunc: false, changes: [] });
+    let who = currentIdentity; const anon = !!(opts && opts.anon);
+    if(!who && anon) who = makeIdentity("(niet ingelogd)", guessWorkstation(), machineText(machineBase()));   // iemand bij de poort: wel apparaat en browser, geen naam
+    auditQueue.push({ v: 1, eid: auditEid(), t: new Date().toISOString(), user: who ? who.user : "onbekend", ws: who ? who.workstation : "", device: who ? who.device : "", id: who ? who.id : "", wsinfo: who ? (who.info || "") : "", action, n: 0, trunc: false, changes: [], ...(anon ? { anon: true } : {}) });
     auditPushed++;
     auditPersist(); auditFlush();
   }catch(e){ console.warn("audit fout:", e); }
 }
+
+// ── Wie de site opent of ernaar terugkeert (audit) ──
+const AUTO_RELOAD_KEY = "tp_autoreload";
+function markAutoReload(){ try{ sessionStorage.setItem(AUTO_RELOAD_KEY, String(Date.now())); }catch(e){} }   // vlak vóór een herladen dat niemand zelf deed (elk uur, of naar een nieuwe versie)
+const OPENED_AUTO = (()=>{ try{ const t = parseInt(sessionStorage.getItem(AUTO_RELOAD_KEY) || "0"); sessionStorage.removeItem(AUTO_RELOAD_KEY); return !!t && Date.now() - t < 120000; }catch(e){ return false; } })();
+function siteAccessAudit(){
+  if(OPENED_AUTO) return;   // een automatisch herladen is geen nieuw bezoek
+  try{
+    if(currentIdentity){   // iemand opent de site (opnieuw) met een lopende inlog: nieuw tabblad, verversen, het scherm op de afdeling dat opnieuw start
+      const last = parseInt(localStorage.getItem("tp_open_t") || "0");
+      if(last && Date.now() - last < 2 * 60 * 1000) return;   // snel achter elkaar verversen: één regel
+      localStorage.setItem("tp_open_t", String(Date.now()));
+      auditEvent("site geopend");
+    } else {   // de poort: pas na 1 minuut als er dan nog niet is ingelogd (wie inlogt staat al als 'ingelogd'; een bot die even langskomt schrijft niets)
+      setTimeout(()=>{
+        if(currentIdentity) return;
+        const last = parseInt(localStorage.getItem("tp_gate_t") || "0");
+        if(last && Date.now() - last < 30 * 60 * 1000) return;   // per apparaat hooguit eens per 30 minuten
+        localStorage.setItem("tp_gate_t", String(Date.now()));
+        auditEvent("site benaderd, niet ingelogd", { anon: true });
+      }, 60 * 1000);
+    }
+  }catch(e){}
+}
+let hiddenSince = 0;
+document.addEventListener("visibilitychange", ()=>{   // terug op de site na minstens 30 minuten weg (tabblad of app op de achtergrond, telefoon op slot)
+  if(document.hidden){ hiddenSince = Date.now(); return; }
+  const weg = hiddenSince ? Date.now() - hiddenSince : 0; hiddenSince = 0;
+  if(currentIdentity && weg >= 30 * 60 * 1000) auditEvent("terug op de site (na " + Math.round(weg / 60000) + " min weg)");
+});
 
 async function promptUnlock(opts){
   const gate = !!(opts && opts.gate);
@@ -1929,6 +1963,7 @@ function propagateTemplateToAll(){
 const RUNNING_VERSION = ((document.getElementById("app-version") || {}).textContent || "").trim();
 const PAGE_LOADED_AT = Date.now();
 function reloadNow(){
+  markAutoReload();
   try{ sessionStorage.setItem("tp_baseMonday", baseMonday.getTime()); }catch(e){}
   const u = new URL(location.href); u.searchParams.set("v", String(Date.now()));   // een andere webadres-variant: zo komt er zeker een verse pagina, ook als de browser de oude nog in de cache heeft
   location.replace(u.toString());
@@ -3521,6 +3556,7 @@ try{
 }catch(e){}
 // Toegangspoort: zonder geldige sessie eerst aangeven wie je bent (anders blijft het zwart)
 if(currentIdentity){ gateOff(); revalidateSession(); } else { gateOn(); }
+siteAccessAudit();   // wie de site opent komt in het audit-logboek (automatische herladingen niet)
 // Slot-indicator klikbaar maken
 showLockIndicator();
 groupsLoad();   // de indeling van de groepen ophalen (daarna elke minuut en bij het inloggen)
@@ -3645,7 +3681,7 @@ window.addEventListener("pageshow", checkEditExpiry);
 
 // Elk uur: vergelijk lokale staat met GitHub, merge onopgeslagen wijzigingen, herlaad dan
 // Uurlijkse pagina-reload: simpelweg herladen, remote wint altijd via loadFromGitHub bij opstart
-setInterval(()=>{ sessionStorage.setItem('tp_baseMonday',baseMonday.getTime()); location.reload(); }, 60 * 60 * 1000);
+setInterval(()=>{ sessionStorage.setItem('tp_baseMonday',baseMonday.getTime()); markAutoReload(); location.reload(); }, 60 * 60 * 1000);
 </script>
 
 
