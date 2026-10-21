@@ -117,6 +117,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 .tp-overlay[data-gate] > div { position:relative; z-index:2; margin:auto; }
 /* Menu onder je naam: tabbladen, status, wachtwoord, uitloggen */
 #who-menu { max-height:calc(100vh - 90px); overflow-y:auto; }
+#who-menu .hd { padding:6px 10px 2px; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,0.35); }
 #who-menu .sep { height:1px; margin:5px 4px; background:rgba(255,255,255,0.08); }
 #who-menu .ver { padding:6px 10px 2px; font-size:10px; color:rgba(255,255,255,0.3); }
 #who-menu button.c-maand { color:#80cbc4; } #who-menu button.c-periode { color:#ce93d8; } #who-menu button.c-geenbeheer { color:#f48fb1; } #who-menu button.c-template { color:#60b0ff; } #who-menu button.c-admin { color:#ffcc80; } #who-menu button.c-status { color:#a5d6a7; }
@@ -137,14 +138,14 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <button class="nav-btn" id="btn-goto" title="Ga naar week" style="font-size:11px;padding:0 8px;width:auto;">→</button>
   </div>
   <button class="nav-btn" id="btn-refresh" onclick="sessionStorage.setItem('tp_baseMonday',baseMonday.getTime());saveState();setTimeout(()=>location.reload(),300)" title="Ververs" style="font-size:14px;">↻</button>
-  <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span>
+  <span id="lock-ind" style="display:none;font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span>
   <span id="save-ind" style="font-size: 11px; opacity: 0; transition: opacity 0.3s; min-width: 20px; text-align: center; color: rgb(128, 203, 196);">✓ opgeslagen</span>
   <div id="nav-commands" style="display:none;"><!-- de tabbladen staan in het menu onder je naam (rechtsboven); deze knoppen zijn de opdrachten die dat menu aanroept -->
   <button class="nav-btn" id="btn-maand" style="font-size:10px;padding:6px 10px;color:#80cbc4;border-color:rgba(128,203,196,0.4);background:rgba(128,203,196,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">📅 Maand</button>
   <button class="nav-btn" id="btn-periode" style="font-size:10px;padding:6px 10px;color:#ce93d8;border-color:rgba(206,147,216,0.4);background:rgba(206,147,216,0.06);width:auto;font-weight:700;">📆 Periode</button>
   <button class="nav-btn" id="btn-geen-beheer" onclick="showGeenBeheerModal()" style="font-size:10px;padding:6px 10px;color:#f48fb1;border-color:rgba(244,143,177,0.4);background:rgba(244,143,177,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚠ Geen Beheer</button>
   <button class="nav-btn" id="btn-template" style="font-size:10px;padding:6px 10px;color:#60b0ff;border-color:rgba(0,150,255,0.3);background:rgba(0,100,220,0.08);width:auto;letter-spacing:1px;">★ Standaard</button>
-  <button class="nav-btn" id="btn-admin" title="Beheer: audit-logboek, wachtwoordenlijst en groepen (voor ICT-Systeembeheer en ICT-Management)" style="font-size:10px;padding:6px 10px;color:#ffcc80;border-color:rgba(255,204,128,0.4);background:rgba(255,204,128,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚙ Admin</button>
+  <button class="nav-btn" id="btn-admin" title="Audit-logboek (voor ICT-Systeembeheer en ICT-Management)" style="font-size:10px;padding:6px 10px;color:#ffcc80;border-color:rgba(255,204,128,0.4);background:rgba(255,204,128,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚙ Admin</button>
   </div>
 </div>
 
@@ -158,7 +159,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 36</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 37</span>
   </div>
   <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
@@ -623,14 +624,10 @@ async function showAuditModal(){
       <select id="au-dev" style="${SEL}"></select>
       <span id="au-count" style="font-size:11px;color:rgba(255,255,255,0.4);"></span>
       <span style="flex:1"></span>
-      <button id="au-groups" style="background:rgba(255,204,128,0.08);border:1px solid rgba(255,204,128,0.35);color:#ffcc80;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">👥 Groepen</button>
-      <button id="au-users" style="background:rgba(255,204,128,0.08);border:1px solid rgba(255,204,128,0.35);color:#ffcc80;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">🔑 Wachtwoorden</button>
     </div>
     <div id="au-list" style="font-size:11px;color:rgba(255,255,255,0.7);">Laden...</div>`;
   overlay.appendChild(box); document.body.appendChild(overlay);
   addWinX(box, ()=>overlay.remove(), "au-close");
-  box.querySelector("#au-users").onclick = ()=>showUsersModal();
-  box.querySelector("#au-groups").onclick = ()=>showGroupsModal();
   const list = box.querySelector("#au-list"), userSel = box.querySelector("#au-user"), devSel = box.querySelector("#au-dev"), count = box.querySelector("#au-count");
 
   const hdrs = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
@@ -727,7 +724,13 @@ function openWhoMenu(){
   item("menu-periode", "📆 Periode", "c-periode", cmd("btn-periode"));
   item("menu-geenbeheer", "⚠ Geen Beheer", "c-geenbeheer", cmd("btn-geen-beheer"));
   item("menu-template", "★ Standaard", "c-template", cmd("btn-template"));
-  if(canSeeAdmin()) item("menu-admin", "⚙ Admin", "c-admin", cmd("btn-admin"));
+  if(canSeeAdmin()){   // Admin: alleen ICT-Systeembeheer en ICT-Management
+    sep();
+    const hd = document.createElement("div"); hd.className = "hd"; hd.textContent = "Admin"; hd.setAttribute("role", "presentation"); m.appendChild(hd);
+    item("menu-audit", "📜 Audit", "c-admin", cmd("btn-admin"));
+    item("menu-wachtwoorden", "🔑 Wachtwoorden", "c-admin", ()=>showUsersModal());
+    item("menu-groepen", "👥 Groepen", "c-admin", ()=>showGroupsModal());
+  }
   sep();
   item("menu-status", "📊 Status", "c-status", ()=>showStatusWindow());
   sep();
@@ -755,7 +758,9 @@ function showLockIndicator(){
     ind.textContent = "🔓 bewerken aan · " + currentIdentity.user;
     ind.style.color = "#80cbc4";
     ind.title = idLine + "\nBewerken gaat na 10 minuten zonder wijziging vanzelf uit. Klik om het nu uit te zetten.";
+    ind.style.display = "";   // zolang bewerken aan staat zie je dat, en kun je het hier uitzetten
   } else {
+    ind.style.display = "none";   // alleen lezen is de normale toestand en hoeft niet in beeld: wie iets wil wijzigen krijgt de vraag om bewerken aan te zetten
     ind.textContent = "🔒 alleen lezen" + (currentIdentity ? " · klik om te bewerken" : "");
     ind.style.color = "rgba(255,255,255,0.3)";
     ind.title = currentIdentity ? idLine + "\nBewerken staat uit. Klik om het aan te zetten (het gaat na 10 minuten zonder wijziging vanzelf weer uit)." : "Eerst inloggen";
