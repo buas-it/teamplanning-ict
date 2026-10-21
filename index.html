@@ -159,7 +159,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 51</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 52</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 </div>
@@ -324,7 +324,7 @@ function canSeeAdmin(){   // Admin (logboek, wachtwoorden, groepen): alleen team
   return !!(me && groupsReady && TEAM.includes(me) && ADMIN_VIEW_GROUPS.some(g=>inGroup(me, g)));
 }
 function closeAdminWindows(all){   // Admin-vensters dicht: bij verloren rechten allemaal; als bewerken uitgaat alleen de vensters waarmee je iets wijzigt (Audit, Status en het backup-overzicht zijn alleen kijken en blijven open)
-  (all ? ["au-close", "status-close", "bc-close", "usr-close", "grp-close", "restore-close", "backup-close"] : ["usr-close", "grp-close", "restore-close", "backup-close"]).forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o) o.remove(); });
+  (all ? ["au-close", "status-close", "stat-close", "bc-close", "usr-close", "grp-close", "restore-close", "backup-close"] : ["usr-close", "grp-close", "restore-close", "backup-close"]).forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o) o.remove(); });
 }
 function canResetPasswords(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }   // wachtwoorden van anderen resetten: alleen leden van ICT-Systeembeheer (je eigen wachtwoord wijzigen kan iedereen)
 function denyRestore(){ adminNotice(groupsReady ? "Een backup terugzetten mag alleen " + RESTORE_GROUP + "." : "De groepen konden niet worden opgehaald, dus terugzetten kan nu niet. Probeer het zo opnieuw.", "♻ Backup terugzetten"); }
@@ -754,6 +754,7 @@ function openWhoMenu(){
     item("menu-wachtwoorden", "🔑 Wachtwoorden", "c-admin", ()=>showUsersModal());
     item("menu-groepen", "👥 Groepen", "c-admin", ()=>showGroupsModal());
     item("menu-status", "📊 Status", "c-status", ()=>showStatusWindow());
+    item("menu-stats", "📈 Statistics", "c-status", ()=>showStatsWindow());
     // Backup/Restore: een tabblad onder Admin dat uitklapt naar Backup en Restore (klappen blijft het menu openhouden)
     const bkTab = document.createElement("button"); bkTab.type = "button"; bkTab.id = "menu-backuprestore"; bkTab.className = "c-admin";
     bkTab.setAttribute("role", "menuitem"); bkTab.setAttribute("aria-haspopup", "true"); bkTab.setAttribute("aria-expanded", "false"); bkTab.textContent = "🗄 Backup/Restore ▸";
@@ -2937,6 +2938,94 @@ function updateBadgeHealth(){
   d.style.display = bad ? "inline-block" : "none";
   d.title = bad ? "Er is een storing: open het menu en kies Admin › Status" : "";
 }
+// ── Statistics (Admin): hoe vaak elke gebruiker de site de afgelopen 30 dagen heeft gebruikt, uit het audit-logboek (alleen kijken) ──
+const STATS_DAYS = 30;
+function auditStats(entries, nowMs, days){   // telt per gebruiker: bezoeken (inloggen, de site openen, terugkeren) en opgeslagen wijzigingen van de planning
+  const from = nowMs - days * 86400000, seen = new Set(), per = {};
+  let anon = 0, eerst = null, totaalBezoeken = 0;
+  entries.forEach(e=>{
+    if(!e || !e.t || seen.has(e.eid)) return; seen.add(e.eid);
+    const t = Date.parse(e.t); if(isNaN(t) || t < from || t > nowMs + 86400000) return;
+    const act = e.action || "";
+    const bezoek = act === "ingelogd" || act === "site geopend" || /^terug op de site/.test(act) || /^site benaderd/.test(act);
+    if(bezoek && (eerst === null || t < eerst)) eerst = t;
+    if(e.anon || e.user === "(niet ingelogd)"){ if(bezoek) anon++; return; }   // zonder naam: apart geteld, geen staaf
+    if(!e.user || e.user === "onbekend") return;
+    const u = per[e.user] || (per[e.user] = { user: e.user, bezoeken: 0, wijzigingen: 0 });
+    if(bezoek){ u.bezoeken++; totaalBezoeken++; } else if(e.n > 0){ u.wijzigingen++; }
+  });
+  const users = Object.values(per).filter(u=>u.bezoeken || u.wijzigingen).sort((a, b)=>b.bezoeken - a.bezoeken || b.wijzigingen - a.wijzigingen || a.user.localeCompare(b.user));
+  return { users, anon, eerstBezoek: eerst, totaalBezoeken, totaalWijzigingen: users.reduce((s, u)=>s + u.wijzigingen, 0), from };
+}
+function statsChartSvg(users){   // staafgrafiek: per gebruiker twee staven naast elkaar (bezoeken en wijzigingen)
+  const NS = "http://www.w3.org/2000/svg";
+  const mk = (n, a, t)=>{ const e = document.createElementNS(NS, n); for(const k in a) e.setAttribute(k, a[k]); if(t != null) e.textContent = t; return e; };
+  const max = Math.max(1, ...users.flatMap(u=>[u.bezoeken, u.wijzigingen]));
+  const mag = Math.pow(10, Math.floor(Math.log10(max))), nice = [1, 2, 5, 10].map(m=>m * mag).find(v=>v >= max), step = nice <= 5 ? 1 : nice / 5;
+  const W = Math.max(480, 70 + users.length * 70), H = 290, L = 42, T = 22, B = 46, ph = H - T - B, gw = (W - L - 10) / users.length;
+  const svg = mk("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": "Staafgrafiek: gebruik van de site per gebruiker" });
+  svg.style.cssText = "display:block;max-width:" + W + "px;margin:0 auto;font-family:'Courier New',monospace;";
+  for(let v = 0; v <= nice; v += step){
+    const y = T + ph - v / nice * ph;
+    svg.appendChild(mk("line", { x1: L, x2: W - 6, y1: y, y2: y, stroke: v === 0 ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.08)", "stroke-width": 1 }));
+    svg.appendChild(mk("text", { x: L - 6, y: y + 3, "text-anchor": "end", "font-size": 10, fill: "#888" }, String(v)));
+  }
+  users.forEach((u, i)=>{
+    const x0 = L + i * gw + gw / 2, bw = Math.min(22, gw / 3);
+    [["bezoeken", "#80cbc4", u.bezoeken, -bw - 1], ["wijzigingen", "#ce93d8", u.wijzigingen, 1]].forEach(([serie, kleur, val, dx])=>{
+      const hh = val / nice * ph;
+      const r = mk("rect", { x: x0 + dx, y: T + ph - hh, width: bw, height: hh, rx: 2, fill: kleur, "data-user": u.user, "data-series": serie, "data-value": val });
+      r.appendChild(mk("title", {}, u.user + ": " + val + " " + serie)); svg.appendChild(r);
+      if(val > 0) svg.appendChild(mk("text", { x: x0 + dx + bw / 2, y: T + ph - hh - 4, "text-anchor": "middle", "font-size": 10, fill: "#ddd" }, String(val)));
+    });
+    const lab = mk("text", { x: x0, y: H - B + 16, "text-anchor": "middle", "font-size": 11, fill: "#bbb" }, u.user.length > 10 ? u.user.slice(0, 9) + "…" : u.user);   // een lange naam loopt niet over de buren heen
+    const gl = mk("g", {}); gl.appendChild(mk("title", {}, u.user)); gl.appendChild(lab); svg.appendChild(gl);   // de volledige naam als tooltip naast de tekst
+  });
+  return svg;
+}
+async function showStatsWindow(){
+  if(!canSeeAdmin()) return;   // Statistics staat onder Admin en is alleen kijken: geen vraag om bewerken aan te zetten
+  const old = document.getElementById("stat-overlay"); if(old) old.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "tp-overlay"; overlay.id = "stat-overlay";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:860;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 10px 20px;";
+  const box = document.createElement("div");
+  box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:780px;max-width:98vw;font-family:'Courier New',monospace;";
+  box.innerHTML = `<div style="font-size:14px;font-weight:700;color:#80cbc4;padding-right:40px;">📈 Statistics</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.45);margin:4px 0 12px;">Gebruik van de site per gebruiker, laatste ${STATS_DAYS} dagen</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:#bbb;margin-bottom:8px;"><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#80cbc4;margin-right:5px;"></span>Bezoeken (inloggen, de site openen, terugkeren)</span><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ce93d8;margin-right:5px;"></span>Wijzigingen opgeslagen</span></div>
+    <div id="stat-chart" style="font-size:11px;color:rgba(255,255,255,0.6);">Laden...</div>
+    <div id="stat-foot" style="margin-top:12px;font-size:10px;color:#777;line-height:1.7;"></div>`;
+  overlay.appendChild(box); document.body.appendChild(overlay);
+  addWinX(box, ()=>overlay.remove(), "stat-close");
+  const chart = box.querySelector("#stat-chart"), foot = box.querySelector("#stat-foot");
+  const hdrs = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
+  const nc = ()=>`&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`;
+  const entries = [];
+  try{
+    const lr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit?ref=${GH_BRANCH}${nc()}`, {headers: hdrs});
+    if(lr.ok){
+      const eersteDag = new Date(Date.now() - (STATS_DAYS + 1) * 86400000).toISOString().slice(0, 10);   // een dag ruimer: de dagbestanden gaan op UTC-datum
+      const files = (await lr.json()).filter(f=>/^\d{4}-\d\d-\d\d\.jsonl$/.test(f.name) && f.name.slice(0, 10) >= eersteDag);
+      const texts = await Promise.all(files.map(async f=>{
+        const fr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit/${f.name}?ref=${GH_BRANCH}${nc()}`, {headers: hdrs});
+        return fr.ok ? auditDecode((await fr.json()).content) : "";
+      }));
+      texts.forEach(t=>t.split("\n").forEach(l=>{ if(!l.trim()) return; try{ entries.push(JSON.parse(l)); }catch(e){} }));
+    }
+  }catch(e){ chart.textContent = "Laden mislukt: " + e.message; return; }
+  auditQueue.forEach(e=>entries.push(e));   // wat nog niet is weggeschreven telt ook mee (dubbele regels vallen weg op eid)
+  const st = auditStats(entries, Date.now(), STATS_DAYS);
+  chart.textContent = "";
+  if(!st.users.length) chart.textContent = "Nog geen gebruik vastgelegd in de laatste " + STATS_DAYS + " dagen.";
+  else chart.appendChild(statsChartSvg(st.users));
+  const regels = [];
+  regels.push("Totaal: " + st.totaalBezoeken + " bezoeken en " + st.totaalWijzigingen + " keer wijzigingen opgeslagen door " + st.users.length + " gebruiker" + (st.users.length === 1 ? "" : "s") + ".");
+  if(st.anon) regels.push("Daarnaast " + st.anon + "× de poort geopend zonder in te loggen (staat niet in de grafiek).");
+  if(st.from < Date.parse("2026-10-21T00:00:00")) regels.push("Let op: bezoeken worden pas vastgelegd sinds 21-10-2026; daarvoor staan alleen wijzigingen in de grafiek.");
+  regels.forEach(t=>{ const d = document.createElement("div"); d.textContent = t; foot.appendChild(d); });
+}
+
 async function showStatusWindow(){
   if(!canSeeAdmin()) return;   // Status staat onder Admin en is alleen kijken: geen vraag om bewerken aan te zetten
   const old = document.getElementById("status-overlay"); if(old) old.remove();
