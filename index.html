@@ -159,7 +159,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 53</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 54</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 </div>
@@ -2940,7 +2940,14 @@ function updateBadgeHealth(){
 }
 // ── Statistics (Admin): hoe vaak elke gebruiker de site de afgelopen 30 dagen heeft gebruikt, uit het audit-logboek (alleen kijken) ──
 const STATS_DAYS = 30;
-function auditStats(entries, nowMs, days){   // telt per gebruiker: bezoeken (inloggen, de site openen, terugkeren) en opgeslagen wijzigingen van de planning
+const STAT_KLEUR = { bezoeken: "#80cbc4", zelf: "#ce93d8", ander: "#ffb74d", beide: "#f48fb1" };
+const STAT_SOORT = { zelf: "voor zichzelf", ander: "voor een ander", beide: "voor zichzelf en een ander" };
+function auditChangeKind(e){   // voor wie is deze opgeslagen wijziging? zelf: alleen cellen van de gebruiker zelf; ander: alleen cellen van anderen; beide: allebei (of niet te bepalen)
+  let eigen = 0, anders = 0;
+  (e.changes || []).forEach(c=>{ if(c && c.p){ if(c.p === e.user) eigen++; else anders++; } });
+  return eigen && !anders ? "zelf" : (anders && !eigen ? "ander" : "beide");
+}
+function auditStats(entries, nowMs, days){   // telt per gebruiker: bezoeken (inloggen, de site openen, terugkeren) en opgeslagen wijzigingen van de planning, die per soort (zelf / ander / beide) worden uitgesplitst
   const from = nowMs - days * 86400000, seen = new Set(), per = {};
   let anon = 0, eerst = null, totaalBezoeken = 0;
   entries.forEach(e=>{
@@ -2951,13 +2958,25 @@ function auditStats(entries, nowMs, days){   // telt per gebruiker: bezoeken (in
     if(bezoek && (eerst === null || t < eerst)) eerst = t;
     if(e.anon || e.user === "(niet ingelogd)"){ if(bezoek) anon++; return; }   // zonder naam: apart geteld, geen staaf
     if(!e.user || e.user === "onbekend") return;
-    const u = per[e.user] || (per[e.user] = { user: e.user, bezoeken: 0, wijzigingen: 0 });
-    if(bezoek){ u.bezoeken++; totaalBezoeken++; } else if(e.n > 0){ u.wijzigingen++; }
+    const u = per[e.user] || (per[e.user] = { user: e.user, bezoeken: 0, wijzigingen: 0, zelf: 0, ander: 0, beide: 0, lijst: [] });
+    if(bezoek){ u.bezoeken++; totaalBezoeken++; }
+    else if(e.n > 0){ const soort = auditChangeKind(e); u.wijzigingen++; u[soort]++; u.lijst.push({ t, soort, e }); }
   });
   const users = Object.values(per).filter(u=>u.bezoeken || u.wijzigingen).sort((a, b)=>b.bezoeken - a.bezoeken || b.wijzigingen - a.wijzigingen || a.user.localeCompare(b.user));
-  return { users, anon, eerstBezoek: eerst, totaalBezoeken, totaalWijzigingen: users.reduce((s, u)=>s + u.wijzigingen, 0), from };
+  users.forEach(u=>u.lijst.sort((a, b)=>b.t - a.t));   // nieuwste bovenaan, voor het inzoomen
+  const som = k=>users.reduce((s, u)=>s + u[k], 0);
+  return { users, anon, eerstBezoek: eerst, totaalBezoeken, totaalWijzigingen: som("wijzigingen"), totaalZelf: som("zelf"), totaalAnder: som("ander"), totaalBeide: som("beide"), from };
 }
-function statsChartSvg(users){   // staafgrafiek: per gebruiker twee staven naast elkaar (bezoeken en wijzigingen)
+function auditChText(c){   // een wijziging in woorden, zoals in het logboekvenster
+  const lab = k=>{ const s = STATUSES.find(x=>x.key === k); return s ? s.label : k; }, fv = a=>(a && a.length) ? a.map(lab).join(" + ") : "leeg";
+  if(c.s === "cel") return c.p + " " + c.w + " " + c.d + ": " + fv(c.from) + " → " + fv(c.to);
+  if(c.s === "standaard") return "standaard " + c.p + " " + c.d + ": " + fv(c.from) + " → " + fv(c.to);
+  if(c.s === "team+") return "team: " + c.p + " toegevoegd";
+  if(c.s === "team-") return "team: " + c.p + " verwijderd";
+  if(c.s === "doorgevoerd") return "doorgevoerd naar " + c.n + " cellen";
+  return JSON.stringify(c);
+}
+function statsChartSvg(users, onZoom){   // per gebruiker twee staven naast elkaar: bezoeken, en wijzigingen (één gestapelde staaf: voor zichzelf, voor een ander, voor beide); een klik op de wijzigingsstaaf zoomt in
   const NS = "http://www.w3.org/2000/svg";
   const mk = (n, a, t)=>{ const e = document.createElementNS(NS, n); for(const k in a) e.setAttribute(k, a[k]); if(t != null) e.textContent = t; return e; };
   const max = Math.max(1, ...users.flatMap(u=>[u.bezoeken, u.wijzigingen]));
@@ -2972,12 +2991,27 @@ function statsChartSvg(users){   // staafgrafiek: per gebruiker twee staven naas
   }
   users.forEach((u, i)=>{
     const x0 = L + i * gw + gw / 2, bw = Math.min(22, gw / 3);
-    [["bezoeken", "#80cbc4", u.bezoeken, -bw - 1], ["wijzigingen", "#ce93d8", u.wijzigingen, 1]].forEach(([serie, kleur, val, dx])=>{
-      const hh = val / nice * ph;
-      const r = mk("rect", { x: x0 + dx, y: T + ph - hh, width: bw, height: hh, rx: 2, fill: kleur, "data-user": u.user, "data-series": serie, "data-value": val });
-      r.appendChild(mk("title", {}, u.user + ": " + val + " " + serie)); svg.appendChild(r);
-      if(val > 0) svg.appendChild(mk("text", { x: x0 + dx + bw / 2, y: T + ph - hh - 4, "text-anchor": "middle", "font-size": 10, fill: "#ddd" }, String(val)));
-    });
+    { // bezoeken: één staaf
+      const hh = u.bezoeken / nice * ph;
+      const r = mk("rect", { x: x0 - bw - 1, y: T + ph - hh, width: bw, height: hh, rx: 2, fill: STAT_KLEUR.bezoeken, "data-user": u.user, "data-series": "bezoeken", "data-value": u.bezoeken });
+      r.appendChild(mk("title", {}, u.user + ": " + u.bezoeken + " bezoeken")); svg.appendChild(r);
+      if(u.bezoeken > 0) svg.appendChild(mk("text", { x: x0 - bw - 1 + bw / 2, y: T + ph - hh - 4, "text-anchor": "middle", "font-size": 10, fill: "#ddd" }, String(u.bezoeken)));
+    }
+    { // wijzigingen: één staaf, gestapeld in drie kleuren
+      let y = T + ph;
+      [["zelf", u.zelf], ["ander", u.ander], ["beide", u.beide]].forEach(([soort, val])=>{
+        if(!val) return;
+        const hh = val / nice * ph; y -= hh;
+        const r = mk("rect", { x: x0 + 1, y, width: bw, height: hh, rx: 2, fill: STAT_KLEUR[soort], stroke: "#111827", "stroke-width": 1, "data-user": u.user, "data-series": soort, "data-value": val, class: "stat-seg", tabindex: 0, role: "button", "aria-label": u.user + ": " + val + " wijziging" + (val === 1 ? "" : "en") + " " + STAT_SOORT[soort] + ", klik om in te zoomen" });
+        r.style.cursor = "pointer";
+        r.appendChild(mk("title", {}, u.user + ": " + val + " wijziging" + (val === 1 ? "" : "en") + " " + STAT_SOORT[soort] + " (klik om in te zoomen)"));
+        const zoom = ()=>{ if(onZoom) onZoom(u); };
+        r.addEventListener("click", zoom); r.addEventListener("keydown", ev=>{ if(ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); zoom(); } });
+        svg.appendChild(r);
+        if(hh >= 13) svg.appendChild(mk("text", { x: x0 + 1 + bw / 2, y: y + hh / 2 + 3.5, "text-anchor": "middle", "font-size": 10, fill: "#1a1a2e", "pointer-events": "none" }, String(val)));
+      });
+      if(u.wijzigingen > 0) svg.appendChild(mk("text", { x: x0 + 1 + bw / 2, y: y - 4, "text-anchor": "middle", "font-size": 10, fill: "#ddd" }, String(u.wijzigingen)));
+    }
     const lab = mk("text", { x: x0, y: H - B + 16, "text-anchor": "middle", "font-size": 11, fill: "#bbb" }, u.user.length > 10 ? u.user.slice(0, 9) + "…" : u.user);   // een lange naam loopt niet over de buren heen
     const gl = mk("g", {}); gl.appendChild(mk("title", {}, u.user)); gl.appendChild(lab); svg.appendChild(gl);   // de volledige naam als tooltip naast de tekst
   });
@@ -2992,8 +3026,8 @@ async function showStatsWindow(){
   const box = document.createElement("div");
   box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:780px;max-width:98vw;font-family:'Courier New',monospace;";
   box.innerHTML = `<div style="font-size:14px;font-weight:700;color:#80cbc4;padding-right:40px;">📈 Statistics</div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.45);margin:4px 0 12px;">Gebruik van de site per gebruiker, laatste ${STATS_DAYS} dagen</div>
-    <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:#bbb;margin-bottom:8px;"><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#80cbc4;margin-right:5px;"></span>Bezoeken (inloggen, de site openen, terugkeren)</span><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ce93d8;margin-right:5px;"></span>Wijzigingen opgeslagen</span></div>
+    <div id="stat-sub" style="font-size:11px;color:rgba(255,255,255,0.45);margin:4px 0 12px;">Gebruik van de site per gebruiker, laatste ${STATS_DAYS} dagen · klik op een wijzigingsstaaf om in te zoomen</div>
+    <div id="stat-legend" style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:#bbb;margin-bottom:8px;"><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#80cbc4;margin-right:5px;"></span>Bezoeken</span><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ce93d8;margin-right:5px;"></span>Wijzigingen voor zichzelf</span><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ffb74d;margin-right:5px;"></span>voor een ander</span><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f48fb1;margin-right:5px;"></span>voor beiden</span></div>
     <div id="stat-chart" style="font-size:11px;color:rgba(255,255,255,0.6);">Laden...</div>
     <div id="stat-foot" style="margin-top:12px;font-size:10px;color:#777;line-height:1.7;"></div>`;
   overlay.appendChild(box); document.body.appendChild(overlay);
@@ -3024,11 +3058,43 @@ async function showStatsWindow(){
   }catch(e){ chart.textContent = "Laden mislukt: " + e.message; return; }
   auditQueue.forEach(e=>entries.push(e));   // wat nog niet is weggeschreven telt ook mee (dubbele regels vallen weg op eid)
   const st = auditStats(entries, Date.now(), STATS_DAYS);
-  chart.textContent = "";
-  if(!st.users.length) chart.textContent = "Nog geen gebruik vastgelegd in de laatste " + STATS_DAYS + " dagen.";
-  else chart.appendChild(statsChartSvg(st.users));
+  const sub = box.querySelector("#stat-sub"), subTekst = sub.textContent, legenda = box.querySelector("#stat-legend");
+  const toonOverzicht = ()=>{
+    chart.textContent = ""; sub.textContent = subTekst; foot.style.display = ""; legenda.style.display = "flex";
+    if(!st.users.length) chart.textContent = "Nog geen gebruik vastgelegd in de laatste " + STATS_DAYS + " dagen.";
+    else chart.appendChild(statsChartSvg(st.users, toonDetail));
+  };
+  function toonDetail(u){   // inzoomen: alle wijzigingen van deze gebruiker in de laatste 30 dagen, nieuwste bovenaan
+    chart.textContent = ""; foot.style.display = "none"; legenda.style.display = "none"; sub.textContent = u.user + " · wijzigingen, laatste " + STATS_DAYS + " dagen";
+    const terug = document.createElement("button"); terug.id = "stat-back"; terug.type = "button"; terug.textContent = "← Terug naar het overzicht";
+    terug.style.cssText = "background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.18);color:#ddd;border-radius:7px;padding:5px 10px;font:inherit;font-size:11px;cursor:pointer;margin-bottom:10px;";
+    terug.onclick = toonOverzicht; chart.appendChild(terug);
+    const kop = document.createElement("div"); kop.id = "stat-detail-kop"; kop.style.cssText = "display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:#bbb;margin-bottom:10px;";
+    [["zelf", "voor zichzelf"], ["ander", "voor een ander"], ["beide", "voor beiden"]].forEach(([k, t])=>{
+      const s = document.createElement("span"), blokje = document.createElement("span"); blokje.style.cssText = "display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;background:" + STAT_KLEUR[k] + ";";
+      s.append(blokje, u[k] + " " + t); kop.appendChild(s);
+    });
+    chart.appendChild(kop);
+    const lijst = document.createElement("div"); lijst.id = "stat-detail-lijst"; chart.appendChild(lijst);
+    u.lijst.slice(0, 100).forEach(({ t, soort, e })=>{
+      const kaart = document.createElement("div"); kaart.dataset.soort = soort;
+      kaart.style.cssText = "border-left:3px solid " + STAT_KLEUR[soort] + ";padding:6px 10px;margin-bottom:6px;background:rgba(255,255,255,0.03);border-radius:0 6px 6px 0;font-size:11px;";
+      const anderen = [...new Set((e.changes || []).filter(c=>c && c.p && c.p !== u.user).map(c=>c.p))];
+      const voor = soort === "zelf" ? "voor zichzelf" : soort === "ander" ? "voor " + anderen.slice(0, 3).join(", ") + (anderen.length > 3 ? " +" + (anderen.length - 3) : "") : (anderen.length ? "voor zichzelf en " + anderen.slice(0, 3).join(", ") + (anderen.length > 3 ? " +" + (anderen.length - 3) : "") : "voor zichzelf en een ander (niet te bepalen)");
+      const d = new Date(t), kopregel = document.createElement("div"); kopregel.style.cssText = "color:#fff;";
+      const tag = document.createElement("span"); tag.style.cssText = "color:" + STAT_KLEUR[soort] + ";font-weight:700;"; tag.textContent = voor;
+      kopregel.append(d.toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + " · ", tag, " · " + (e.action && e.action !== "wijziging" ? e.action + " · " : "") + e.n + (e.n === 1 ? " wijziging" : " wijzigingen"));
+      kaart.appendChild(kopregel);
+      (e.changes || []).slice(0, 8).forEach(c=>{ const r = document.createElement("div"); r.style.color = "rgba(255,255,255,0.6)"; r.textContent = auditChText(c); kaart.appendChild(r); });
+      if((e.changes || []).length > 8){ const r = document.createElement("div"); r.style.color = "rgba(255,255,255,0.4)"; r.textContent = "… en nog " + ((e.changes || []).length - 8) + " meer" + (e.trunc ? " (ingekort: " + e.n + " in totaal)" : ""); kaart.appendChild(r); }
+      lijst.appendChild(kaart);
+    });
+    if(u.lijst.length > 100){ const r = document.createElement("div"); r.style.cssText = "font-size:10px;color:#777;"; r.textContent = "De nieuwste 100 van " + u.lijst.length + " wijzigingen."; chart.appendChild(r); }
+  }
+  toonOverzicht();
   const regels = [];
-  regels.push("Totaal: " + st.totaalBezoeken + " bezoeken en " + st.totaalWijzigingen + " keer wijzigingen opgeslagen door " + st.users.length + " gebruiker" + (st.users.length === 1 ? "" : "s") + ".");
+  regels.push("Bezoeken: inloggen, de site openen, of terugkeren op de site na minstens 30 minuten weg.");
+  regels.push("Totaal: " + st.totaalBezoeken + " bezoeken en " + st.totaalWijzigingen + " keer wijzigingen opgeslagen door " + st.users.length + " gebruiker" + (st.users.length === 1 ? "" : "s") + "." + (st.totaalWijzigingen ? " Wijzigingen: " + st.totaalZelf + " voor zichzelf, " + st.totaalAnder + " voor een ander, " + st.totaalBeide + " voor beiden." : ""));
   if(mislukt) regels.push("⚠ " + mislukt + " dagbestand" + (mislukt === 1 ? "" : "en") + " van het logboek " + (mislukt === 1 ? "kon" : "konden") + " niet worden opgehaald: de cijfers zijn mogelijk te laag.");
   if(st.anon) regels.push("Daarnaast " + st.anon + "× de poort geopend zonder in te loggen (staat niet in de grafiek).");
   if(st.from < Date.parse("2026-10-21T00:00:00")) regels.push("Let op: bezoeken worden pas vastgelegd sinds 21-10-2026; daarvoor staan alleen wijzigingen in de grafiek.");
