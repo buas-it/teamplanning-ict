@@ -117,6 +117,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 .tp-overlay[data-gate] > div { position:relative; z-index:2; margin:auto; }
 /* Menu onder je naam: tabbladen, status, wachtwoord, uitloggen */
 #who-menu { max-height:calc(100vh - 90px); overflow-y:auto; }
+#who-menu button[aria-disabled="true"] { opacity:0.45; }
 #who-menu .hd { padding:6px 10px 2px; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,0.35); }
 #who-menu .sep { height:1px; margin:5px 4px; background:rgba(255,255,255,0.08); }
 #who-menu .ver { padding:6px 10px 2px; font-size:10px; color:rgba(255,255,255,0.3); }
@@ -146,6 +147,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
   <button class="nav-btn" id="btn-geen-beheer" onclick="showGeenBeheerModal()" style="font-size:10px;padding:6px 10px;color:#f48fb1;border-color:rgba(244,143,177,0.4);background:rgba(244,143,177,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚠ Geen Beheer</button>
   <button class="nav-btn" id="btn-template" style="font-size:10px;padding:6px 10px;color:#60b0ff;border-color:rgba(0,150,255,0.3);background:rgba(0,100,220,0.08);width:auto;letter-spacing:1px;">★ Standaard</button>
   <button class="nav-btn" id="btn-admin" title="Audit-logboek (voor ICT-Systeembeheer en ICT-Management)" style="font-size:10px;padding:6px 10px;color:#ffcc80;border-color:rgba(255,204,128,0.4);background:rgba(255,204,128,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚙ Admin</button>
+  <button id="btn-restore-backup" title="Herstel een backup" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.2);border-radius:8px;padding:6px 10px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;" onmouseover="this.style.color='rgba(255,255,255,0.6)';this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.color='rgba(255,255,255,0.2)';this.style.borderColor='rgba(255,255,255,0.07)'">⟳ backup</button>
   </div>
 </div>
 
@@ -159,7 +161,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 38</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 39</span>
   </div>
   <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
@@ -173,7 +175,6 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
         <div style="font-size:10px;color:#555;letter-spacing:2px;text-transform:uppercase;margin-top:3px;">Wijzigingen worden direct doorgevoerd in alle komende weken</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button id="btn-restore-backup" title="Herstel een backup" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.2);border-radius:8px;padding:6px 10px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;" onmouseover="this.style.color='rgba(255,255,255,0.6)';this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.color='rgba(255,255,255,0.2)';this.style.borderColor='rgba(255,255,255,0.07)'">⟳ backup</button>
         <button id="tpl-close" type="button" class="win-x" aria-label="Sluiten" title="Sluiten">✕</button>
       </div>
     </div>
@@ -268,6 +269,9 @@ const PW_HASH = "b980ef247db770228acf922dbb07e5a555da45a84d8b8a399246367e0c2f3c0
 //  - Bewerken: staat na het inloggen UIT; je zet het zelf aan en het gaat na 10 minuten zonder wijziging vanzelf weer uit (je blijft dan ingelogd).
 let editUnlocked = false;   // bewerken staat aan (kan alleen als je bent ingelogd)
 let unlockTimer = null;
+let editDirty = false;      // er is gewijzigd sinds bewerken aanging (voor de backup bij 'bewerken uit')
+let savePending = false;    // een wijziging wacht nog om naar GitHub te worden geschreven
+let lastSavedJson = null;   // de staat die als laatste naar GitHub is geschreven
 const EDIT_IDLE_MS = 10 * 60 * 1000;     // bewerken gaat uit na 10 minuten zonder wijziging
 let lastEditAt = 0;               // tijdstip van het aanzetten van bewerken of de laatste wijziging; ook bewaard op het apparaat (tp_edit), zodat de 10 minuten gelden zonder dat de pagina hoeft te draaien
 let lastActivity = Date.now();    // laatste activiteit van de gebruiker (muis, toets, aanraking): voor de regel 'na 10 minuten inactiviteit terug naar het hoofdscherm' (je blijft wel ingelogd)
@@ -738,9 +742,11 @@ function openWhoMenu(){
     item("menu-audit", "📜 Audit", "c-admin", cmd("btn-admin"));
     item("menu-wachtwoorden", "🔑 Wachtwoorden", "c-admin", ()=>showUsersModal());
     item("menu-groepen", "👥 Groepen", "c-admin", ()=>showGroupsModal());
+    item("menu-status", "📊 Status", "c-status", ()=>showStatusWindow());
+    item("menu-backup-maken", "💾 Backup maken", "c-admin", ()=>makeManualBackup());
+    item("menu-backup-terugzetten", "⟳ Backup terugzetten", "c-admin", ()=>{ if(!canRestore()){ denyRestore(); return; } cmd("btn-restore-backup")(); });
+    if(!canRestore()){ const t = m.querySelector("#menu-backup-terugzetten"); t.setAttribute("aria-disabled", "true"); t.title = "Een backup terugzetten mag alleen " + RESTORE_GROUP; }
   }
-  sep();
-  item("menu-status", "📊 Status", "c-status", ()=>showStatusWindow());
   sep();
   item("menu-pw", "🔑 Wachtwoord wijzigen", "", ()=>showChangePassword());
   item("menu-logout", "↪ Uitloggen", "out", ()=>lock());
@@ -784,6 +790,7 @@ function showLockIndicator(){
   const ab = document.getElementById("btn-admin"); if(ab) ab.style.display = canSeeAdmin() ? "" : "none";   // Admin: alleen voor ICT-Systeembeheer en ICT-Management
   if(!canSeeAdmin()) closeAdminWindows();                                                                     // verandert je groep terwijl Admin openstaat, dan gaat het dicht
   try{ updateAuditDot(); }catch(e){}
+  try{ updateBadgeHealth(); }catch(e){}
   // Rechtsboven: onder wie er is ingelogd, met een pulldown (alleen tekst, nooit HTML)
   const wb = document.getElementById("who-badge");
   if(wb){
@@ -808,6 +815,7 @@ function showLockIndicator(){
 }
 
 function lock(){   // uitloggen: terug naar de toegangspoort
+  const dirty = editUnlocked && editDirty, who = commitMessage(""); editDirty = false;   // is er gewijzigd, dan komt er een backup (zie endOfEditBackup)
   editUnlocked = false;
   clearTimeout(unlockTimer);
   try{ localStorage.removeItem("tp_unlocked"); localStorage.removeItem("tp_user"); localStorage.removeItem("tp_edit"); }catch(e){}
@@ -818,10 +826,11 @@ function lock(){   // uitloggen: terug naar de toegangspoort
   showLockIndicator();
   document.dispatchEvent(new CustomEvent("tp-lock-changed"));
   gateOn();   // uitgelogd = weer een zwart scherm: eerst aangeven wie je bent
+  if(dirty) endOfEditBackup(who);
 }
 function enableEditing(){   // bewerken aanzetten (alleen als je bent ingelogd); de 10 minuten beginnen nu
   if(!currentIdentity || editUnlocked) return;
-  editUnlocked = true;
+  editUnlocked = true; editDirty = false;
   touchEditTimer();
   document.dispatchEvent(new CustomEvent("tp-lock-changed"));
   showLockIndicator();
@@ -831,10 +840,12 @@ function disableEditing(){   // bewerken uit; je blijft ingelogd en kunt gewoon 
   try{ localStorage.removeItem("tp_edit"); }catch(e){}
   if(!editUnlocked){ showLockIndicator(); return; }
   editUnlocked = false;
+  const dirty = editDirty, who = commitMessage(""); editDirty = false;   // is er gewijzigd, dan komt er een backup (zie endOfEditBackup)
   try{ closePopup(); }catch(e){}
   document.querySelectorAll(".mo-inline-menu").forEach(m=>m.remove());
   document.dispatchEvent(new CustomEvent("tp-lock-changed"));
   showLockIndicator();
+  if(dirty) endOfEditBackup(who);
 }
 
 // ── Toegangspoort: zonder inloggen is er alleen een zwart scherm met 'Wie ben je?' ──
@@ -1344,22 +1355,29 @@ let backupPending = null;    // de laatste poging is mislukt: elke minuut opnieu
 const BACKUP_INTERVAL = 10 * 60 * 1000; // 10 minuten
 const BACKUP_RETRY_STATUS = [409, 422, 500, 502, 503, 504];   // conflict of storing: opnieuw; een andere fout (bijv. geen rechten) niet blijven proberen
 
-async function maybeBackup(stateJson){
+async function maybeBackup(stateJson, opts = {}){
+  // opts.force: de 10-minutenregel overslaan; opts.always: ook als er niets is gewijzigd (handmatig); opts.label/who: commitbericht; opts.attempts: aantal pogingen
   const now = Date.now();
-  if(stateJson === lastBackupJson && !backupPending) return;            // niets gewijzigd sinds de laatste geslaagde backup
-  if(now - lastBackupTime < BACKUP_INTERVAL && !backupPending) return;  // nog geen 10 min (een mislukte backup wacht daar niet op)
-  if(backupBusy){ backupPending = stateJson; return; }                  // er loopt er al een
+  if(!opts.always && stateJson === lastBackupJson && !backupPending) return null;                     // niets gewijzigd sinds de laatste geslaagde backup
+  if(!opts.force && !opts.always && now - lastBackupTime < BACKUP_INTERVAL && !backupPending) return null;   // nog geen 10 min (een mislukte backup wacht daar niet op)
+  if(backupBusy){
+    if(!opts.force && !opts.always){ backupPending = stateJson; return null; }                       // er loopt er al een
+    for(let i = 0; i < 150 && backupBusy; i++) await new Promise(r=>setTimeout(r, 200));              // een gevraagde backup wacht op de lopende
+    if(backupBusy){ backupPending = stateJson; return null; }
+    if(!opts.always && stateJson === lastBackupJson && !backupPending) return null;                   // de lopende backup bevatte al precies deze staat
+  }
   backupBusy = true;
   const now_dt = new Date();
   const date = now_dt.toISOString().slice(0,10);
   const time = now_dt.toTimeString().slice(0,5).replace(":","-");
   const filename = `${date}_${time}`;
   const content = encodeBase64(stateJson);
+  const message = opts.label ? `${opts.label} ${filename}${opts.who || ""}` : `Auto-backup ${filename}`;
   let res = null;
   try{
-    for(let poging = 0; poging < 4; poging++){   // GitHub weigert schrijfacties die tegelijk binnenkomen (409): even wachten en nogmaals
+    for(let poging = 0; poging < (opts.attempts || 4); poging++){   // GitHub weigert schrijfacties die tegelijk binnenkomen (409): even wachten en nogmaals
       if(poging) await new Promise(r=>setTimeout(r, 1500 * poging + Math.random() * 1000));
-      res = await ghPut(`backups/${filename}.json`, content, `Auto-backup ${filename}`).catch(()=>null);
+      res = await ghPut(`backups/${filename}.json`, content, message).catch(()=>null);
       if(res && res.ok) break;
       if(res && !BACKUP_RETRY_STATUS.includes(res.status)) break;
     }
@@ -1374,7 +1392,8 @@ async function maybeBackup(stateJson){
     }
   }finally{ backupBusy = false; }
   updateHealthBar();
-  if(!(res && res.ok)) return;
+  const result = (res && res.ok) ? { ok: true, filename } : { ok: false, err: HEALTH.lastBackupErr };
+  if(!result.ok) return result;
   // Verwijder backups ouder dan 14 dagen: op de achtergrond, hooguit 5 per keer (zodat het opslaan niet wordt opgehouden) en netjes achter elkaar
   try{
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 14);
@@ -1392,13 +1411,43 @@ async function maybeBackup(stateJson){
       });
     }
   }catch(e){}
+  return result;
+}
+// Wat nog op opslaan wacht eerst wegschrijven (maximaal ~15 s)
+async function flushPendingSave(){
+  for(let i = 0; i < 60 && (ghSaving || savePending); i++){
+    if(savePending && !ghSaving){ clearTimeout(ghSaveTimer); await saveToGitHub(); }
+    else await new Promise(r=>setTimeout(r, 250));
+  }
+}
+// Bewerken is uitgegaan (met de hand, na 10 minuten zonder wijziging, of door uitloggen) en er is gewijzigd: alles opslaan en een backup van precies die staat
+async function endOfEditBackup(who){
+  try{
+    await flushPendingSave();
+    if(lastSavedJson) await maybeBackup(lastSavedJson, { force: true, label: "Backup na bewerken", who });
+  }catch(e){ console.warn("backup na bewerken mislukt:", e); }
+}
+// Admin > Backup maken: een kopie van de planning zoals die nu op GitHub staat (bewerken hoeft niet aan te staan: een backup wijzigt niets)
+async function makeManualBackup(){
+  if(!await ensureAdmin()) return;
+  adminNotice("Backup wordt gemaakt …", "💾 Backup maken");
+  let json = null;
+  try{
+    await flushPendingSave();
+    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+    if(r.ok){ const d = await r.json(); if(d && d.content){ const txt = auditDecode(d.content); JSON.parse(txt); json = txt; } }
+  }catch(e){}
+  if(!json) json = lastSavedJson || JSON.stringify(serializeState());   // lukt het ophalen niet: de staat in deze pagina
+  const res = await maybeBackup(json, { always: true, force: true, label: "Handmatige backup", who: commitMessage(""), attempts: 3 });
+  if(res && res.ok) adminNotice("✓ Backup gemaakt: " + res.filename.replace("_", " "), "💾 Backup maken");
+  else adminNotice("✗ Backup mislukt" + (res && res.err ? " (" + res.err + ")" : "") + ". Probeer het zo opnieuw.", "💾 Backup maken");
 }
 function retryPendingBackup(){ if(backupPending && !backupBusy){ try{ maybeBackup(JSON.stringify(serializeState())); }catch(e){} } }   // een mislukte backup wordt elke minuut opnieuw geprobeerd, met de actuele staat
 setInterval(retryPendingBackup, 60 * 1000);
 
 async function saveToGitHub(){
   if(ghSaving) return;
-  ghSaving = true;
+  ghSaving = true; savePending = false;
   try{
     // Haal altijd eerst de actuele SHA op om conflicts te voorkomen
     const check = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2), {
@@ -1434,6 +1483,7 @@ async function saveToGitHub(){
         }
       }, 2000);
       // Backup (silent, na succesvolle save)
+      lastSavedJson = json;
       maybeBackup(json);
       auditAfterSave(JSON.parse(json));   // audit: wat is er veranderd, door wie
     } else {
@@ -1446,7 +1496,7 @@ async function saveToGitHub(){
       // Bij 409 conflict: SHA ophalen en opnieuw proberen
       if(r.status === 409){
         console.warn("SHA conflict, opnieuw proberen...");
-        ghSha = null;
+        ghSha = null; savePending = true;
         ghSaveTimer = setTimeout(saveToGitHub, 2000);
       } else {
         showSaveStatus("error: "+msg);
@@ -1463,6 +1513,7 @@ async function saveToGitHub(){
 // Alles opslaan
 function saveState(){
   touchEditTimer();   // er is gemuteerd: 10-minutentimer opnieuw starten
+  savePending = true; if(editUnlocked) editDirty = true;
   clearTimeout(ghSaveTimer);
   ghSaveTimer = setTimeout(saveToGitHub, 1500);
 }
@@ -2778,11 +2829,12 @@ function healthLevel(){   // 2 = storing (rood), 0 = geen storing; oranje (iets 
 }
 function updateBadgeHealth(){
   const d = document.getElementById("who-health"); if(!d) return;
-  const bad = healthLevel() === 2;
+  const bad = healthLevel() === 2 && canSeeAdmin();   // alleen wie bij Status kan (Admin) ziet het puntje
   d.style.display = bad ? "inline-block" : "none";
-  d.title = bad ? "Er is een storing: open het menu en kies Status" : "";
+  d.title = bad ? "Er is een storing: open het menu en kies Admin › Status" : "";
 }
 function showStatusWindow(){
+  if(!canSeeAdmin()) return;   // Status staat onder Admin
   const old = document.getElementById("status-overlay"); if(old) old.remove();
   const overlay = document.createElement("div");
   overlay.className = "tp-overlay"; overlay.id = "status-overlay";
@@ -3425,35 +3477,6 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
     overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
     const box = document.createElement("div");
     box.style.cssText="background:#111827;border:1px solid rgba(255,165,0,0.4);border-radius:14px;padding:44px 22px 24px;min-width:280px;max-width:340px;";
-    // Maak-backup knop bovenaan
-    const makeBtn = document.createElement("button");
-    makeBtn.textContent = "＋ Maak nu een backup";
-    makeBtn.style.cssText = "width:100%;background:rgba(100,200,100,0.1);border:1px solid rgba(100,200,100,0.3);color:#80cbc4;border-radius:8px;padding:8px 12px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:700;margin-bottom:14px;letter-spacing:0.5px;";
-    makeBtn.onclick = async ()=>{
-      makeBtn.textContent = "⟳ Bezig..."; makeBtn.disabled=true;
-      const now = new Date();
-      const today = now.toISOString().slice(0,10);
-      const time = now.toTimeString().slice(0,5).replace(":","-");
-      const filename = `${today}_${time}`;
-      const json = JSON.stringify(serializeState());
-      const content = encodeBase64(json);
-      const r = await ghPut(`backups/${filename}.json`, content, `Handmatige backup ${filename}`).catch(e=>null);
-      if(r && r.ok){
-        makeBtn.textContent = "✓ Backup gemaakt: " + filename.replace("_"," ");
-        makeBtn.style.color = "#80cbc4";
-      } else {
-        makeBtn.textContent = "✗ Mislukt";
-        makeBtn.style.color = "#f48fb1";
-      }
-      setTimeout(()=>{ makeBtn.textContent="＋ Maak nu een backup"; makeBtn.disabled=false; }, 2500);
-    };
-    box.appendChild(makeBtn);
-
-    // Rest van modal via DOM (niet innerHTML om makeBtn te behouden)
-    const sep = document.createElement("div");
-    sep.style.cssText = "height:1px;background:rgba(255,255,255,0.08);margin-bottom:14px;";
-    box.appendChild(sep);
-
     const restoreTitle = document.createElement("div");
     restoreTitle.style.cssText = "font-size:14px;font-weight:700;color:#ffb74d;margin-bottom:10px;";
     restoreTitle.textContent = "⟳ Backup herstellen";
