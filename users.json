@@ -30,6 +30,12 @@
    "hash": "GBilCPTO0ZDI3V6SDUkx09C5zYyUMOL/Op6st+nwMFQ=",
    "iter": 210000,
    "set": "2026-10-20T12:53:35.766Z"
+  },
+  "Sam": {
+   "salt": "m/gGRepcVKoaB02gV6kSpg==",
+   "hash": "VVsikpxDbnL0irqJ94psTG0GfRqBt9CVI0GiXr88oWM=",
+   "iter": 210000,
+   "set": "2026-10-21T07:44:05.205Z"
   }
  }
 }
