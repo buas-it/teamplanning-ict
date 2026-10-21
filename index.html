@@ -115,6 +115,12 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 .tp-overlay[data-gate]::before { content:""; position:fixed; inset:-40px; z-index:0; background:url("login-achtergrond.jpg") center / cover no-repeat; filter:blur(26px) brightness(0.5) saturate(1.15); }
 .tp-overlay[data-gate]::after { content:""; position:fixed; top:0; left:50%; transform:translateX(-50%); z-index:1; width:min(100vw, calc(100vh * 1881 / 592)); aspect-ratio:1881 / 592; background:url("login-achtergrond.jpg") center / 100% 100% no-repeat; box-shadow:0 10px 50px rgba(0,0,0,0.55); }
 .tp-overlay[data-gate] > div { position:relative; z-index:2; margin:auto; }
+/* Menu onder je naam: tabbladen, status, wachtwoord, uitloggen */
+#who-menu { max-height:calc(100vh - 90px); overflow-y:auto; }
+#who-menu .sep { height:1px; margin:5px 4px; background:rgba(255,255,255,0.08); }
+#who-menu .ver { padding:6px 10px 2px; font-size:10px; color:rgba(255,255,255,0.3); }
+#who-menu button.c-maand { color:#80cbc4; } #who-menu button.c-periode { color:#ce93d8; } #who-menu button.c-geenbeheer { color:#f48fb1; } #who-menu button.c-template { color:#60b0ff; } #who-menu button.c-admin { color:#ffcc80; } #who-menu button.c-status { color:#a5d6a7; }
+#who-btn .hdot { display:none; width:8px; height:8px; border-radius:50%; background:#e53935; margin-left:3px; flex-shrink:0; }   /* alleen bij een echte storing */
 </style>
 </head>
 <body>
@@ -133,16 +139,18 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
   <button class="nav-btn" id="btn-refresh" onclick="sessionStorage.setItem('tp_baseMonday',baseMonday.getTime());saveState();setTimeout(()=>location.reload(),300)" title="Ververs" style="font-size:14px;">↻</button>
   <span id="lock-ind" style="font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;transition:color 0.3s;" title="Klik om te bewerken">🔒 alleen lezen</span>
   <span id="save-ind" style="font-size: 11px; opacity: 0; transition: opacity 0.3s; min-width: 20px; text-align: center; color: rgb(128, 203, 196);">✓ opgeslagen</span>
+  <div id="nav-commands" style="display:none;"><!-- de tabbladen staan in het menu onder je naam (rechtsboven); deze knoppen zijn de opdrachten die dat menu aanroept -->
   <button class="nav-btn" id="btn-maand" style="font-size:10px;padding:6px 10px;color:#80cbc4;border-color:rgba(128,203,196,0.4);background:rgba(128,203,196,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">📅 Maand</button>
   <button class="nav-btn" id="btn-periode" style="font-size:10px;padding:6px 10px;color:#ce93d8;border-color:rgba(206,147,216,0.4);background:rgba(206,147,216,0.06);width:auto;font-weight:700;">📆 Periode</button>
   <button class="nav-btn" id="btn-geen-beheer" onclick="showGeenBeheerModal()" style="font-size:10px;padding:6px 10px;color:#f48fb1;border-color:rgba(244,143,177,0.4);background:rgba(244,143,177,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚠ Geen Beheer</button>
   <button class="nav-btn" id="btn-template" style="font-size:10px;padding:6px 10px;color:#60b0ff;border-color:rgba(0,150,255,0.3);background:rgba(0,100,220,0.08);width:auto;letter-spacing:1px;">★ Standaard</button>
   <button class="nav-btn" id="btn-admin" title="Beheer: audit-logboek, wachtwoordenlijst en groepen (voor ICT-Systeembeheer en ICT-Management)" style="font-size:10px;padding:6px 10px;color:#ffcc80;border-color:rgba(255,204,128,0.4);background:rgba(255,204,128,0.08);width:auto;font-weight:700;letter-spacing:0.5px;">⚙ Admin</button>
+  </div>
 </div>
 
 <div class="scroll-wrap">
   <div class="grid-layout" id="main-grid"><div class="name-col"><div class="name-spacer"></div></div><div class="divider"></div></div>
-  <div id="health-bar" style="max-width:1100px;margin:10px auto 0;display:flex;align-items:center;gap:12px;padding:8px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;font-family:'Courier New',monospace;font-size:10px;">
+  <div id="health-bar" style="max-width:1100px;margin:10px auto 0;display:none;align-items:center;gap:12px;padding:8px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;font-family:'Courier New',monospace;font-size:10px;">
     <span style="color:rgba(255,255,255,0.3);letter-spacing:1.5px;text-transform:uppercase;">Status</span>
     <span id="health-github" title="GitHub verbinding" style="color:rgba(255,255,255,0.2)">⬤ GitHub</span>
     <span id="health-data" title="Data integriteit" style="color:rgba(255,255,255,0.2)">⬤ Data</span>
@@ -150,7 +158,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 35</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 20 okt 2026 · 36</span>
   </div>
   <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
@@ -713,8 +721,19 @@ function openWhoMenu(){
   if(!wb || !b || document.getElementById("who-menu")) return;
   const m = document.createElement("div"); m.id = "who-menu"; m.setAttribute("role", "menu");
   const item = (id, label, cls, fn)=>{ const x = document.createElement("button"); x.type = "button"; x.id = id; x.setAttribute("role", "menuitem"); x.textContent = label; if(cls) x.className = cls; x.onclick = ()=>{ closeWhoMenu(); fn(); }; m.appendChild(x); };
+  const sep = ()=>{ const d = document.createElement("div"); d.className = "sep"; d.setAttribute("role", "separator"); m.appendChild(d); };
+  const cmd = id => ()=>{ const knop = document.getElementById(id); if(knop) knop.click(); };   // de tabbladen zijn opdrachten: het menu roept dezelfde (verborgen) knoppen aan als voorheen
+  item("menu-maand", "📅 Maand", "c-maand", cmd("btn-maand"));
+  item("menu-periode", "📆 Periode", "c-periode", cmd("btn-periode"));
+  item("menu-geenbeheer", "⚠ Geen Beheer", "c-geenbeheer", cmd("btn-geen-beheer"));
+  item("menu-template", "★ Standaard", "c-template", cmd("btn-template"));
+  if(canSeeAdmin()) item("menu-admin", "⚙ Admin", "c-admin", cmd("btn-admin"));
+  sep();
+  item("menu-status", "📊 Status", "c-status", ()=>showStatusWindow());
+  sep();
   item("menu-pw", "🔑 Wachtwoord wijzigen", "", ()=>showChangePassword());
   item("menu-logout", "↪ Uitloggen", "out", ()=>lock());
+  const verEl = document.getElementById("app-version"); if(verEl){ const v = document.createElement("div"); v.className = "ver"; v.id = "menu-version"; v.textContent = verEl.textContent; m.appendChild(v); }
   m.addEventListener("keydown", e=>{
     const items = [...m.querySelectorAll("button")], i = items.indexOf(document.activeElement);
     if(e.key === "ArrowDown"){ e.preventDefault(); items[(i + 1) % items.length].focus(); }
@@ -763,9 +782,11 @@ function showLockIndicator(){
         btn.setAttribute("aria-haspopup", "menu"); btn.setAttribute("aria-expanded", "false");
         btn.append("Ingelogd als ");
         const b = document.createElement("b"); b.textContent = currentIdentity.user; btn.appendChild(b);
+        const hd = document.createElement("span"); hd.className = "hdot"; hd.id = "who-health"; btn.appendChild(hd);   // rood puntje als er een storing is (zonder tekst)
         const c = document.createElement("span"); c.className = "caret"; c.setAttribute("aria-hidden", "true"); c.textContent = "▾"; btn.append(" ", c);
         btn.onclick = ()=>{ if(document.getElementById("who-menu")) closeWhoMenu(); else openWhoMenu(); };
         wb.appendChild(btn);
+        updateBadgeHealth();
       }
     }
     wb.title = currentIdentity ? idLine : "";
@@ -1124,24 +1145,26 @@ async function showGroupsModal(){
   const check = ()=>{
     const save = q("#grp-save"); if(!save) return;
     const ms = moves(); let bad = "";
-    if(ms.length && adminLeft(result(ms)) < 1) bad = GROUP_ADMIN + " moet minstens één lid houden.";
+    const zonder = [...list.querySelectorAll("select")].filter(s=>!s.value).length;   // iedereen moet in een groep zitten
+    if(zonder) bad = "Kies voor iedereen een groep (nog " + zonder + " zonder).";
+    else if(ms.length && adminLeft(result(ms)) < 1) bad = GROUP_ADMIN + " moet minstens één lid houden.";
     save.disabled = !ms.length || !!bad; save.style.opacity = save.disabled ? "0.5" : "";
     if(bad) setMsg(bad, false); else if(!msg.dataset.keep) setMsg("");
   };
   const render = ()=>{
     const editable = !!(currentIdentity && cur.groups[GROUP_ADMIN].includes(currentIdentity.user));
-    hint.textContent = "Elke persoon zit in één groep. Alleen " + ADMIN_VIEW_GROUPS.join(" en ") + " hebben Admin; alleen een lid van " + GROUP_ADMIN + " kan de groepen aanpassen." + (editable ? " Jezelf uit " + GROUP_ADMIN + " halen kan niet (dat kan een collega wel)." : " Jij kunt de groepen niet aanpassen.") + " ICT-Systeembeheer mag backups terugzetten; ICT-Support en ICT-Systeembeheer bepalen de dekking-waarschuwingen; ICT-Monitoring is voor het scherm Monitor." + (cur.sha ? "" : " (Nog niet aangepast: standaardindeling.)");
+    hint.textContent = "Elke persoon zit in precies één groep. Alleen " + ADMIN_VIEW_GROUPS.join(" en ") + " hebben Admin; alleen een lid van " + GROUP_ADMIN + " kan de groepen aanpassen." + (editable ? " Jezelf uit " + GROUP_ADMIN + " halen kan niet (dat kan een collega wel)." : " Jij kunt de groepen niet aanpassen.") + " ICT-Systeembeheer mag backups terugzetten; ICT-Support en ICT-Systeembeheer bepalen de dekking-waarschuwingen; ICT-Monitoring is voor het scherm Monitor." + (cur.sha ? "" : " (Nog niet aangepast: standaardindeling.)");
     list.innerHTML = "";
-    const team = TEAM.filter(n=>n!=="__divider__"), logins = EXTRA_LOGINS.filter(n=>!team.includes(n)), extra = [];   // logins (Monitor) staan er altijd, ook als ze in geen groep zitten
-    GROUP_NAMES.forEach(g=>cur.groups[g].forEach(n=>{ if(!team.includes(n) && !logins.includes(n) && !extra.includes(n)) extra.push(n); }));
-    team.concat(logins).concat(extra).forEach(name=>{
+    const team = TEAM.filter(n=>n!=="__divider__"), logins = EXTRA_LOGINS.filter(n=>!team.includes(n));   // logins (Monitor) staan er altijd; namen van wie niet meer in het team zit worden niet getoond
+    team.concat(logins).forEach(name=>{
       const row = document.createElement("div"); row.dataset.name = name;
       row.style.cssText = "display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,0.06);";
       const mij = !!(currentIdentity && currentIdentity.user === name);
-      const lbl = document.createElement("span"); lbl.style.cssText = "flex:1;color:#fff;"; lbl.textContent = name + (logins.includes(name) ? " (geen teamlid)" : (extra.includes(name) ? " (niet in team)" : "")) + (mij ? " (jij)" : "");
+      const lbl = document.createElement("span"); lbl.style.cssText = "flex:1;color:#fff;"; lbl.textContent = name + (logins.includes(name) ? " (geen teamlid)" : "") + (mij ? " (jij)" : "");
       const s = document.createElement("select"); s.dataset.name = name;
       s.style.cssText = "background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);color:#eee;border-radius:8px;padding:5px 8px;font-family:inherit;font-size:12px;min-width:170px;";
-      [["", "— geen groep —"]].concat(GROUP_NAMES.map(g=>[g, g])).forEach(([v, t])=>{ const o = document.createElement("option"); o.value = v; o.textContent = t; s.appendChild(o); });
+      if(!curGroup(name)){ const ph = document.createElement("option"); ph.value = ""; ph.disabled = true; ph.textContent = "— kies een groep —"; s.appendChild(ph); }   // alleen voor wie nu nog in geen groep zit (bijv. een nieuw teamlid); 'geen groep' is geen keuze
+      GROUP_NAMES.forEach(g=>{ const o = document.createElement("option"); o.value = g; o.textContent = g; s.appendChild(o); });
       s.value = curGroup(name); s.disabled = !editable;
       if(editable && mij && curGroup(name) === GROUP_ADMIN){ s.disabled = true; s.title = "Jezelf uit " + GROUP_ADMIN + " halen kan niet; vraag een collega."; }   // niet jezelf buitensluiten
       s.onchange = ()=>{ delete msg.dataset.keep; check(); };
@@ -1179,6 +1202,7 @@ async function showGroupsModal(){
       const res = await groupsMutate(g=>{
         const me = currentIdentity && currentIdentity.user;
         if(!me || !g[GROUP_ADMIN].includes(me)) return "Alleen een lid van " + GROUP_ADMIN + " kan de groepen aanpassen.";   // gecontroleerd op de nieuwste indeling, niet op wat dit venster al wist
+        if(ms.some(m=>!m.to)) return "Kies voor iedereen een groep.";   // 'geen groep' bestaat niet
         ms.forEach(m=>{ GROUP_NAMES.forEach(x=>{ g[x] = g[x].filter(n=>n!==m.name); }); if(m.to) g[m.to].push(m.name); });
         if(!g[GROUP_ADMIN].includes(me)) return "Je kunt jezelf niet uit " + GROUP_ADMIN + " halen. Vraag een collega uit " + GROUP_ADMIN + " om dat te doen.";   // niet jezelf buitensluiten
         if(g[GROUP_ADMIN].filter(n=>TEAM.includes(n)).length < 1) return GROUP_ADMIN + " moet minstens één lid houden.";
@@ -1590,6 +1614,7 @@ function updateHealthBar(){
     };
   }
   }
+  try{ updateBadgeHealth(); }catch(e){}
 }
 
 // Update health bar elke 10 seconden
@@ -2712,6 +2737,51 @@ function showMaandOverzicht(){
 
   render();
   document.body.appendChild(overlay);
+}
+
+// ── Status: staat in het menu onder je naam; de statusbalk zelf is verborgen en wordt gewoon bijgewerkt ──
+function healthLevel(){   // 2 = storing (rood), 0 = geen storing; oranje (iets ouder dan verwacht, zoals een backup na een rustige nacht) laat het puntje bewust met rust
+  let lvl = 0;
+  ["health-github", "health-data", "health-sync", "health-backup", "health-audit"].forEach(id=>{
+    const c = ((document.getElementById(id) || { style: {} }).style.color) || "";
+    if(/e53935|229,\s*57,\s*53/i.test(c)) lvl = 2;
+  });
+  return lvl;
+}
+function updateBadgeHealth(){
+  const d = document.getElementById("who-health"); if(!d) return;
+  const bad = healthLevel() === 2;
+  d.style.display = bad ? "inline-block" : "none";
+  d.title = bad ? "Er is een storing: open het menu en kies Status" : "";
+}
+function showStatusWindow(){
+  const old = document.getElementById("status-overlay"); if(old) old.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "tp-overlay"; overlay.id = "status-overlay";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:860;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:60px 10px 20px;";
+  const box = document.createElement("div");
+  box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:480px;max-width:98vw;font-family:'Courier New',monospace;";
+  box.innerHTML = `<div style="font-size:14px;font-weight:700;color:#80cbc4;margin-bottom:12px;padding-right:40px;">📊 Status</div><div id="st-list"></div><div id="st-foot" style="margin-top:12px;font-size:10px;color:#666;line-height:1.6;"></div>`;
+  overlay.appendChild(box); document.body.appendChild(overlay);
+  addWinX(box, ()=>overlay.remove(), "status-close");
+  const rows = [["health-github", "GitHub"], ["health-data", "Data"], ["health-sync", "Sync"], ["health-backup", "Backup"], ["health-audit", "Audit"]];
+  const list = box.querySelector("#st-list"), foot = box.querySelector("#st-foot"), els = {};
+  rows.forEach(([id, label])=>{
+    const row = document.createElement("div"); row.dataset.id = id;
+    row.style.cssText = "display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.06);cursor:pointer;font-size:12px;";
+    const dot = document.createElement("span"); dot.textContent = "⬤";
+    const lb = document.createElement("span"); lb.style.cssText = "min-width:64px;color:#fff;font-weight:700;"; lb.textContent = label;
+    const tx = document.createElement("span"); tx.style.cssText = "flex:1;color:rgba(255,255,255,0.6);";
+    row.append(dot, lb, tx); row.onclick = ()=>{ const src = document.getElementById(id); if(src) src.click(); };   // dezelfde uitleg of hetzelfde venster als vroeger bij het bolletje
+    list.appendChild(row); els[id] = { dot, tx };
+  });
+  const refresh = ()=>{
+    rows.forEach(([id])=>{ const src = document.getElementById(id); if(!src) return; els[id].dot.style.color = src.style.color || "rgba(255,255,255,0.2)"; els[id].tx.textContent = src.title || ""; });
+    const det = document.getElementById("health-detail"), ver = document.getElementById("app-version");
+    foot.textContent = [det && det.textContent.trim(), ver && ver.textContent.trim()].filter(Boolean).join("  ·  ");
+  };
+  refresh();
+  const tmr = setInterval(()=>{ if(!document.body.contains(overlay)){ clearInterval(tmr); return; } refresh(); }, 1000);
 }
 
 // ── Health Status popup ───────────────────────────────────────────
