@@ -86,7 +86,6 @@ button { font-family:inherit; cursor:pointer; }
 .popup-close { margin-top:6px; padding:6px 8px; font-size:10px; color:#555; text-align:center; cursor:pointer; border-top:1px solid rgba(255,255,255,0.06); }
 .popup-close:hover { color:#aaa; }
 .legend { max-width:1100px; margin:16px auto 0; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:12px 16px; display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center; }
-.legend-title { font-size:10px; color:#555; letter-spacing:2px; text-transform:uppercase; }
 .legend-item { display:flex; align-items:center; gap:6px; }
 .legend-dot { width:16px; height:16px; border-radius:4px; flex-shrink:0; }
 .legend-label { font-size:11px; color:#bbb; }
@@ -116,6 +115,8 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 /* Menu onder je naam: tabbladen, status, wachtwoord, uitloggen */
 #who-menu { max-height:calc(100vh - 90px); overflow-y:auto; }
 #who-menu button[aria-disabled="true"] { opacity:0.45; }
+#who-menu .hd[data-sub] { padding:4px 10px 2px 26px; font-size:9px; color:rgba(255,255,255,0.3); }
+#who-menu button.sub { padding-left:28px; }
 #who-menu .hd { padding:6px 10px 2px; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,0.35); }
 #who-menu .sep { height:1px; margin:5px 4px; background:rgba(255,255,255,0.08); }
 #who-menu .ver { padding:6px 10px 2px; font-size:10px; color:rgba(255,255,255,0.3); }
@@ -159,9 +160,9 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 42</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 43</span>
   </div>
-  <div class="legend" id="legend"><span class="legend-title">Legenda</span><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
+  <div class="legend" id="legend"><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:11px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
 
 <!-- Standaard modal -->
@@ -199,6 +200,7 @@ const STATUSES = [
   { key:"vm_vrij",    label:"'s Ochtends Vrij",       color:"#e53935", border:"#e53935", group:"vrij"    },
   { key:"nm_vrij",    label:"'s Middags Vrij",        color:"#e53935", border:"#e53935", group:"vrij"    },
   { key:"ziek",       label:"Ziek",                   color:"#888888", border:"#666666", group:"overig"  },
+  { key:"ziek_thuis", label:"Ziek thuis",             color:"#8aa88a", border:"#6f8f6f", group:"overig"  },
   { key:"extern",     label:"Extern",                 color:"#ffd54f", border:"#ffb300", group:"overig"  },
   { key:"vm_extern",  label:"'s Ochtends Extern",     color:"#ffd54f", border:"#ffb300", group:"overig"  },
   { key:"nm_extern",  label:"'s Middags Extern",       color:"#ffd54f", border:"#ffb300", group:"overig"  },
@@ -735,15 +737,15 @@ function openWhoMenu(){
   item("menu-geenbeheer", "⚠ Geen Beheer", "c-geenbeheer", cmd("btn-geen-beheer"));
   item("menu-template", "★ Standaard", "c-template", cmd("btn-template"));
   if(canSeeAdmin()){   // Admin: alleen ICT-Systeembeheer en ICT-Management
-    const kop = t => { const d = document.createElement("div"); d.className = "hd"; d.textContent = t; d.setAttribute("role", "presentation"); m.appendChild(d); };   // een kopje in het menu (geen knop)
+    const kop = (t, sub) => { const d = document.createElement("div"); d.className = "hd"; if(sub) d.dataset.sub = "1"; d.textContent = t; d.setAttribute("role", "presentation"); m.appendChild(d); };   // een kopje in het menu (geen knop)
     sep(); kop("Admin");
     item("menu-audit", "📜 Audit", "c-admin", cmd("btn-admin"));
     item("menu-wachtwoorden", "🔑 Wachtwoorden", "c-admin", ()=>showUsersModal());
     item("menu-groepen", "👥 Groepen", "c-admin", ()=>showGroupsModal());
     item("menu-status", "📊 Status", "c-status", ()=>showStatusWindow());
-    sep(); kop("Backup/Restore");
-    item("menu-backup-maken", "💾 Backup maken", "c-admin", ()=>makeManualBackup());
-    item("menu-backup-terugzetten", "⟳ Backup terugzetten", "c-admin", ()=>{ if(!canRestore()){ denyRestore(); return; } cmd("btn-restore-backup")(); });
+    kop("Backup/Restore", true);   // onderdeel van Admin: ingesprongen, zonder eigen scheidingslijn
+    item("menu-backup-maken", "💾 Backup maken", "c-admin sub", ()=>makeManualBackup());
+    item("menu-backup-terugzetten", "⟳ Backup terugzetten", "c-admin sub", ()=>{ if(!canRestore()){ denyRestore(); return; } cmd("btn-restore-backup")(); });
     if(!canRestore()){ const t = m.querySelector("#menu-backup-terugzetten"); t.setAttribute("aria-disabled", "true"); t.title = "Een backup terugzetten mag alleen " + RESTORE_GROUP; }
   }
   sep();
@@ -1834,7 +1836,7 @@ function toggleStatus(monday,person,day,key,isTemplate){
       next=cur.filter(k2=>k2!==key); // uitzetten
     } else {
       // ── Constraints ──────────────────────────────────────────────────
-      const HELE_DAG  = ["kantoor","thuis","vrij","ziek","extern"];
+      const HELE_DAG  = ["kantoor","thuis","vrij","ziek","ziek_thuis","extern"];
       const HALVE_VM  = ["vm_kantoor","vm_thuis","vm_vrij","vm_extern"];
       const HALVE_NM  = ["nm_kantoor","nm_thuis","nm_vrij","nm_extern"];
       const HALVE_DAG = [...HALVE_VM,...HALVE_NM];
@@ -2123,6 +2125,10 @@ function renderCellContent(cell,sel){
       // Alleen ziek: lichtgrijs + streepje
       cell.style.background="rgba(150,150,150,0.18)"; cell.style.border="1.5px solid rgba(150,150,150,0.35)";
       addLabel("—","rgba(180,180,180,0.8)","full");
+    } else if(dots.length===1 && dots[0].key==="ziek_thuis"){
+      // Ziek thuis: grijsgroen + ZT
+      cell.style.background="rgba(120,170,120,0.35)"; cell.style.border="1.5px solid rgba(120,170,120,0.5)";
+      addLabel("ZT","rgba(225,240,225,0.95)","full");
     } else if(hasVrij && !hasKantoor && !hasThuis && dots.length===1){
       // Alleen vrij: rode achtergrond + V
       cell.style.background="rgba(229,57,53,0.55)"; cell.style.border="1.5px solid rgba(229,57,53,0.5)";
@@ -2153,7 +2159,7 @@ function makeDot(s){
   const d=document.createElement("div"); d.className="dot";
   d.style.background=s.color; d.style.boxShadow=`0 0 6px ${s.color}88`;
   d.style.display="flex"; d.style.alignItems="center"; d.style.justifyContent="center";
-  const LABELS={"kantoor":"C","thuis":"T","vrij":"V","ziek":"Z","extern":"E","vm_extern":"E","nm_extern":"E"};
+  const LABELS={"kantoor":"C","thuis":"T","vrij":"V","ziek":"Z","ziek_thuis":"Z","extern":"E","vm_extern":"E","nm_extern":"E"};
   if(LABELS[s.key]){
     const lbl=document.createElement("span"); lbl.textContent=LABELS[s.key];
     lbl.style.cssText="font-size:12px;font-weight:700;color:rgba(0,0,0,0.45);line-height:1;";
@@ -2397,7 +2403,7 @@ function buildWeekPanel(monday){
     const SUPPORT_GRP = GROUPS["ICT-Support"];
     const isPersonZiek      = p => { const s=(dayData[p]||{})[day]||[]; return s.includes("ziek"); };
     const isPersonOnKantoor = p => !isPersonZiek(p) && (()=>{ const s=(dayData[p]||{})[day]||[]; return s.includes("kantoor")||s.includes("vm_kantoor")||s.includes("nm_kantoor"); })();
-    const isPersonThuis     = p => !isPersonZiek(p) && (()=>{ const s=(dayData[p]||{})[day]||[]; return s.includes("thuis")||s.includes("vm_thuis")||s.includes("nm_thuis"); })();
+    const isPersonThuis     = p => !isPersonZiek(p) && (()=>{ const s=(dayData[p]||{})[day]||[]; return s.includes("thuis")||s.includes("vm_thuis")||s.includes("nm_thuis")||s.includes("ziek_thuis"); })();
     const hasData           = p => ((dayData[p]||{})[day]||[]).length > 0;
 
     const beheerOpK  = MUST_KANTOOR.filter(isPersonOnKantoor);
@@ -2523,18 +2529,20 @@ function buildNameCol(){
 
 // ── Legend ───────────────────────────────────────────────────────
 function buildLegend(){
-  const leg=document.getElementById("legend"); leg.innerHTML=`<span class="legend-title">Legenda</span>`;
+  const leg=document.getElementById("legend"); leg.innerHTML="";
   // Kantoor legenda-item (apart, met K-indicator)
   const kantoorItem=document.createElement("div"); kantoorItem.className="legend-item";
   kantoorItem.innerHTML=`<div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span>`;
   leg.appendChild(kantoorItem);
 
   // Toon alleen hoofd-statussen in legenda (geen halve varianten)
-  const LEGEND_KEYS = ["thuis","vrij","ziek","extern"];
+  const LEGEND_KEYS = ["thuis","vrij","ziek","ziek_thuis","extern"];
   STATUSES.filter(s=>LEGEND_KEYS.includes(s.key)).forEach(s=>{
     const item=document.createElement("div"); item.className="legend-item";
     if(s.key==="ziek"){
       item.innerHTML=`<div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">${s.label}</span>`;
+    } else if(s.key==="ziek_thuis"){
+      item.innerHTML=`<div style="width:34px;height:20px;border-radius:5px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:11px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">${s.label}</span>`;
     } else {
       const bgColor = s.key==="extern"?"rgba(255,213,79,0.75)":s.key==="thuis"?"rgba(76,175,80,0.55)":s.key==="vrij"?"rgba(229,57,53,0.55)":s.color;
       item.innerHTML=`<div class="legend-dot" style="background:${bgColor};box-shadow:0 0 5px ${bgColor}66"></div><span class="legend-label">${s.label}</span>`;
@@ -2606,14 +2614,14 @@ function showMaandOverzicht(){
     "kantoor":"rgba(180,180,180,0.6)","vm_kantoor":"rgba(200,200,200,0.45)","nm_kantoor":"rgba(200,200,200,0.45)",
     "thuis":"rgba(76,175,80,0.55)","vm_thuis":"rgba(76,175,80,0.55)","nm_thuis":"rgba(76,175,80,0.55)",
     "vrij":"rgba(229,57,53,0.55)","vm_vrij":"rgba(229,57,53,0.55)","nm_vrij":"rgba(229,57,53,0.55)",
-    "ziek":"rgba(150,150,150,0.18)",
+    "ziek":"rgba(150,150,150,0.18)","ziek_thuis":"rgba(120,170,120,0.35)",
     "extern":"rgba(255,213,79,0.75)","vm_extern":"rgba(255,213,79,0.55)","nm_extern":"rgba(255,213,79,0.55)",
   };
   const STATUS_LABELS = {
     "kantoor":"C","vm_kantoor":"C","nm_kantoor":"C",
     "thuis":"T","vm_thuis":"T","nm_thuis":"T",
     "vrij":"V","vm_vrij":"V","nm_vrij":"V",
-    "ziek":"—","extern":"E","vm_extern":"E","nm_extern":"E",
+    "ziek":"—","ziek_thuis":"ZT","extern":"E","vm_extern":"E","nm_extern":"E",
   };
   const DAGNAMEN = ["Ma","Di","Wo","Do","Vr"];
   const MAANDEN = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
@@ -2828,7 +2836,7 @@ function showMaandOverzicht(){
     // Legenda
     const leg=document.createElement("div");
     leg.style.cssText="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);";
-    [["C","#aaaaaa","Campus"],["T","#4caf50","Thuis"],["V","#e53935","Vrij"],["—","rgba(150,150,150,0.5)","Ziek"],["E","#ffd54f","Extern"]].forEach(([lbl,col,naam])=>{
+    [["C","#aaaaaa","Campus"],["T","#4caf50","Thuis"],["V","#e53935","Vrij"],["—","rgba(150,150,150,0.5)","Ziek"],["ZT","rgba(120,170,120,0.55)","Ziek thuis"],["E","#ffd54f","Extern"]].forEach(([lbl,col,naam])=>{
       leg.innerHTML+=`<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:rgba(255,255,255,0.5)"><div style="width:16px;height:16px;border-radius:3px;background:${col};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">${lbl}</div>${naam}</div>`;
     });
     box.appendChild(leg);
@@ -3126,6 +3134,7 @@ async function showPeriodeModal(){
     {key:"thuis",   label:"Thuis",   color:"rgba(76,175,80,0.55)"},
     {key:"kantoor", label:"Campus",  color:"rgba(180,180,180,0.6)"},
     {key:"ziek",    label:"Ziek",    color:"rgba(150,150,150,0.3)"},
+    {key:"ziek_thuis", label:"Ziek thuis", color:"rgba(120,170,120,0.45)"},
     {key:"extern",  label:"Extern",  color:"rgba(255,213,79,0.75)"},
   ];
 
@@ -3353,7 +3362,7 @@ function showGeenBeheerModal(){
   };
   const isThuis = (monday, person, day) => {
     const sel = (getData(monday)[person]||{})[day]||[];
-    return !sel.includes("ziek") && (sel.includes("thuis")||sel.includes("vm_thuis")||sel.includes("nm_thuis"));
+    return !sel.includes("ziek") && (sel.includes("thuis")||sel.includes("vm_thuis")||sel.includes("nm_thuis")||sel.includes("ziek_thuis"));
   };
   const hasStatus = (monday, person, day) => ((getData(monday)[person]||{})[day]||[]).length > 0;
 
