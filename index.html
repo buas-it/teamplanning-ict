@@ -114,7 +114,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 .tp-overlay[data-gate] > div { position:relative; z-index:2; margin:auto; }
 /* Menu onder je naam: tabbladen, status, wachtwoord, uitloggen */
 #who-menu { max-height:calc(100vh - 90px); overflow-y:auto; }
-#who-menu button[aria-disabled="true"] { opacity:0.45; }
+#who-menu button[aria-disabled="true"] { opacity:0.45; cursor:not-allowed; }
 #who-menu button[hidden] { display:none; }
 #who-menu button.sub { padding-left:28px; }
 #who-menu .hd { padding:6px 10px 2px; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,0.35); }
@@ -160,7 +160,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 44</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 45</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:34px;height:20px;border-radius:5px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:11px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div><span class="legend-hint">klik cel → kies status(sen)</span></div>
 </div>
@@ -324,7 +324,10 @@ function canSeeAdmin(){   // Admin (logboek, wachtwoorden, groepen): alleen team
   const me = currentIdentity && currentIdentity.user;
   return !!(me && groupsReady && TEAM.includes(me) && ADMIN_VIEW_GROUPS.some(g=>inGroup(me, g)));
 }
-function closeAdminWindows(){ ["audit-overlay", "usr-overlay", "grp-overlay"].forEach(id=>{ const o = document.getElementById(id); if(o) o.remove(); }); }
+const ADMIN_EDIT_MSG = "Admin werkt alleen als bewerken aan staat. Klik op een cel in de planning om bewerken aan te zetten.";
+function closeAdminWindows(){   // alle Admin-vensters dicht (rechten kwijt, of bewerken is uitgegaan)
+  ["au-close", "usr-close", "grp-close", "status-close", "bc-close", "restore-close", "backup-close"].forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o) o.remove(); });
+}
 function canResetPasswords(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }   // wachtwoorden van anderen resetten: alleen leden van ICT-Systeembeheer (je eigen wachtwoord wijzigen kan iedereen)
 function denyRestore(){ adminNotice(groupsReady ? "Een backup terugzetten mag alleen " + RESTORE_GROUP + "." : "De groepen konden niet worden opgehaald, dus terugzetten kan nu niet. Probeer het zo opnieuw.", "♻ Backup terugzetten"); }
 function applyGroups(g){ GROUP_NAMES.forEach(n=>{ GROUPS[n] = g[n].slice(); }); }
@@ -619,6 +622,8 @@ function adminNotice(text, title){
 async function ensureAdmin(){
   if(!await requireLogin()) return false;
   if(!canSeeAdmin()){ adminNotice(groupsReady ? "Alleen toegankelijk voor " + ADMIN_VIEW_GROUPS.join(" en ") + "." : "De groepen konden niet worden opgehaald, dus Admin is nu niet beschikbaar. Probeer het zo opnieuw."); return false; }
+  if(!editUnlocked){ adminNotice(ADMIN_EDIT_MSG); return false; }   // Admin werkt alleen als bewerken aan staat
+  touchEditTimer();   // een Admin-onderdeel openen telt als bezig zijn: de 10 minuten beginnen opnieuw
   return true;
 }
 
@@ -755,6 +760,12 @@ function openWhoMenu(){
     const bkSubs = [m.querySelector("#menu-backup-maken"), m.querySelector("#menu-backup-terugzetten")]; bkSubs.forEach(x=>{ x.hidden = true; });
     bkTab.onclick = ()=>{ const open = bkTab.getAttribute("aria-expanded") !== "true"; bkTab.setAttribute("aria-expanded", String(open)); bkTab.textContent = "🗄 Backup/Restore " + (open ? "▾" : "▸"); bkSubs.forEach(x=>{ x.hidden = !open; }); };
     if(!canRestore()){ const t = m.querySelector("#menu-backup-terugzetten"); t.setAttribute("aria-disabled", "true"); t.title = "Een backup terugzetten mag alleen " + RESTORE_GROUP; }
+    if(!editUnlocked){   // Admin werkt alleen als bewerken aan staat: alles onder Admin is dan uitgeschakeld (het menu blijft open)
+      ["menu-audit", "menu-wachtwoorden", "menu-groepen", "menu-status", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{
+        const x = m.querySelector("#" + id); if(!x) return;
+        x.setAttribute("aria-disabled", "true"); x.title = "Eerst bewerken aanzetten (klik op een cel in de planning)"; x.onclick = ev=>{ if(ev) ev.preventDefault(); };
+      });
+    }
   }
   sep();
   item("menu-pw", "🔑 Wachtwoord wijzigen", "", ()=>showChangePassword());
@@ -797,7 +808,7 @@ function showLockIndicator(){
   }
   const on = !!currentIdentity;
   const ab = document.getElementById("btn-admin"); if(ab) ab.style.display = canSeeAdmin() ? "" : "none";   // Admin: alleen voor ICT-Systeembeheer en ICT-Management
-  if(!canSeeAdmin()) closeAdminWindows();                                                                     // verandert je groep terwijl Admin openstaat, dan gaat het dicht
+  if(!canSeeAdmin() || !editUnlocked) closeAdminWindows();                                                                     // verandert je groep terwijl Admin openstaat, dan gaat het dicht
   try{ updateAuditDot(); }catch(e){}
   try{ updateBadgeHealth(); }catch(e){}
   // Rechtsboven: onder wie er is ingelogd, met een pulldown (alleen tekst, nooit HTML)
@@ -2885,10 +2896,12 @@ function updateBadgeHealth(){
   const d = document.getElementById("who-health"); if(!d) return;
   const bad = healthLevel() === 2 && canSeeAdmin();   // alleen wie bij Status kan (Admin) ziet het puntje
   d.style.display = bad ? "inline-block" : "none";
-  d.title = bad ? "Er is een storing: open het menu en kies Admin › Status" : "";
+  d.title = bad ? "Er is een storing: zet bewerken aan en kies in het menu Admin › Status" : "";
 }
 function showStatusWindow(){
   if(!canSeeAdmin()) return;   // Status staat onder Admin
+  if(!editUnlocked){ adminNotice(ADMIN_EDIT_MSG, "📊 Status"); return; }   // en werkt dus ook alleen als bewerken aan staat
+  touchEditTimer();
   const old = document.getElementById("status-overlay"); if(old) old.remove();
   const overlay = document.createElement("div");
   overlay.className = "tp-overlay"; overlay.id = "status-overlay";
