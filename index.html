@@ -177,7 +177,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 68</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 69</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
   <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span><span class="cmp-emoji" aria-hidden="true"></span><span class="cmp-vertaling" lang="nl"></span></span></div>
@@ -2672,7 +2672,8 @@ function groupCoverage(dayData, group, day){   // dekking van een groep op een d
 // ── Compliment (de boodschap): voor iedereen die op dat moment op de campus is (behalve Ted), onder de legenda, alleen voor Monitor en Hans; aan/uit via Admin ▸ Boodschap ──
 const COMPLIMENT_USERS = ["Monitor", "Hans"];   // wie het compliment ziet
 const COMPLIMENT_NIET = ["Ted"];                 // Ted zit niet in die ruimte
-const COMPLIMENT_TALEN = { Sercan: ["pl", "tr", "nl"] };   // Sercan is internationaal: zijn complimenten wisselen om de beurt tussen Pools, Turks en Nederlands
+const COMPLIMENT_TALEN = { Sercan: ["pl", "tr", "nl"], Bas: ["tb"] };   // Sercan is internationaal: zijn complimenten wisselen om de beurt tussen Pools, Turks en Nederlands; Bas krijgt zijn complimenten in het Tilburgs (tb); wil je dat het afwisselt met Nederlands, dan wordt dat ["tb", "nl"]
+const COMPLIMENT_LANG = { nl: "nl", tr: "tr", pl: "pl", tb: "nl-x-tilburgs" };   // de taalcode voor het lang-attribuut (het Tilburgs heeft geen eigen code)
 const COMPLIMENT_EINDE_WERKTIJD = [17, 0];      // einde werktijd (uur, minuut): het laatste anderhalf uur ervoor een aftelling, daarna 'de werkdag zit erop'
 const COMPLIMENT_VOORUIT_DAGEN = 14;            // zo ver vooruit wordt gekeken naar vrije dagen en vakanties
 const COMPLIMENT_VAKANTIE_MIN = 3;              // vanaf zoveel werkdagen achter elkaar vrij heet het een vakantie, korter een vrije dag
@@ -2801,17 +2802,96 @@ const COMPLIMENTEN_TAAL = {   // voor Sercan, af en toe: Turks (tr) en Pools (pl
     {t:"Miłego popołudnia, {naam}! Świetnie ci idzie, tak trzymaj!", nl:"Fijne middag, {naam}! Het gaat je geweldig af, ga zo door!", w:"middag"},
     {t:"Dzień dobry, {naam}! Dziękujemy za twoją pracę dzisiaj.", nl:"Goedemiddag, {naam}! Bedankt voor je werk vandaag.", w:"middag"},
   ],
+  tb: [   // Bas: het Tilburgs (Brabants); geen vertaling nodig. Geen vaste spelling: ge/da/d’r/veur/mè/’t/’n; zonder ontkenningen
+    {t:"Leuk da ge d’r weer zijt, {naam}!"},
+    {t:"{naam}, fijn da ge vandaag d’r zijt!"},
+    {t:"Goed da ge d’r bij zijt, {naam}."},
+    {t:"Wa fijn da ge d’r weer zijt, {naam}. ’t Team is d’r blij mee!"},
+    {t:"{naam}, as ge d’r zijt, is de dag gelijk beter."},
+    {t:"Mooi da ge d’r zijt, {naam}. Ge maakt ’t team compleet!"},
+    {t:"Hè {naam}, leuk da ge d’r zijt. Vandaag gaat ’t goed komen!"},
+    {t:"{naam}, ge maakt echt verschil, hè!"},
+    {t:"Welkom terug, {naam}! Fijn da ge d’r weer zijt."},
+    {t:"Top da ge d’r zijt, {naam}. Ge brengt energie mee!"},
+    {t:"{naam}, wa is ’t toch fijn da ge bij ons team zijt."},
+    {t:"Ge zijt d’r weer, {naam}, en da’s goed nieuws voor iedereen!"},
+    {t:"{naam}, ’t team begint as ge d’r zijt gelijk vrolijker an de dag."},
+    {t:"{naam}, ge doet ’t goed. Gewoon zo deurgaan!"},
+    {t:"Complimenten, {naam}: wa ge doet, wordt echt gewaardeerd!"},
+    {t:"{naam}, wa ge doet, helpt echt. Iedereen merkt ’t!"},
+    {t:"’t Loopt zo lekker as ge d’r zijt, {naam}. Dikke merci!"},
+    {t:"{naam}, ge zijt echt goed in ’t vinden van oplossingen!"},
+    {t:"Dikke merci, {naam}, veur alles wa ge doet."},
+    {t:"{naam}, ge zijt zo enthousiast da iedereen d’r vrolijk van wordt!"},
+    {t:"Ge zorgt d’r veur da anderen weer verder kunnen, {naam}. Top!"},
+    {t:"Slim bezig, {naam}! Ge pakt ’t elke keer goed an."},
+    {t:"{naam}, wa ge doet is van hoog niveau. Wees maar trots, hè!"},
+    {t:"Wa ge ook oppakt, {naam}, ge doet ’t mè aandacht. Mooi om te zien!"},
+    {t:"{naam}, ge maakt van elke vraag ’n oplossing. Knap!"},
+    {t:"Bedankt veur de vriendelijke hulp, {naam}. Da wordt gezien en gewaardeerd!"},
+    {t:"{naam}, wa ge allemaal weet, is goud waard veur ’t team."},
+    {t:"Ge blijft rustig en helpt iedereen weer op weg, {naam}. Da’s ’n kunst!"},
+    {t:"{naam}, ge kunt da echt goed. Gewoon zo deurgaan!"},
+    {t:"Ge zijt iemand bij wie mensen graag terechtkomen, {naam}: ge helpt echt!"},
+    {t:"{naam}, ge zorgt d’r veur da de hele campus lekker draait. Dikke merci!"},
+    {t:"Goed bezig, {naam}! Wa ge doet, telt echt mee."},
+    {t:"{naam}, ge maakt technische dinge begrijpelijk veur iedereen. Da’s ’n talent!"},
+    {t:"Wa ge toch mooi werkt, {naam}. Zorgvuldig en behulpzaam!"},
+    {t:"{naam}, ge zijt ’n rots in de branding veur collega’s en studenten."},
+    {t:"Ge zijt zo geduldig en volhardend, {naam}. Bewonderenswaardig!"},
+    {t:"{naam}, elke vraag die ge oplost, brengt iemand verder. Dikke merci!"},
+    {t:"Ge maakt veur veul mensen verschil, {naam}. Wees maar trots!"},
+    {t:"{naam}, vandaag wordt ’n goeie dag, en ge draagt d’r zelf an bij!"},
+    {t:"Ge kunt da, {naam}. Elke dag weer!"},
+    {t:"{naam}, ge hebt zoveul talent. Vandaag komt alles goed!"},
+    {t:"Ge hebt al zoveul laten zien, {naam}. Blijf d’r maar in geloven!"},
+    {t:"{naam}, kleine stapjes, grote impact. Da laat ge elke dag zien."},
+    {t:"Hou vol, {naam}! Ge helpt ’t team echt vooruit."},
+    {t:"{naam}, ge groeit mè elke uitdaging. Mooie ontwikkeling!"},
+    {t:"Ge brengt positieve energie, {naam}. Da’s ’n cadeau veur ’t team!"},
+    {t:"Blijf vooral wa ge zijt, {naam}: da heeft ’t team nodig."},
+    {t:"{naam}, ge zijt sterker en slimmer dan ge zelf denkt. Vertrouw maar!"},
+    {t:"Op naar ’n mooie dag, {naam}! Samen krijgen we alles geregeld."},
+    {t:"{naam}, as ge d’r zijt, is ’t rustig en overzichtelijk. Da geeft iedereen vertrouwen!"},
+    {t:"Ge laat elke dag zien waarom ge zo goed zijt in ’t vak, {naam}!"},
+    {t:"{naam}, ge mag best trots zijn op wa ge bereikt. Wij zijn da zeker!"},
+    {t:"Ga d’r veur, {naam}! Wa ge oppakt, komt goed."},
+    {t:"{naam}, ge maakt de dag van collega’s beter. Echt waar!"},
+    {t:"Straal maar, {naam}: wa ge doet is zichtbaar en wordt gewaardeerd!"},
+    {t:"{naam}, ge zijt goud waard. Fijn da ge d’r zijt!"},
+    {t:"{naam}, ge hoort d’r helemaal bij. Fijn da ge d’r zijt!"},
+    {t:"Wa ’n geluk veur ons allemaal da ge d’r zijt, {naam}!"},
+    {t:"Mooi werk, {naam}! Ge maakt elke dag ’n beetje beter veur anderen."},
+    {t:"{naam}, ge zijt ’n bron van rust en vertrouwen. Dikke merci!"},
+    {t:"Goeiemorgen {naam}! Fijn da ge d’r zijt. Laten we d’r ’n mooie dag van maken!", w:"ochtend"},
+    {t:"Goeiemorgen {naam}, ’n frisse start as ge d’r zijt!", w:"ochtend"},
+    {t:"Morgen, {naam}! As ge d’r zijt, begint de dag goed.", w:"ochtend"},
+    {t:"Goeiemorgen {naam}! Ge geeft de dag ’n vliegende start.", w:"ochtend"},
+    {t:"Mooie morgen, {naam}! Fijn da we de dag samen beginnen.", w:"ochtend"},
+    {t:"Goeiemiddag {naam}! Hou vol, ge doet ’t fantastisch.", w:"middag"},
+    {t:"Fijne middag, {naam}! Bedankt veur al da ge vandaag doet.", w:"middag"},
+    {t:"Goeiemiddag {naam}! Mooi da ge d’r bij zijt.", w:"middag"},
+    {t:"{naam}, de middag is nog lang: ge gaat da prima doen!", w:"middag"},
+    {t:"Fijne middag gewenst, {naam}! Wa ge doet, maakt vandaag verschil.", w:"middag"},
+    {t:"Fijne start van de week, {naam}! Leuk da ge d’r bij zijt.", d:"MA"},
+    {t:"Maandag en ge zijt d’r al, {naam}! Da wordt ’n goeie week!", d:"MA"},
+    {t:"Dinsdag al in volle vaart, {naam}! Da’s zoals we ’t kennen.", d:"DI"},
+    {t:"Halverwege de week, {naam}, en ge houdt ’t team op koers. Top!", d:"WO"},
+    {t:"Donderdag, {naam}: ’t weekend komt in zicht en ge zijt goed bezig!", d:"DO"},
+    {t:"Bijna weekend, {naam}! Ge hebt d’r weer ’n sterke week van gemaakt.", d:"VR"},
+    {t:"Vrijdag, {naam}! Dikke merci veur de inzet van deze week.", d:"VR"},
+  ],
 };
 Object.keys(COMPLIMENTEN_TAAL).forEach(t=>COMPLIMENTEN_TAAL[t].forEach((c, i)=>{ c.id = i; c.taal = t; }));
 // ── Bijzondere complimenten: einde werktijd, collectieve vrije dagen en vakanties, en de eigen vrije dagen en vakanties van de collega (alleen wat echt is ingepland) ──
 const COMPLIMENT_FEESTEN = {   // de namen van de collectieve vrije dagen uit LOCKED_DAYS (de eerste dag van elke reeks), in drie talen
-  "2026-W52-DO": { nl: "de kerst- en nieuwjaarsvakantie", tr: "yılbaşı ve Noel tatili", pl: "przerwa świąteczno-noworoczna" },
-  "2027-W06-MA": { nl: "Carnaval", tr: "Karnaval", pl: "Karnawał" },
-  "2027-W12-VR": { nl: "het paasweekend", tr: "Paskalya tatili", pl: "Wielkanoc" },
-  "2027-W17-MA": { nl: "Koningsdag", tr: "Koningsdag (Hollanda Kral Günü)", pl: "Koningsdag (Dzień Króla)" },
-  "2027-W18-WO": { nl: "het Hemelvaartsweekend", tr: "Hemelvaart (Göğe Yükseliş) tatili", pl: "Hemelvaart (Wniebowstąpienie)" },
-  "2027-W20-MA": { nl: "Pinksteren", tr: "Pinksteren (Pentekost)", pl: "Pinksteren (Zielone Świątki)" },
-  "2027-W51-VR": { nl: "de kerstvakantie", tr: "Noel tatili", pl: "przerwa bożonarodzeniowa" },
+  "2026-W52-DO": { nl: "de kerst- en nieuwjaarsvakantie", tr: "yılbaşı ve Noel tatili", pl: "przerwa świąteczno-noworoczna", tb: "de kerst- en nieuwjaarsvekansie" },
+  "2027-W06-MA": { nl: "Carnaval", tr: "Karnaval", pl: "Karnawał", tb: "Carnaval in Kruikenstad" },
+  "2027-W12-VR": { nl: "het paasweekend", tr: "Paskalya tatili", pl: "Wielkanoc", tb: "’t paasweekend" },
+  "2027-W17-MA": { nl: "Koningsdag", tr: "Koningsdag (Hollanda Kral Günü)", pl: "Koningsdag (Dzień Króla)", tb: "Koningsdag" },
+  "2027-W18-WO": { nl: "het Hemelvaartsweekend", tr: "Hemelvaart (Göğe Yükseliş) tatili", pl: "Hemelvaart (Wniebowstąpienie)", tb: "’t Hemelvaartsweekend" },
+  "2027-W20-MA": { nl: "Pinksteren", tr: "Pinksteren (Pentekost)", pl: "Pinksteren (Zielone Świątki)", tb: "Pinksteren" },
+  "2027-W51-VR": { nl: "de kerstvakantie", tr: "Noel tatili", pl: "przerwa bożonarodzeniowa", tb: "de kerstvekansie" },
 };
 const SPECIAAL = {   // {naam}, {n} (dagen), {tijd} (minuten) en {feest}; nl bij Turks en Pools is de betekenis in het Nederlands (tekstballon)
   nl: {
@@ -2853,6 +2933,19 @@ const SPECIAAL = {   // {naam}, {n} (dagen), {tijd} (minuten) en {feest}; nl bij
     persVakMorgen: [{t:"{naam}, jutro zaczyna się twój urlop! Ciesz się nim w pełni.", nl:"{naam}, morgen begint je vakantie! Geniet er volop van."}, {t:"Od jutra jesteś na urlopie, {naam}! Cudownie.", nl:"Vanaf morgen ben je op vakantie, {naam}! Heerlijk."}],
     persVak: [{t:"Urlop za {n} dni, {naam}! Zasłużony odpoczynek już blisko.", nl:"Vakantie over {n} dagen, {naam}! Verdiende rust is dichtbij."}, {t:"{naam}, twój urlop zbliża się wielkimi krokami: za {n} dni! Wkrótce czas na relaks.", nl:"{naam}, je vakantie komt met rasse schreden dichterbij: over {n} dagen! Straks tijd om te ontspannen."}],
   },
+  tb: {   // Bas: de bijzondere complimenten in het Tilburgs
+    eindAftellen: [{t:"Nog {tijd} tot ’t einde van de werkdag, {naam}. Ge hebt d’r ’n mooie dag van gemaakt!"}, {t:"{naam}, over {tijd} zit de werkdag d’r op. Dikke merci veur vandaag!"}, {t:"’t Einde van de werkdag komt in zicht, {naam}: nog {tijd}. Goed bezig!"}],
+    eindKlaar: [{t:"De werkdag zit d’r op, {naam}! Dikke merci. Fijne avond!"}, {t:"{naam}, ’t is zover: einde werkdag! Geniet van de avond, ge hebt ’t verdiend!"}, {t:"Goed bezig vandaag, {naam}! De werkdag zit d’r op. Rust maar lekker uit!"}],
+    eindWeekend: [{t:"De werkdag én de werkweek zitten d’r op, {naam}! Dikke merci en fijn weekend!"}, {t:"{naam}, einde van de week! Dikke merci veur alles. Geniet van ’t weekend!"}],
+    collectiefDagMorgen: [{t:"{naam}, morgen is ’t vrij: {feest}. Geniet d’r van!"}, {t:"Morgen vrij veur iedereen, {naam}: {feest}! Rust maar lekker uit."}],
+    collectiefDag: [{t:"{naam}, over {n} dagen is ’t vrij: {feest}. Iets om naar uit te kijken!"}, {t:"Nog {n} dagen tot {feest}, {naam}: vrij veur iedereen!"}],
+    collectiefVakMorgen: [{t:"{naam}, morgen begint {feest}! Geniet van de vrije dagen."}, {t:"Morgen gaat {feest} in, {naam}! Ge hebt ’t verdiend."}],
+    collectiefVak: [{t:"Nog {n} dagen tot {feest}, {naam}! Straks lekker vrij."}, {t:"{naam}, over {n} dagen begint {feest}. Alvast ’n fijne tijd!"}],
+    persDagMorgen: [{t:"{naam}, morgen hebt ge vrij. Geniet d’r van, ge hebt ’t verdiend!"}, {t:"Morgen ’n vrije dag, {naam}! Neem maar lekker rust."}],
+    persDag: [{t:"{naam}, over {n} dagen hebt ge ’n vrije dag. Iets om naar uit te kijken!"}, {t:"’n Vrije dag in zicht, {naam}: nog {n} dagen. Hou vol!"}],
+    persVakMorgen: [{t:"{naam}, morgen begint de vekansie! Geniet d’r met volle teugen van."}, {t:"Vanaf morgen zijt ge vrij, {naam}: de vekansie begint! Heerlijk."}],
+    persVak: [{t:"Nog {n} dagen en dan begint de vekansie, {naam}! Ge hebt ’t verdiend."}, {t:"{naam}, de vekansie komt d’r an: over {n} dagen begint ’ie. Straks lekker ontspannen!"}],
+  },
 };
 Object.keys(SPECIAAL).forEach(t=>Object.keys(SPECIAAL[t]).forEach(cat=>SPECIAAL[t][cat].forEach((c, i)=>{ c.id = i; c.cat = cat; c.taal = t; })));
 function complimentMinuten(m, taal){   // 'n minuten' in de juiste taal, met het Poolse meervoud (1 minuta, 2 minuty, 5 minut, 22 minuty …)
@@ -2869,7 +2962,7 @@ function complimentCollectief(){   // de collectieve vrije dagen uit LOCKED_DAYS
   dagen.forEach(x=>{
     const l = runs[runs.length - 1];
     if(l && isSameDay(vorigeWerkdag(x.datum), l.laatste)){ l.laatste = x.datum; l.k++; }
-    else runs.push({ start: x.datum, laatste: x.datum, k: 1, feest: COMPLIMENT_FEESTEN[x.key] || { nl: "een collectieve vrije dag", tr: "toplu tatil", pl: "wspólny dzień wolny" } });
+    else runs.push({ start: x.datum, laatste: x.datum, k: 1, feest: COMPLIMENT_FEESTEN[x.key] || { nl: "een collectieve vrije dag", tr: "toplu tatil", pl: "wspólny dzień wolny", tb: "’n vrije dag veur iedereen" } });
   });
   return (cmpCollectief = runs);
 }
@@ -2915,7 +3008,7 @@ function complimentSpeciaal(naam, now){   // welke bijzondere complimenten er nu
 }
 function complimentBouwSpeciaal(cat, taal, w){   // een bijzonder compliment in de gewenste taal, met de plaatsvervangers ingevuld ({naam} blijft staan: die wordt gemarkeerd)
   const lijst = SPECIAAL[taal][cat], c = complimentKies(lijst, "tp_cmp_s_" + taal + "_" + cat, Math.max(1, lijst.length - 1));
-  const vul = (s, t)=>{ const x = s.replace(/\{n\}/g, w.n).replace(/\{tijd\}/g, w.m != null ? complimentMinuten(w.m, t) : "").replace(/\{feest\}/g, w.feest ? w.feest[t] : ""); return x.charAt(0).toLocaleUpperCase(t) + x.slice(1); };   // een zin begint met een hoofdletter, ook als de feestnaam vooraan staat (voor het Turks met de Turkse regels: i wordt İ)
+  const vul = (s, t)=>{ const x = s.replace(/\{n\}/g, w.n).replace(/\{tijd\}/g, w.m != null ? complimentMinuten(w.m, t) : "").replace(/\{feest\}/g, w.feest ? w.feest[t] : ""); return x.charAt(0).toLocaleUpperCase(COMPLIMENT_LANG[t] || t) + x.slice(1); };   // een zin begint met een hoofdletter, ook als de feestnaam vooraan staat (voor het Turks met de Turkse regels: i wordt İ)
   return { t: vul(c.t, taal), nl: c.nl ? vul(c.nl, "nl") : undefined, taal, id: "s:" + cat + ":" + c.id, speciaal: cat };
 }
 function complimentTaal(naam){   // in welke taal deze collega nu het compliment krijgt: meestal Nederlands; voor Sercan om de beurt Pools, Turks en Nederlands (de stand wordt bewaard, ook na verversen)
@@ -2984,7 +3077,7 @@ function complimentNext(now){   // de volgende collega die aan de beurt is (iede
   return { naam, compliment, emoji: complimentSmiley(compliment) };
 }
 function complimentRender(el, n){   // de tekst met de naam duidelijk gemarkeerd
-  const tekst = el.querySelector(".cmp-text"); tekst.textContent = ""; tekst.lang = n.compliment.taal || "nl";   // de taal van de tekst (voor schermlezers en woordafbreking)
+  const tekst = el.querySelector(".cmp-text"); tekst.textContent = ""; tekst.lang = COMPLIMENT_LANG[n.compliment.taal || "nl"] || n.compliment.taal;   // de taal van de tekst (voor schermlezers en woordafbreking)
   const delen = n.compliment.t.split("{naam}");
   delen.forEach((d, i)=>{ if(i > 0){ const s = document.createElement("span"); s.className = "cmp-naam"; s.textContent = n.naam; tekst.appendChild(s); } tekst.appendChild(document.createTextNode(d)); });
   el.dataset.naam = n.naam; el.dataset.taal = n.compliment.taal || "nl"; el.dataset.cid = (el.dataset.taal === "nl" ? "" : el.dataset.taal + ":") + n.compliment.id;
