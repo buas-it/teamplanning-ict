@@ -159,7 +159,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 56</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 57</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 </div>
@@ -632,15 +632,23 @@ async function ensureAdmin(opts){
 
 // Logboek bekijken: laatste 14 dagen, filter op naam en machine (voor ICT-Systeembeheer en ICT-Management)
 // ── Audit: opeenvolgende gewone wijzigingen van dezelfde persoon op hetzelfde apparaat tellen als één sessie (hooguit 10 minuten tussen de opslagen: zo lang blijft bewerken aan staan na de laatste wijziging) ──
-const AUDIT_SESSIE_GAP = 10 * 60 * 1000;
-function auditGroupSessions(rows){   // de regels om te tonen, nieuwste bovenaan: elke regel is een losse opslag of een sessie met meerdere opslagen
+const AUDIT_SESSIE_GAP = 10 * 60 * 1000;      // wijzigingen: zo lang blijft bewerken aan na de laatste wijziging
+const AUDIT_BEZOEK_GAP = 30 * 60 * 1000;      // bezoeken: dezelfde grens als waarop 'terug op de site' wordt vastgelegd
+const auditIsBezoek = a=>a === "ingelogd" || a === "site geopend" || /^terug op de site/.test(a || "");
+function auditGroupSessions(rows){   // de regels om te tonen, nieuwste bovenaan: elke regel is een losse regel of een sessie met meerdere opslagen of keren openen
   const asc = [...rows].sort((a, b)=>Date.parse(a.t) - Date.parse(b.t)), open = {}, out = [];
   asc.forEach(e=>{
     const t = Date.parse(e.t), samen = e.action === "wijziging" && e.n > 0 && (e.changes || []).length && (e.changes || []).every(c=>c && c.s === "cel");   // alleen gewone celwijzigingen: Periode, standaardrooster, team en backups blijven op zichzelf staan
+    if(auditIsBezoek(e.action) && e.user && e.user !== "(niet ingelogd)"){   // dezelfde persoon op hetzelfde apparaat die de site achter elkaar opent: één regel per periode van gebruik
+      const bk = "b|" + e.user + "|" + (e.device || ""), bg = open[bk];
+      if(bg && t - bg.last <= AUDIT_BEZOEK_GAP){ bg.saves.push(e); bg.last = t; }
+      else { const nb = { soort: "bezoeken", saves: [e], last: t }; open[bk] = nb; out.push(nb); }
+      return;
+    }
     if(!samen){ out.push({ saves: [e], last: t }); return; }
-    const key = (e.user || "") + "|" + (e.device || ""), g = open[key];
+    const key = "w|" + (e.user || "") + "|" + (e.device || ""), g = open[key];
     if(g && t - g.last <= AUDIT_SESSIE_GAP){ g.saves.push(e); g.last = t; }
-    else { const ng = { saves: [e], last: t }; open[key] = ng; out.push(ng); }
+    else { const ng = { soort: "wijzigingen", saves: [e], last: t }; open[key] = ng; out.push(ng); }
   });
   return out.sort((a, b)=>b.last - a.last);
 }
@@ -713,9 +721,10 @@ async function showAuditModal(){
     list.innerHTML = "";
     const rows = entries.filter(e=>(!userSel.value || e.user === userSel.value) && (!devSel.value || e.device === devSel.value));
     const shown = auditGroupSessions(rows), samengevoegd = rows.length - shown.length;
-    count.textContent = shown.length + " van " + entries.length + " (laatste 14 dagen)" + (samengevoegd > 0 ? " · " + samengevoegd + " opslagen per sessie samengevoegd" : "");
+    count.textContent = shown.length + " van " + entries.length + " (laatste 14 dagen)" + (samengevoegd > 0 ? " · " + samengevoegd + " regels per sessie samengevoegd" : "");
     if(!shown.length){ list.textContent = "Geen regels."; return; }
     const hm = d=>d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"}), dm = d=>d.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit"});
+    const span = (a, b)=>dm(a) + " " + hm(a) + (dm(b) !== dm(a) ? " – " + dm(b) + " " + hm(b) : (hm(b) !== hm(a) ? "–" + hm(b) : ""));   // van – tot, met de datum erbij als het over middernacht gaat
     shown.slice(0, 300).forEach(g=>{
       const row = document.createElement("div");
       row.style.cssText = "padding:7px 9px;border-bottom:1px solid rgba(255,255,255,0.06);cursor:pointer;";
@@ -724,17 +733,27 @@ async function showAuditModal(){
       const full = document.createElement("div"); full.style.cssText = "display:none;margin-top:6px;color:rgba(255,255,255,0.75);";
       if(g.saves.length === 1){   // een losse opslag of ander soort regel: zoals altijd
         const e = g.saves[0], t = new Date(e.t);
-        head.textContent = dm(t) + " " + hm(t) + " · " + e.user + " · " + (e.ws || "?") + " (" + (e.device || "?") + ") · " + e.action + " · " + e.n + (e.pending ? " · wacht op upload" : "");
+        head.textContent = dm(t) + " " + hm(t) + " · " + e.user + " · " + (e.ws || "?") + " (" + (e.device || "?") + ") · " + e.action + (e.n ? " · " + e.n : "") + (e.pending ? " · wacht op upload" : "");   // een gebeurtenis zonder wijzigingen (inloggen, de site openen, een backup) krijgt geen kale '0'
         sum.textContent = (e.changes||[]).slice(0,3).map(chText).join(", ") + ((e.changes||[]).length > 3 ? " …" : "");
         if(e.wsinfo){ const d = document.createElement("div"); d.style.color = "rgba(255,255,255,0.5)"; d.textContent = "Machine: " + e.wsinfo; full.appendChild(d); }
         (e.changes||[]).forEach(c=>{ const d = document.createElement("div"); d.textContent = chText(c); full.appendChild(d); });
         if(e.trunc){ const d = document.createElement("div"); d.textContent = "… ingekort: " + e.n + " wijzigingen in totaal"; full.appendChild(d); }
+      } else if(g.soort === "bezoeken"){   // dezelfde persoon op hetzelfde apparaat die de site achter elkaar opent: één regel per periode van gebruik (hooguit 30 minuten tussen de keren)
+        row.dataset.groep = "1"; row.dataset.soort = "bezoeken"; row.dataset.opslagen = String(g.saves.length);
+        const e0 = g.saves[0], eN = g.saves[g.saves.length - 1], t0 = new Date(e0.t), tN = new Date(eN.t), n = g.saves.length;
+        const soorten = {}; g.saves.forEach(e=>{ const k = /^terug op de site/.test(e.action) ? "terug op de site" : e.action; soorten[k] = (soorten[k] || 0) + 1; });
+        const namen = Object.keys(soorten);
+        head.textContent = span(t0, tN) + " · " + e0.user + " · " + (e0.ws || "?") + " (" + (e0.device || "?") + ") · " + (namen.length === 1 ? namen[0] + " · " + n + "×" : "bezoeken · " + n + "× (" + namen.map(k=>k + " " + soorten[k] + "×").join(", ") + ")") + (g.saves.some(e=>e.pending) ? " · wacht op upload" : "");
+        sum.textContent = g.saves.slice(0, 8).map(e=>hm(new Date(e.t))).join(", ") + (n > 8 ? " … +" + (n - 8) : "");
+        if(e0.wsinfo){ const d = document.createElement("div"); d.style.color = "rgba(255,255,255,0.5)"; d.textContent = "Machine: " + e0.wsinfo; full.appendChild(d); }
+        const uit = document.createElement("div"); uit.style.cssText = "color:rgba(255,255,255,0.45);margin-bottom:4px;"; uit.textContent = "Samengevoegd: keren openen, inloggen of terugkeren van dezelfde persoon op hetzelfde apparaat, met hooguit 30 minuten ertussen. De losse regels:"; full.appendChild(uit);
+        g.saves.forEach(e=>{ const k = document.createElement("div"); k.style.cssText = "color:#fff;"; k.textContent = new Date(e.t).toLocaleTimeString("nl-NL") + " · " + e.action; full.appendChild(k); });
       } else {   // een sessie: meerdere opslagen van dezelfde persoon op hetzelfde apparaat, achter elkaar
-        row.dataset.groep = "1"; row.dataset.opslagen = String(g.saves.length);
+        row.dataset.groep = "1"; row.dataset.soort = "wijzigingen"; row.dataset.opslagen = String(g.saves.length);
         const e0 = g.saves[0], eN = g.saves[g.saves.length - 1], t0 = new Date(e0.t), tN = new Date(eN.t);
         const chains = auditCellChains(g.saves), gelijk = ch=>JSON.stringify(ch.states[0]) === JSON.stringify(ch.states[ch.states.length - 1]), terug = chains.filter(gelijk).length;
         const totaal = g.saves.reduce((s, e)=>s + (e.n || 0), 0);
-        head.textContent = dm(t0) + " " + hm(t0) + (hm(tN) !== hm(t0) ? "–" + hm(tN) : "") + " · " + e0.user + " · " + (e0.ws || "?") + " (" + (e0.device || "?") + ") · wijzigingen · " + totaal + " in " + g.saves.length + " opslagen"
+        head.textContent = span(t0, tN) + " · " + e0.user + " · " + (e0.ws || "?") + " (" + (e0.device || "?") + ") · wijzigingen · " + totaal + " in " + g.saves.length + " opslagen"
           + (terug === chains.length ? " · alles teruggezet" : (terug ? " · " + terug + " van " + chains.length + " teruggezet" : "")) + (g.saves.some(e=>e.pending) ? " · wacht op upload" : "");
         const chTekst = ch=>ch.c.p + " " + ch.c.w + " " + ch.c.d + ": " + ch.states.map(fv).join(" → ") + (gelijk(ch) ? " (teruggezet)" : "");
         sum.textContent = chains.slice(0, 3).map(chTekst).join(", ") + (chains.length > 3 ? " …" : "");
