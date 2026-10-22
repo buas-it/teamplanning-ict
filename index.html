@@ -173,7 +173,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 64</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 65</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
   <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span></span></div>
@@ -2668,6 +2668,7 @@ function groupCoverage(dayData, group, day){   // dekking van een groep op een d
 // ── Compliment (de boodschap): voor iedereen die op dat moment op de campus is (behalve Ted), onder de legenda, alleen voor Monitor en Hans; aan/uit via Admin ▸ Boodschap ──
 const COMPLIMENT_USERS = ["Monitor", "Hans"];   // wie het compliment ziet
 const COMPLIMENT_NIET = ["Ted"];                 // Ted zit niet in die ruimte
+const COMPLIMENT_TALEN = { Sercan: { tr: 0.15, pl: 0.15 } };   // af en toe een compliment in de eigen taal: Sercan krijgt ruwweg 3 van de 10 complimenten in het Turks (15%) of Pools (15%), de rest in het Nederlands
 let COMPLIMENT_SECONDS = 11;                    // één compliment: ruim 3 seconden oplichten, even blijven staan, ruim 3 seconden doven
 const COMPLIMENT_RECENT = 40;                   // zoveel keer wordt hetzelfde compliment niet herhaald
 const COMPLIMENTEN = [   // {naam} wordt de naam van de aanwezige collega; w: alleen 's ochtends of 's middags; d: alleen op die dag
@@ -2727,7 +2728,80 @@ const COMPLIMENTEN = [   // {naam} wordt de naam van de aanwezige collega; w: al
   {t:"Donderdag, {naam}: het weekend komt in zicht en jij bent goed bezig!", d:"DO"}, {t:"Bijna weekend, {naam}! Wat heb je er weer een sterke week van gemaakt.", d:"VR"},
   {t:"Vrijdag, {naam}! Dank je wel voor je inzet deze week.", d:"VR"},
 ];
-COMPLIMENTEN.forEach((c, i)=>{ c.id = i; });
+COMPLIMENTEN.forEach((c, i)=>{ c.id = i; c.taal = "nl"; });
+const COMPLIMENTEN_TAAL = {   // voor Sercan, af en toe: Turks (tr) en Pools (pl); nl is de betekenis in het Nederlands (verschijnt als tekstballon bij het compliment, om na te kunnen lezen wat er staat); zonder gebogen naam en, in het Pools, zonder vormen die voor man en vrouw verschillen
+  tr: [
+    {t:"Hoş geldin {naam}! Seni tekrar görmek çok güzel.", nl:"Welkom, {naam}! Fijn om je weer te zien."},
+    {t:"{naam}, bugün burada olman harika!", nl:"{naam}, fijn dat je er vandaag bent!"},
+    {t:"Seni burada görmek çok güzel, {naam}!", nl:"Wat fijn om je hier te zien, {naam}!"},
+    {t:"{naam}, işini harika yapıyorsun. Böyle devam!", nl:"{naam}, je doet je werk geweldig. Ga zo door!"},
+    {t:"Çok güzel çalışıyorsun, {naam}. Teşekkürler!", nl:"Je werkt heel goed, {naam}. Bedankt!"},
+    {t:"{naam}, emeklerin çok değerli. Teşekkür ederiz!", nl:"{naam}, jouw inzet is heel waardevol. Dank je wel!"},
+    {t:"{naam}, sen buradasın ve takım çok şanslı!", nl:"{naam}, jij bent er en het team heeft veel geluk!"},
+    {t:"{naam}, her gün fark yaratıyorsun!", nl:"{naam}, je maakt elke dag het verschil!"},
+    {t:"Harika bir iş çıkarıyorsun, {naam}!", nl:"Je levert geweldig werk, {naam}!"},
+    {t:"{naam}, enerjin herkese iyi geliyor!", nl:"{naam}, jouw energie doet iedereen goed!"},
+    {t:"Sana güveniyoruz, {naam}. Sen harikasın!", nl:"We vertrouwen op je, {naam}. Je bent geweldig!"},
+    {t:"{naam}, bugün de harika olacaksın!", nl:"{naam}, ook vandaag ga je het geweldig doen!"},
+    {t:"Bilgin ve sabrın için teşekkürler, {naam}!", nl:"Bedankt voor je kennis en je geduld, {naam}!"},
+    {t:"{naam}, sen bu takımın değerli bir parçasısın!", nl:"{naam}, jij bent een waardevol onderdeel van dit team!"},
+    {t:"Her işin üstesinden gelebilirsin, {naam}. Buna inanıyoruz!", nl:"Je kunt alles aan, {naam}. Daar geloven we in!"},
+    {t:"{naam}, güler yüzün ve yardımseverliğin için teşekkürler!", nl:"{naam}, bedankt voor je vriendelijke gezicht en je hulpvaardigheid!"},
+    {t:"Mükemmel bir ekip arkadaşısın, {naam}!", nl:"Je bent een geweldige teamgenoot, {naam}!"},
+    {t:"{naam}, çalışmaların bize ilham veriyor!", nl:"{naam}, jouw werk inspireert ons!"},
+    {t:"Gülümsemen odayı aydınlatıyor, {naam}!", nl:"Jouw glimlach maakt de ruimte helderder, {naam}!"},
+    {t:"{naam}, bugün de harikalar yaratacaksın!", nl:"{naam}, ook vandaag ga je geweldige dingen doen!"},
+    {t:"Seninle çalışmak bir zevk, {naam}!", nl:"Het is een plezier om met je te werken, {naam}!"},
+    {t:"İyi ki varsın, {naam}!", nl:"Fijn dat je er bent, {naam}!"},
+    {t:"{naam}, ekibimizin neşesisin. Teşekkürler!", nl:"{naam}, jij bent de vrolijkheid van ons team. Bedankt!"},
+    {t:"Her gün biraz daha iyisin, {naam}. Tebrikler!", nl:"Elke dag ben je een beetje beter, {naam}. Gefeliciteerd!"},
+    {t:"{naam}, sakinliğin ve ilgin hepimize güven veriyor!", nl:"{naam}, jouw rust en aandacht geven ons allemaal vertrouwen!"},
+    {t:"Bravo {naam}! Çok iyi gidiyorsun.", nl:"Bravo, {naam}! Het gaat heel goed."},
+    {t:"Günaydın {naam}! Seninle güne başlamak güzel.", nl:"Goedemorgen {naam}! Fijn om de dag met jou te beginnen.", w:"ochtend"},
+    {t:"Günaydın {naam}! Bugün harika bir gün olacak.", nl:"Goedemorgen {naam}! Het wordt vandaag een geweldige dag.", w:"ochtend"},
+    {t:"İyi günler {naam}! Harika gidiyorsun, böyle devam!", nl:"Goedemiddag {naam}! Je doet het geweldig, ga zo door!", w:"middag"},
+    {t:"İyi günler {naam}! Emeklerin için teşekkürler.", nl:"Goedemiddag {naam}! Bedankt voor je inzet.", w:"middag"},
+  ],
+  pl: [
+    {t:"Miło, że jesteś, {naam}!", nl:"Fijn dat je er bent, {naam}!"},
+    {t:"{naam}, cieszymy się, że dzisiaj jesteś z nami!", nl:"{naam}, we zijn blij dat je er vandaag bij bent!"},
+    {t:"Witaj z powrotem, {naam}! Dobrze cię widzieć.", nl:"Welkom terug, {naam}! Fijn om je te zien."},
+    {t:"{naam}, świetnie sobie radzisz. Tak trzymaj!", nl:"{naam}, je doet het geweldig. Ga zo door!"},
+    {t:"Super pracujesz, {naam}. Dziękujemy!", nl:"Je werkt super, {naam}. Bedankt!"},
+    {t:"{naam}, twoja praca jest bardzo ceniona. Dziękujemy!", nl:"{naam}, jouw werk wordt zeer gewaardeerd. Dank je wel!"},
+    {t:"Mamy szczęście, że jesteś z nami, {naam}!", nl:"We hebben geluk dat je bij ons bent, {naam}!"},
+    {t:"{naam}, każdego dnia robisz różnicę!", nl:"{naam}, je maakt elke dag het verschil!"},
+    {t:"Świetna robota, {naam}!", nl:"Geweldig werk, {naam}!"},
+    {t:"{naam}, twoja energia dobrze robi całemu zespołowi!", nl:"{naam}, jouw energie doet het hele team goed!"},
+    {t:"Ufamy ci, {naam}. Jesteś wspaniałą osobą!", nl:"We vertrouwen je, {naam}. Je bent een geweldig mens!"},
+    {t:"{naam}, dzisiaj też będzie świetny dzień dzięki tobie!", nl:"{naam}, dankzij jou wordt het vandaag weer een geweldige dag!"},
+    {t:"Dziękujemy za twoją wiedzę i cierpliwość, {naam}!", nl:"Bedankt voor je kennis en je geduld, {naam}!"},
+    {t:"{naam}, jesteś ważną częścią tego zespołu!", nl:"{naam}, jij bent een belangrijk onderdeel van dit team!"},
+    {t:"Poradzisz sobie ze wszystkim, {naam}. Wierzymy w ciebie!", nl:"Je redt het met alles, {naam}. We geloven in je!"},
+    {t:"{naam}, dziękujemy za twój uśmiech i pomocną dłoń!", nl:"{naam}, bedankt voor je glimlach en je helpende hand!"},
+    {t:"Praca z tobą to przyjemność, {naam}!", nl:"Werken met jou is een plezier, {naam}!"},
+    {t:"{naam}, twoja praca nas inspiruje!", nl:"{naam}, jouw werk inspireert ons!"},
+    {t:"Twój uśmiech rozjaśnia pokój, {naam}!", nl:"Jouw glimlach maakt de kamer helderder, {naam}!"},
+    {t:"{naam}, dzisiaj znowu zrobisz coś wspaniałego!", nl:"{naam}, vandaag ga je weer iets geweldigs doen!"},
+    {t:"Cudownie, że jesteś, {naam}!", nl:"Wat heerlijk dat je er bent, {naam}!"},
+    {t:"{naam}, jesteś duszą tego zespołu. Dziękujemy!", nl:"{naam}, jij bent de ziel van dit team. Bedankt!"},
+    {t:"Z każdym dniem idzie ci coraz lepiej, {naam}. Gratulacje!", nl:"Het gaat elke dag beter met je, {naam}. Gefeliciteerd!"},
+    {t:"{naam}, twój spokój i troska dodają nam wszystkim pewności!", nl:"{naam}, jouw rust en zorgzaamheid geven ons allemaal zekerheid!"},
+    {t:"Brawo, {naam}! Świetnie ci idzie.", nl:"Bravo, {naam}! Het gaat je geweldig af."},
+    {t:"{naam}, dzięki tobie ten dzień jest lepszy!", nl:"{naam}, dankzij jou is deze dag beter!"},
+    {t:"Dzień dobry, {naam}! Miło zaczynać dzień z tobą.", nl:"Goedemorgen, {naam}! Fijn om de dag met jou te beginnen.", w:"ochtend"},
+    {t:"Dzień dobry, {naam}! Dzisiaj czeka nas świetny dzień.", nl:"Goedemorgen, {naam}! Vandaag wacht ons een geweldige dag.", w:"ochtend"},
+    {t:"Miłego popołudnia, {naam}! Świetnie ci idzie, tak trzymaj!", nl:"Fijne middag, {naam}! Het gaat je geweldig af, ga zo door!", w:"middag"},
+    {t:"Dzień dobry, {naam}! Dziękujemy za twoją pracę dzisiaj.", nl:"Goedemiddag, {naam}! Bedankt voor je werk vandaag.", w:"middag"},
+  ],
+};
+Object.keys(COMPLIMENTEN_TAAL).forEach(t=>COMPLIMENTEN_TAAL[t].forEach((c, i)=>{ c.id = i; c.taal = t; }));
+function complimentTaal(naam, rnd){   // in welke taal deze collega nu het compliment krijgt: meestal Nederlands, voor Sercan af en toe Turks of Pools
+  const kansen = COMPLIMENT_TALEN[naam]; if(!kansen) return "nl";
+  let r = (rnd || Math.random)();
+  for(const t of Object.keys(kansen)){ if(r < kansen[t]) return t; r -= kansen[t]; }
+  return "nl";
+}
 function complimentPresent(now){   // iedereen van het team die op dit moment op de campus is (voor 12 uur telt de ochtend, daarna de middag), behalve Ted; thuis, ziek (ook ziek thuis), vrij en extern niet; in het weekend niemand
   const dag = DAYS[(now.getDay() || 7) - 1]; if(!dag) return [];
   const data = getData(mondayOf(now)), dagdeel = now.getHours() < 12 ? "vm_kantoor" : "nm_kantoor";
@@ -2737,16 +2811,16 @@ function complimentAudience(now){   // wie er aan de beurt kan komen: wie op de 
   if(!BOODSCHAP.ready || !BOODSCHAP.enabled || !complimentReady()) return [];
   return complimentPresent(now);
 }
-function complimentPool(now){   // de complimenten die nu passen (dagdeel en dag van de week)
+function complimentPool(now, lijst){   // de complimenten die nu passen (dagdeel en dag van de week); standaard de Nederlandse
   const u = now.getHours(), dagdeel = u < 12 ? "ochtend" : (u < 18 ? "middag" : "avond"), dag = DAYS[(now.getDay() || 7) - 1] || "";
-  return COMPLIMENTEN.filter(c=>(!c.w || c.w === dagdeel) && (!c.d || c.d === dag));
+  return (lijst || COMPLIMENTEN).filter(c=>(!c.w || c.w === dagdeel) && (!c.d || c.d === dag));
 }
-function complimentPick(now){   // een compliment dat de laatste 40 keer niet is getoond
-  const pool = complimentPool(now); let recent = [];
-  try{ recent = JSON.parse(localStorage.getItem("tp_cmp_recent") || "[]"); }catch(e){}
+function complimentPick(now, taal){   // een compliment dat recent niet is getoond: Nederlands de laatste 40 keer, Turks en Pools de laatste 10 keer (per taal)
+  taal = taal || "nl"; const nl = taal === "nl", pool = complimentPool(now, nl ? COMPLIMENTEN : COMPLIMENTEN_TAAL[taal]), sleutel = nl ? "tp_cmp_recent" : "tp_cmp_recent_" + taal, aantal = nl ? COMPLIMENT_RECENT : 10; let recent = [];
+  try{ recent = JSON.parse(localStorage.getItem(sleutel) || "[]"); }catch(e){}
   const vrij = pool.filter(c=>!recent.includes(c.id)), kies = vrij.length ? vrij : pool, c = kies[Math.floor(Math.random() * kies.length)];
-  recent.push(c.id); recent = recent.slice(-COMPLIMENT_RECENT);
-  try{ localStorage.setItem("tp_cmp_recent", JSON.stringify(recent)); }catch(e){}
+  recent.push(c.id); recent = recent.slice(-aantal);
+  try{ localStorage.setItem(sleutel, JSON.stringify(recent)); }catch(e){}
   return c;
 }
 let cmpOrder = [], cmpLast = null;
@@ -2758,15 +2832,16 @@ function complimentNext(now){   // de volgende collega die aan de beurt is (iede
     if(aanwezig.length > 1 && cmpOrder[0] === cmpLast) cmpOrder.push(cmpOrder.shift());
   }
   const naam = cmpOrder.shift(); cmpLast = naam;
-  return { naam, compliment: complimentPick(now) };
+  return { naam, compliment: complimentPick(now, complimentTaal(naam)) };
 }
 function complimentRender(el, n){   // de tekst met de naam duidelijk gemarkeerd
-  const tekst = el.querySelector(".cmp-text"); tekst.textContent = "";
+  const tekst = el.querySelector(".cmp-text"); tekst.textContent = ""; tekst.lang = n.compliment.taal || "nl";   // de taal van de tekst (voor schermlezers en woordafbreking)
   const delen = n.compliment.t.split("{naam}");
   delen.forEach((d, i)=>{ if(i > 0){ const s = document.createElement("span"); s.className = "cmp-naam"; s.textContent = n.naam; tekst.appendChild(s); } tekst.appendChild(document.createTextNode(d)); });
-  el.dataset.naam = n.naam; el.dataset.cid = String(n.compliment.id);
+  el.dataset.naam = n.naam; el.dataset.taal = n.compliment.taal || "nl"; el.dataset.cid = (el.dataset.taal === "nl" ? "" : el.dataset.taal + ":") + n.compliment.id;
+  el.title = n.compliment.nl ? "Nederlands: " + n.compliment.nl.replace("{naam}", n.naam) : "";   // bij Turks en Pools: de betekenis als tekstballon
 }
-function complimentHide(el){ el.classList.remove("cmp-on"); el.style.display = "none"; el.dataset.on = ""; el.querySelector(".cmp-text").textContent = ""; el.dataset.naam = ""; }
+function complimentHide(el){ el.classList.remove("cmp-on"); el.style.display = "none"; el.dataset.on = ""; el.querySelector(".cmp-text").textContent = ""; el.dataset.naam = ""; el.dataset.taal = ""; el.title = ""; }
 function complimentReady(){ return firstLoadSettled && HEALTH.data === "ok"; }   // pas met de echte planning van GitHub: niet met het standaardrooster van vóór het laden, anders krijgt iemand een compliment die er helemaal niet is
 function complimentRestart(el){   // een nieuw compliment voor een andere collega, vanaf onzichtbaar
   const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
