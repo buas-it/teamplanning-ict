@@ -90,6 +90,19 @@ button { font-family:inherit; cursor:pointer; }
 .legend-item { display:flex; align-items:center; gap:5px; }
 .legend-dot { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
 .legend-label { font-size:10px; color:#bbb; }
+.compliment { margin:16px auto 4px; max-width:min(940px, 94%); box-sizing:border-box; min-height:3.6em; display:flex; align-items:center; justify-content:center; text-align:center; font-size:clamp(17px, 2.1vw, 26px); line-height:1.35; font-weight:600; letter-spacing:0.2px; color:#fff; }
+.compliment .cmp-inner { opacity:0; }
+.compliment .cmp-naam { color:#ffcc66; font-weight:800; }
+.compliment .cmp-spark { margin-right:8px; }
+.compliment.cmp-on .cmp-inner { animation:tpCompliment var(--cmp-dur, 11s) ease-in-out infinite; }
+@keyframes tpCompliment {   /* langzaam oplichten (27%), even blijven staan, langzaam doven */
+  0%   { opacity:0; text-shadow:0 0 0 rgba(255,204,102,0);    transform:scale(0.985); }
+  27%  { opacity:1; text-shadow:0 0 14px rgba(255,204,102,0.65), 0 0 34px rgba(255,160,60,0.35); transform:scale(1); }
+  73%  { opacity:1; text-shadow:0 0 14px rgba(255,204,102,0.65), 0 0 34px rgba(255,160,60,0.35); transform:scale(1); }
+  100% { opacity:0; text-shadow:0 0 0 rgba(255,204,102,0);    transform:scale(0.985); }
+}
+@keyframes tpComplimentFade { 0% { opacity:0; } 27% { opacity:1; } 73% { opacity:1; } 100% { opacity:0; } }
+@media (prefers-reduced-motion: reduce){ .compliment.cmp-on .cmp-inner { animation-name:tpComplimentFade; } }   /* wie minder beweging wil: alleen zacht in- en uitfaden, zonder gloed of schaal */
 /* Template modal */
 #tpl-modal { display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); overflow-y:auto; }
 /* Toegangspoort: zonder inloggen alleen een zwart scherm met het inlogvenster */
@@ -160,9 +173,10 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 61</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 62</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
+  <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span></span></div>
 </div>
 
 <!-- Standaard modal -->
@@ -2604,6 +2618,127 @@ function groupCoverage(dayData, group, day){   // dekking van een groep op een d
   return { hasData: true, vm, nm, gap: !vm && !nm ? "hele dag" : (!vm ? "'s ochtends" : (!nm ? "'s middags" : "")) };
 }
 
+// ── Compliment: elke dag voor de leden van ICT-Support die er zijn, onder de legenda, alleen voor Monitor en Hans ──
+const COMPLIMENT_USERS = ["Monitor", "Hans"];   // wie het compliment ziet
+let COMPLIMENT_SECONDS = 11;                    // één compliment: ruim 3 seconden oplichten, even blijven staan, ruim 3 seconden doven
+const COMPLIMENT_RECENT = 40;                   // zoveel keer wordt hetzelfde compliment niet herhaald
+const COMPLIMENTEN = [   // {naam} wordt de naam van de aanwezige collega; w: alleen 's ochtends of 's middags; d: alleen op die dag
+  // welkom
+  {t:"Leuk dat je er weer bent, {naam}!"}, {t:"{naam}, fijn dat je er vandaag bent!"}, {t:"Goed dat jij erbij bent, {naam}."},
+  {t:"Wat fijn dat je er weer bent, {naam}. Het team is er blij mee!"}, {t:"{naam}, met jou erbij voelt de dag meteen beter."},
+  {t:"Mooi dat je er bent, {naam}. Jij maakt het team compleet!"}, {t:"Hé {naam}, leuk dat je er bent. Er gaat vandaag iets moois gebeuren!"},
+  {t:"{naam}, jouw aanwezigheid maakt echt het verschil."}, {t:"Welkom terug, {naam}! Fijn dat je er weer bent."},
+  {t:"{naam}, fijn om je weer te zien. Laten we er samen een mooie dag van maken!"}, {t:"Super dat je er bent, {naam}. Jij brengt energie mee!"},
+  {t:"{naam}, wat is het fijn om jou in het team te hebben."}, {t:"Je bent er weer, {naam}, en dat is goed nieuws voor iedereen!"},
+  {t:"{naam}, het team begint met jou een stuk vrolijker aan de dag."}, {t:"Fijn dat je er bent, {naam}. Jouw bijdrage telt echt mee."},
+  {t:"{naam}, je bent een geweldige aanvulling op het team. Fijn dat je er bent!"},
+  // goed werk
+  {t:"{naam}, je doet het geweldig. Ga zo door!"}, {t:"Complimenten voor jou, {naam}: je werk wordt echt gewaardeerd."},
+  {t:"{naam}, jouw hulp maakt iemands dag een stuk makkelijker."}, {t:"Dankzij jou loopt het zo soepel, {naam}. Bedankt!"},
+  {t:"{naam}, wat ben jij goed in het vinden van oplossingen!"}, {t:"Dank je wel, {naam}, voor je inzet en je geduld."},
+  {t:"{naam}, jouw enthousiasme werkt aanstekelijk!"}, {t:"Jij zorgt ervoor dat anderen weer verder kunnen, {naam}. Top!"},
+  {t:"Slim gedaan, {naam}! Je pakt het steeds weer goed aan."}, {t:"{naam}, je werk is van een hoog niveau. Daar mag je trots op zijn!"},
+  {t:"Wat je ook aanpakt, {naam}, je doet het met aandacht. Mooi om te zien!"}, {t:"{naam}, jij maakt van een vraag een oplossing. Knap!"},
+  {t:"Bedankt voor je vriendelijke hulp, {naam}. Het wordt gezien en gewaardeerd."}, {t:"{naam}, jouw kennis is goud waard voor het team."},
+  {t:"Jij blijft rustig en helpt iedereen weer op weg, {naam}. Dat is een kunst!"}, {t:"{naam}, je vakmanschap maakt indruk. Ga zo door!"},
+  {t:"Er is een reden dat mensen graag bij jou terechtkomen, {naam}: je helpt echt!"}, {t:"{naam}, jouw werk zorgt dat de hele campus soepel draait. Dank je wel!"},
+  {t:"Goed bezig, {naam}! Jouw inzet doet ertoe."}, {t:"{naam}, je maakt technische dingen begrijpelijk voor iedereen. Dat is een talent!"},
+  {t:"Wat een mooie manier van werken heb jij, {naam}. Zorgvuldig en behulpzaam."}, {t:"{naam}, je bent een rots in de branding voor collega’s en studenten."},
+  {t:"Jouw geduld en doorzettingsvermogen zijn bewonderenswaardig, {naam}."}, {t:"{naam}, elke vraag die jij oplost, brengt iemand verder. Dank je wel!"},
+  {t:"Je maakt het verschil voor veel mensen, {naam}. Daar mag je trots op zijn."}, {t:"{naam}, jij bent iemand op wie je kunt bouwen. Fijn!"},
+  {t:"Mooi hoe jij meedenkt, {naam}. Jouw ideeën brengen ons verder!"}, {t:"{naam}, je werk verdient een groot applaus. Bravo!"},
+  {t:"Wat een kracht, {naam}: je blijft vriendelijk en behulpzaam, ook als het druk is."}, {t:"{naam}, jouw aanpak is een voorbeeld voor ons allemaal."},
+  {t:"Dankzij jou voelen collega’s zich geholpen, {naam}. Prachtig!"}, {t:"{naam}, je maakt ingewikkelde dingen eenvoudig. Dat is echt een gave!"},
+  {t:"Je bent een topper, {naam}! Bedankt voor alles wat je doet."}, {t:"{naam}, jij bent een van de redenen dat het hier zo goed loopt. Dank je wel!"},
+  {t:"{naam}, jouw zorgvuldigheid valt op. Dat geeft vertrouwen!"}, {t:"Dankjewel, {naam}, voor de rust en het overzicht die jij brengt."},
+  // motiverend
+  {t:"{naam}, vandaag wordt een goede dag, en jij draagt daaraan bij!"}, {t:"Jij kunt dit, {naam}. Elke dag weer!"},
+  {t:"{naam}, met jouw talent komt vandaag alles goed."}, {t:"Geloof in jezelf, {naam}: je hebt al zoveel laten zien!"},
+  {t:"{naam}, kleine stappen, grote impact. Jij laat dat elke dag zien."}, {t:"Houd vol, {naam}! Jouw inzet brengt het team verder."},
+  {t:"{naam}, je groeit met elke uitdaging. Wat een mooie ontwikkeling!"}, {t:"Jouw positieve energie is een cadeau voor het team, {naam}."},
+  {t:"{naam}, wat je vandaag doet, maakt morgen beter voor iemand. Dank je wel!"}, {t:"Blijf vooral jezelf, {naam}: dat is precies wat het team nodig heeft."},
+  {t:"{naam}, je bent sterker en slimmer dan je soms denkt. Vertrouw erop!"}, {t:"Op naar een mooie dag, {naam}! Samen krijgen we alles voor elkaar."},
+  {t:"{naam}, jouw rust en overzicht geven iedereen vertrouwen."}, {t:"Elke dag laat jij zien waarom je zo goed bent in je vak, {naam}."},
+  {t:"{naam}, je mag best trots zijn op wat je bereikt. Wij zijn dat zeker!"}, {t:"{naam}, jouw inzet is het fundament van een goed team. Dank je wel!"},
+  {t:"Ga ervoor, {naam}! Wat jij aanpakt, komt goed."}, {t:"{naam}, jij maakt de dag van collega’s beter. Echt waar!"},
+  {t:"Straal maar, {naam}: jouw bijdrage is zichtbaar en wordt gewaardeerd!"}, {t:"{naam}, je bent goud waard. Fijn dat je er bent!"},
+  {t:"{naam}, jij hoort hier helemaal thuis. Fijn dat je er bent!"}, {t:"Wat een geluk voor ons allemaal dat jij er bent, {naam}!"},
+  {t:"{naam}, jouw collega’s kunnen op jou rekenen en dat is veel waard."}, {t:"Mooi werk, {naam}! Je maakt elke dag een beetje beter voor anderen."},
+  {t:"{naam}, jij bent een bron van rust en vertrouwen. Dank je wel!"}, {t:"Dit is jouw dag, {naam}! Laat zien wat je kunt, wij geloven in je."},
+  // 's ochtends
+  {t:"Goedemorgen {naam}! Fijn dat je er bent. Laten we er een mooie dag van maken!", w:"ochtend"}, {t:"Goedemorgen {naam}, een frisse start met jou erbij!", w:"ochtend"},
+  {t:"Ochtend, {naam}! Met jou beginnen we de dag goed.", w:"ochtend"}, {t:"Goedemorgen {naam}! Jij geeft de dag een vliegende start.", w:"ochtend"},
+  {t:"Mooie ochtend, {naam}! Fijn om met jou aan de dag te beginnen.", w:"ochtend"},
+  // 's middags
+  {t:"Goedemiddag {naam}! Houd vol, je doet het fantastisch.", w:"middag"}, {t:"Fijne middag, {naam}! Bedankt voor je inzet vandaag.", w:"middag"},
+  {t:"Goedemiddag {naam}! Mooi dat jij erbij bent.", w:"middag"}, {t:"{naam}, de middag is van jou. Jij gaat dit prima doen!", w:"middag"},
+  {t:"Fijne middag gewenst, {naam}! Jouw werk maakt vandaag het verschil.", w:"middag"},
+  // per dag van de week
+  {t:"Fijne start van de week, {naam}! Leuk dat je erbij bent.", d:"MA"}, {t:"Maandag met jou erbij, {naam}? Dat wordt een goede week!", d:"MA"},
+  {t:"Dinsdag in volle vaart, {naam}! Zo kennen we je.", d:"DI"}, {t:"Halverwege de week, {naam}, en jij houdt het team op koers. Top!", d:"WO"},
+  {t:"Donderdag, {naam}: het weekend komt in zicht en jij bent goed bezig!", d:"DO"}, {t:"Bijna weekend, {naam}! Wat heb je er weer een sterke week van gemaakt.", d:"VR"},
+  {t:"Vrijdag, {naam}! Dank je wel voor je inzet deze week.", d:"VR"},
+];
+COMPLIMENTEN.forEach((c, i)=>{ c.id = i; });
+function complimentPresent(now){   // leden van ICT-Support die vandaag aanwezig zijn (op kantoor of thuis, een deel van de dag); ziek (ook ziek thuis), vrij en extern niet; in het weekend niemand
+  const dag = DAYS[(now.getDay() || 7) - 1]; if(!dag) return [];
+  const data = getData(mondayOf(now)), werkt = ["kantoor", "thuis", "vm_kantoor", "nm_kantoor", "vm_thuis", "nm_thuis"];
+  return GROUPS["ICT-Support"].filter(p=>{ const s = (data[p] || {})[dag] || []; return !s.includes("ziek") && s.some(k=>werkt.includes(k)); });
+}
+function complimentPool(now){   // de complimenten die nu passen (dagdeel en dag van de week)
+  const u = now.getHours(), dagdeel = u < 12 ? "ochtend" : (u < 18 ? "middag" : "avond"), dag = DAYS[(now.getDay() || 7) - 1] || "";
+  return COMPLIMENTEN.filter(c=>(!c.w || c.w === dagdeel) && (!c.d || c.d === dag));
+}
+function complimentPick(now){   // een compliment dat de laatste 40 keer niet is getoond
+  const pool = complimentPool(now); let recent = [];
+  try{ recent = JSON.parse(localStorage.getItem("tp_cmp_recent") || "[]"); }catch(e){}
+  const vrij = pool.filter(c=>!recent.includes(c.id)), kies = vrij.length ? vrij : pool, c = kies[Math.floor(Math.random() * kies.length)];
+  recent.push(c.id); recent = recent.slice(-COMPLIMENT_RECENT);
+  try{ localStorage.setItem("tp_cmp_recent", JSON.stringify(recent)); }catch(e){}
+  return c;
+}
+let cmpOrder = [], cmpLast = null;
+function complimentNext(now){   // de volgende collega die aan de beurt is (iedereen die er is, om de beurt, niet twee keer achter elkaar dezelfde) met een nieuw compliment
+  const aanwezig = complimentPresent(now); if(!aanwezig.length) return null;
+  cmpOrder = cmpOrder.filter(n=>aanwezig.includes(n));
+  if(!cmpOrder.length){
+    cmpOrder = [...aanwezig].sort(()=>Math.random() - 0.5);
+    if(aanwezig.length > 1 && cmpOrder[0] === cmpLast) cmpOrder.push(cmpOrder.shift());
+  }
+  const naam = cmpOrder.shift(); cmpLast = naam;
+  return { naam, compliment: complimentPick(now) };
+}
+function complimentRender(el, n){   // de tekst met de naam duidelijk gemarkeerd
+  const tekst = el.querySelector(".cmp-text"); tekst.textContent = "";
+  const delen = n.compliment.t.split("{naam}");
+  delen.forEach((d, i)=>{ if(i > 0){ const s = document.createElement("span"); s.className = "cmp-naam"; s.textContent = n.naam; tekst.appendChild(s); } tekst.appendChild(document.createTextNode(d)); });
+  el.dataset.naam = n.naam; el.dataset.cid = String(n.compliment.id);
+}
+function complimentHide(el){ el.classList.remove("cmp-on"); el.style.display = "none"; el.dataset.on = ""; el.querySelector(".cmp-text").textContent = ""; el.dataset.naam = ""; }
+function complimentReady(){ return firstLoadSettled && HEALTH.data === "ok"; }   // pas met de echte planning van GitHub: niet met het standaardrooster van vóór het laden, anders krijgt iemand een compliment die er helemaal niet is
+function complimentRestart(el){   // een nieuw compliment voor een andere collega, vanaf onzichtbaar
+  const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
+  el.classList.remove("cmp-on"); complimentRender(el, n); void el.offsetWidth; el.classList.add("cmp-on");
+}
+function complimentSync(){   // elke paar seconden: alleen de juiste gebruikers zien het, alleen met geladen gegevens en alleen als er iemand van Support is; anders verdwijnt het blok
+  const el = document.getElementById("compliment"); if(!el) return;
+  const mag = !!currentIdentity && COMPLIMENT_USERS.includes(currentIdentity.user);
+  if(!mag || !complimentReady()){ if(el.dataset.on) complimentHide(el); return; }
+  el.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
+  const aanwezig = complimentPresent(new Date());
+  if(!el.dataset.on){
+    const n = complimentNext(new Date()); if(!n) return;
+    complimentRender(el, n); el.style.display = ""; el.dataset.on = "1"; el.classList.add("cmp-on");
+  } else if(!aanwezig.length) complimentHide(el);
+  else if(!aanwezig.includes(el.dataset.naam)) complimentRestart(el);   // de collega in beeld is intussen ziek, vrij of weg gezet: meteen iemand anders
+}
+function complimentIteration(){   // op het moment dat het compliment helemaal gedoofd is: het volgende
+  const el = document.getElementById("compliment"); if(!el || !el.dataset.on) return;
+  if(!complimentReady()){ complimentHide(el); return; }
+  const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
+  complimentRender(el, n);
+}
+
 // ── Week panel ───────────────────────────────────────────────────
 function buildWeekPanel(monday){
   const thisWeekMonday=mondayOf(today);
@@ -3880,6 +4015,8 @@ setInterval(()=>{
 
 // ── Bewerken uit na 10 minuten zonder wijziging (ook als timers stilstonden); je blijft ingelogd ──
 setInterval(checkEditExpiry, 10000);
+document.getElementById("compliment").addEventListener("animationiteration", complimentIteration);
+setInterval(complimentSync, 3000); complimentSync();   // het compliment onder de legenda (alleen Monitor en Hans)
 setInterval(revalidateSession, 5 * 60 * 1000);   // een gereset wachtwoord beëindigt ook sessies op andere apparaten
 // Vangnet: niet ingelogd = nooit iets van de planning zichtbaar; ingelogd = nooit een zwart scherm
 setInterval(()=>{ if(currentIdentity) gateOff(); else gateOn(); }, 5000);
