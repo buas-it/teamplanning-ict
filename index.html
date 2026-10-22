@@ -159,7 +159,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 58</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 59</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 </div>
@@ -658,6 +658,53 @@ function auditCellChains(saves){   // per cel de reeks waarden (van → … → 
   return [...m.values()];
 }
 
+// ── Audit per dag; per gebruiker per dag één overzichtsregel; dagbestanden ouder dan een maand worden vanzelf opgeruimd ──
+const AUDIT_VIEW_DAYS = 30, AUDIT_KEEP_DAYS = 31;   // het venster en Statistics kijken 30 dagen terug; de dagbestanden blijven 31 dagen (de dagbestanden gaan op UTC-datum)
+function auditDayKey(ms){ const d = new Date(ms); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function auditIsCelWijziging(e){ return e.action === "wijziging" && e.n > 0 && (e.changes || []).length && (e.changes || []).every(c=>c && c.s === "cel"); }
+function auditUserDay(u){   // wat deze gebruiker die dag heeft gedaan, in een paar kerncijfers
+  let bezoeken = 0, wijzigingen = 0, opslagen = 0, first = Infinity, last = -Infinity; const extra = {}, apparaten = new Map(), plain = [];
+  u.groups.forEach(g=>g.saves.forEach(e=>{
+    const t = Date.parse(e.t); if(t < first) first = t; if(t > last) last = t;
+    apparaten.set(e.device || "?", (e.ws || "?") + " (" + (e.device || "?") + ")");
+    if(auditIsBezoek(e.action) || /^site benaderd/.test(e.action || "")) bezoeken++;
+    else if(auditIsCelWijziging(e)){ wijzigingen += e.n; opslagen++; plain.push(e); }
+    else { const k = String(e.action || "?").split(":")[0].trim(); extra[k] = (extra[k] || 0) + 1; }
+  }));
+  plain.sort((a, b)=>Date.parse(a.t) - Date.parse(b.t));
+  return { user: u.user, groups: u.groups, bezoeken, wijzigingen, opslagen, extra, first, last, apparaten: [...apparaten.values()], plain, pending: u.groups.some(g=>g.saves.some(e=>e.pending)) };
+}
+function auditDays(shown){   // de regels per dag (nieuwste dag eerst) en binnen een dag per gebruiker (laatst actief eerst)
+  const dagen = new Map();
+  shown.forEach(g=>{
+    const dag = auditDayKey(g.last), user = g.saves[0].user || "onbekend";
+    if(!dagen.has(dag)) dagen.set(dag, new Map());
+    const per = dagen.get(dag); if(!per.has(user)) per.set(user, { user, groups: [] });
+    per.get(user).groups.push(g);
+  });
+  return [...dagen.entries()].sort((a, b)=>b[0].localeCompare(a[0])).map(([dag, per])=>({ dag, users: [...per.values()].map(auditUserDay).sort((a, b)=>b.last - a.last) }));
+}
+async function auditCleanup(){   // dagbestanden van het logboek ouder dan 31 dagen verwijderen: hooguit 5 per keer, hooguit eens per 6 uur per apparaat, alleen door wie het logboek mag zien
+  try{
+    if(!canSeeAdmin()) return;
+    const sleutel = "tp_audit_cleanup_t", laatst = parseInt(localStorage.getItem(sleutel) || "0");
+    if(laatst && Date.now() - laatst < 6 * 3600 * 1000) return;
+    localStorage.setItem(sleutel, String(Date.now()));
+    const hdr = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
+    const lr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit?ref=${GH_BRANCH}&t=${Date.now()}`, {headers: hdr});
+    if(!lr.ok) return;
+    const grens = new Date(Date.now() - AUDIT_KEEP_DAYS * 86400000).toISOString().slice(0, 10);   // alles met een datum vóór deze dag is ouder dan 31 dagen
+    const oud = (await lr.json()).filter(f=>f && /^\d{4}-\d\d-\d\d\.jsonl$/.test(f.name) && f.name.slice(0, 10) < grens).sort((a, b)=>a.name.localeCompare(b.name)).slice(0, 5);
+    const weg = [];
+    for(const f of oud){
+      const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/audit/${f.name}`, { method: "DELETE", headers: {...hdr, "Content-Type": "application/json"}, body: JSON.stringify({ message: `Audit opgeruimd: ${f.name.slice(0, 10)} (ouder dan ${AUDIT_KEEP_DAYS} dagen)`, sha: f.sha, branch: GH_BRANCH }) });
+      if(!r.ok){ localStorage.setItem(sleutel, String(Date.now() - 5 * 3600 * 1000)); break; }   // mislukt (bijv. een conflict): over een uur opnieuw, niet elke minuut
+      weg.push(f.name.slice(0, 10));
+    }
+    if(weg.length) auditEvent("audit opgeruimd: " + weg.length + " dagbestand" + (weg.length === 1 ? "" : "en") + " ouder dan " + AUDIT_KEEP_DAYS + " dagen (" + weg[0] + (weg.length > 1 ? " t/m " + weg[weg.length - 1] : "") + ")");
+  }catch(e){}
+}
+
 async function showAuditModal(){
   if(!await ensureAdmin({ view: true })) return;   // alleen kijken
   const old = document.getElementById("audit-overlay"); if(old) old.remove();
@@ -682,14 +729,17 @@ async function showAuditModal(){
 
   const hdrs = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
   const nc = ()=>`&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`;
-  let entries = [];
+  let entries = [], mislukt = 0;   // mislukt: dagbestanden die niet te lezen waren
   try{
     const lr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit?ref=${GH_BRANCH}${nc()}`, {headers: hdrs});
+    if(!lr.ok && lr.status !== 404){ list.textContent = "Laden mislukt (HTTP " + lr.status + "): het logboek kon niet worden opgehaald."; return; }   // niet doen alsof er niets is
     if(lr.ok){
-      const files = (await lr.json()).filter(f=>/\.jsonl$/.test(f.name)).sort((a,b)=>b.name.localeCompare(a.name)).slice(0, 14);
+      const eersteDag = new Date(Date.now() - AUDIT_KEEP_DAYS * 86400000).toISOString().slice(0, 10);
+      const files = (await lr.json()).filter(f=>/^\d{4}-\d\d-\d\d\.jsonl$/.test(f.name) && f.name.slice(0, 10) >= eersteDag).sort((a,b)=>b.name.localeCompare(a.name));
       const texts = await Promise.all(files.map(async f=>{
         const fr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit/${f.name}?ref=${GH_BRANCH}${nc()}`, {headers: hdrs});
-        return fr.ok ? auditDecode((await fr.json()).content) : "";
+        if(!fr.ok){ mislukt++; return ""; }
+        return auditDecode((await fr.json()).content);
       }));
       texts.forEach(t=>t.split("\n").forEach(l=>{ if(!l.trim()) return; try{ entries.push(JSON.parse(l)); }catch(e){} }));
     }
@@ -697,6 +747,7 @@ async function showAuditModal(){
   { const gezien = new Set(); entries = entries.filter(e=>{ if(!e.eid) return true; if(gezien.has(e.eid)) return false; gezien.add(e.eid); return true; }); }   // een regel die tweemaal in het bestand staat, telt eenmaal
   const have = new Set(entries.map(e=>e.eid));
   auditQueue.forEach(e=>{ if(!have.has(e.eid)) entries.push({...e, pending:true}); });
+  entries = entries.filter(e=>Date.parse(e.t) >= Date.now() - AUDIT_VIEW_DAYS * 86400000);   // het venster toont de laatste 30 dagen
   entries.sort((a,b)=> a.t < b.t ? 1 : -1);
 
   const addOpt = (sel, v, label)=>{ const o = document.createElement("option"); o.value = v; o.textContent = label; sel.appendChild(o); };
@@ -721,11 +772,12 @@ async function showAuditModal(){
     list.innerHTML = "";
     const rows = entries.filter(e=>(!userSel.value || e.user === userSel.value) && (!devSel.value || e.device === devSel.value));
     const shown = auditGroupSessions(rows), samengevoegd = rows.length - shown.length;
-    count.textContent = shown.length + " van " + entries.length + " (laatste 14 dagen)" + (samengevoegd > 0 ? " · " + samengevoegd + " regels per sessie samengevoegd" : "");
+    const dagen = auditDays(shown);
+    count.textContent = dagen.length + (dagen.length === 1 ? " dag" : " dagen") + " · " + shown.length + " van " + entries.length + " (laatste 30 dagen)" + (samengevoegd > 0 ? " · " + samengevoegd + " regels per sessie samengevoegd" : "") + (mislukt ? " · ⚠ " + mislukt + " dagbestand" + (mislukt === 1 ? "" : "en") + " niet op te halen: het overzicht is mogelijk onvolledig" : "");
     if(!shown.length){ list.textContent = "Geen regels."; return; }
     const hm = d=>d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"}), dm = d=>d.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit"});
     const span = (a, b)=>dm(a) + " " + hm(a) + (dm(b) !== dm(a) ? " – " + dm(b) + " " + hm(b) : (hm(b) !== hm(a) ? "–" + hm(b) : ""));   // van – tot, met de datum erbij als het over middernacht gaat
-    shown.slice(0, 300).forEach(g=>{
+    const maakRij = g=>{   // één regel (een losse regel, een sessie met opslagen, of een periode van bezoeken), zoals altijd
       const row = document.createElement("div");
       row.style.cssText = "padding:7px 9px;border-bottom:1px solid rgba(255,255,255,0.06);cursor:pointer;";
       const head = document.createElement("div"); head.style.color = "#fff";
@@ -765,8 +817,39 @@ async function showAuditModal(){
           if(e.trunc){ const d = document.createElement("div"); d.style.paddingLeft = "14px"; d.textContent = "… ingekort: " + e.n + " wijzigingen in totaal"; full.appendChild(d); }
         });
       }
-      row.onclick = ()=>{ full.style.display = full.style.display === "none" ? "" : "none"; };
-      row.append(head, sum, full); list.appendChild(row);
+      row.dataset.niveau = "detail";
+      row.onclick = ev=>{ ev.stopPropagation(); full.style.display = full.style.display === "none" ? "" : "none"; };
+      row.append(head, sum, full); return row;
+    };
+    const gelijk = ch=>JSON.stringify(ch.states[0]) === JSON.stringify(ch.states[ch.states.length - 1]);
+    const netTekst = ch=>{ const st = ch.states, stappen = st.length - 1; return ch.c.p + " " + ch.c.w + " " + ch.c.d + ": " + fv(st[0]) + " → " + fv(st[st.length - 1]) + (gelijk(ch) ? " (teruggezet" + (stappen > 1 ? ", " + stappen + " stappen" : "") + ")" : (stappen > 1 ? " (" + stappen + " stappen)" : "")); };   // per cel: wat het uiteindelijk werd, en of het is teruggezet
+    const maakGebruikersRij = u=>{   // alles van één gebruiker op één dag in één regel; een klik toont de losse regels
+      const row = document.createElement("div"); row.dataset.niveau = "gebruiker"; row.dataset.user = u.user; row.style.cssText = "border-bottom:1px solid rgba(255,255,255,0.06);";
+      const kop = document.createElement("div"); kop.style.cssText = "padding:7px 9px;cursor:pointer;";
+      const head = document.createElement("div"); head.style.color = "#fff"; const sum = document.createElement("div"); sum.style.color = "rgba(255,255,255,0.5)";
+      const chains = auditCellChains(u.plain), delen = [hm(new Date(u.first)) + (hm(new Date(u.last)) !== hm(new Date(u.first)) ? "–" + hm(new Date(u.last)) : ""), u.user, u.apparaten.length === 1 ? u.apparaten[0] : u.apparaten.length + " apparaten"];
+      if(u.bezoeken) delen.push(u.bezoeken + "× bezoek");
+      if(u.wijzigingen) delen.push(u.wijzigingen + (u.wijzigingen === 1 ? " wijziging" : " wijzigingen") + " in " + u.opslagen + (u.opslagen === 1 ? " opslag" : " opslagen") + (chains.length && chains.every(gelijk) ? " · alles teruggezet" : ""));
+      Object.keys(u.extra).forEach(k=>delen.push(k + (u.extra[k] > 1 ? " " + u.extra[k] + "×" : "")));
+      if(u.pending) delen.push("wacht op upload");
+      head.textContent = delen.join(" · ");
+      sum.textContent = chains.slice(0, 3).map(netTekst).join(", ") + (chains.length > 3 ? " … +" + (chains.length - 3) : "");
+      const full = document.createElement("div"); full.style.cssText = "display:none;margin:0 0 8px 14px;border-left:2px solid rgba(255,255,255,0.1);";
+      u.groups.forEach(g=>full.appendChild(maakRij(g)));
+      kop.onclick = ()=>{ full.style.display = full.style.display === "none" ? "" : "none"; };
+      kop.append(head, sum); row.append(kop, full); return row;
+    };
+    const dagTekst = key=>{ const [y, m, d] = key.split("-").map(Number), t = new Date(y, m - 1, d).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); return t.charAt(0).toUpperCase() + t.slice(1); };
+    dagen.forEach((d, di)=>{   // per dag een kop (de nieuwste dag staat open) met daaronder één regel per gebruiker
+      const totB = d.users.reduce((s, u)=>s + u.bezoeken, 0), totW = d.users.reduce((s, u)=>s + u.wijzigingen, 0);
+      const kopTekst = dagTekst(d.dag) + " · " + d.users.length + (d.users.length === 1 ? " gebruiker" : " gebruikers") + (totB ? " · " + totB + (totB === 1 ? " bezoek" : " bezoeken") : "") + (totW ? " · " + totW + (totW === 1 ? " wijziging" : " wijzigingen") : "");
+      const dag = document.createElement("div"); dag.dataset.niveau = "dag"; dag.dataset.dag = d.dag;
+      const dkop = document.createElement("div"); dkop.style.cssText = "padding:9px 9px 7px;margin-top:10px;color:#80cbc4;font-weight:700;border-bottom:1px solid rgba(128,203,196,0.3);cursor:pointer;";
+      const dbody = document.createElement("div"); let open = di === 0;
+      const zet = ()=>{ dkop.textContent = (open ? "▾ " : "▸ ") + kopTekst; dbody.style.display = open ? "" : "none"; };
+      dkop.onclick = ()=>{ open = !open; zet(); }; zet();
+      d.users.forEach(u=>dbody.appendChild(maakGebruikersRij(u)));
+      dag.append(dkop, dbody); list.appendChild(dag);
     });
   };
   userSel.onchange = render; devSel.onchange = render; render();
@@ -2116,6 +2199,7 @@ async function checkForNewVersion(){
       }
       auditFlush();   // audit: wachtrij opnieuw proberen
       checkForNewVersion();
+      auditCleanup();   // oude dagbestanden van het logboek opruimen (hooguit eens per 6 uur, alleen voor wie Admin heeft)
     }finally{ syncBusy = false; }
   }
   setInterval(backgroundSync, 60000);
