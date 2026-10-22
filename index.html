@@ -173,7 +173,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 62</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 63</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
   <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span></span></div>
@@ -2618,8 +2618,10 @@ function groupCoverage(dayData, group, day){   // dekking van een groep op een d
   return { hasData: true, vm, nm, gap: !vm && !nm ? "hele dag" : (!vm ? "'s ochtends" : (!nm ? "'s middags" : "")) };
 }
 
-// ── Compliment: elke dag voor de leden van ICT-Support die er zijn, onder de legenda, alleen voor Monitor en Hans ──
+// ── Compliment: voor iedereen die op dat moment op de campus is (behalve Ted), onder de legenda, alleen voor Monitor en Hans ──
 const COMPLIMENT_USERS = ["Monitor", "Hans"];   // wie het compliment ziet
+const COMPLIMENT_ALTIJD = "Hans";               // Hans krijgt het altijd te zien (om het te kunnen controleren), ook als er niemand op de campus is: hij zit dan zelf in de beurtenrij
+const COMPLIMENT_NIET = ["Ted"];                 // Ted zit niet in die ruimte
 let COMPLIMENT_SECONDS = 11;                    // één compliment: ruim 3 seconden oplichten, even blijven staan, ruim 3 seconden doven
 const COMPLIMENT_RECENT = 40;                   // zoveel keer wordt hetzelfde compliment niet herhaald
 const COMPLIMENTEN = [   // {naam} wordt de naam van de aanwezige collega; w: alleen 's ochtends of 's middags; d: alleen op die dag
@@ -2680,10 +2682,15 @@ const COMPLIMENTEN = [   // {naam} wordt de naam van de aanwezige collega; w: al
   {t:"Vrijdag, {naam}! Dank je wel voor je inzet deze week.", d:"VR"},
 ];
 COMPLIMENTEN.forEach((c, i)=>{ c.id = i; });
-function complimentPresent(now){   // leden van ICT-Support die vandaag aanwezig zijn (op kantoor of thuis, een deel van de dag); ziek (ook ziek thuis), vrij en extern niet; in het weekend niemand
+function complimentPresent(now){   // iedereen van het team die op dit moment op de campus is (voor 12 uur telt de ochtend, daarna de middag), behalve Ted; thuis, ziek (ook ziek thuis), vrij en extern niet; in het weekend niemand
   const dag = DAYS[(now.getDay() || 7) - 1]; if(!dag) return [];
-  const data = getData(mondayOf(now)), werkt = ["kantoor", "thuis", "vm_kantoor", "nm_kantoor", "vm_thuis", "nm_thuis"];
-  return GROUPS["ICT-Support"].filter(p=>{ const s = (data[p] || {})[dag] || []; return !s.includes("ziek") && s.some(k=>werkt.includes(k)); });
+  const data = getData(mondayOf(now)), dagdeel = now.getHours() < 12 ? "vm_kantoor" : "nm_kantoor";
+  return TEAM.filter(p=>!COMPLIMENT_NIET.includes(p)).filter(p=>{ const s = (data[p] || {})[dag] || []; return !s.includes("ziek") && (s.includes("kantoor") || s.includes(dagdeel)); });
+}
+function complimentAudience(now){   // wie er aan de beurt kan komen: wie op de campus is (alleen met de echte planning van GitHub), en voor Hans altijd Hans zelf erbij
+  const lijst = complimentReady() ? complimentPresent(now) : [];
+  if(currentIdentity && currentIdentity.user === COMPLIMENT_ALTIJD && !lijst.includes(COMPLIMENT_ALTIJD)) lijst.push(COMPLIMENT_ALTIJD);
+  return lijst;
 }
 function complimentPool(now){   // de complimenten die nu passen (dagdeel en dag van de week)
   const u = now.getHours(), dagdeel = u < 12 ? "ochtend" : (u < 18 ? "middag" : "avond"), dag = DAYS[(now.getDay() || 7) - 1] || "";
@@ -2699,7 +2706,7 @@ function complimentPick(now){   // een compliment dat de laatste 40 keer niet is
 }
 let cmpOrder = [], cmpLast = null;
 function complimentNext(now){   // de volgende collega die aan de beurt is (iedereen die er is, om de beurt, niet twee keer achter elkaar dezelfde) met een nieuw compliment
-  const aanwezig = complimentPresent(now); if(!aanwezig.length) return null;
+  const aanwezig = complimentAudience(now); if(!aanwezig.length) return null;
   cmpOrder = cmpOrder.filter(n=>aanwezig.includes(n));
   if(!cmpOrder.length){
     cmpOrder = [...aanwezig].sort(()=>Math.random() - 0.5);
@@ -2720,12 +2727,12 @@ function complimentRestart(el){   // een nieuw compliment voor een andere colleg
   const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
   el.classList.remove("cmp-on"); complimentRender(el, n); void el.offsetWidth; el.classList.add("cmp-on");
 }
-function complimentSync(){   // elke paar seconden: alleen de juiste gebruikers zien het, alleen met geladen gegevens en alleen als er iemand van Support is; anders verdwijnt het blok
+function complimentSync(){   // elke paar seconden: alleen de juiste gebruikers zien het, en alleen als er iemand aan de beurt kan komen (wie op de campus is; voor Hans altijd); anders verdwijnt het blok
   const el = document.getElementById("compliment"); if(!el) return;
   const mag = !!currentIdentity && COMPLIMENT_USERS.includes(currentIdentity.user);
-  if(!mag || !complimentReady()){ if(el.dataset.on) complimentHide(el); return; }
+  if(!mag){ if(el.dataset.on) complimentHide(el); return; }
   el.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
-  const aanwezig = complimentPresent(new Date());
+  const aanwezig = complimentAudience(new Date());
   if(!el.dataset.on){
     const n = complimentNext(new Date()); if(!n) return;
     complimentRender(el, n); el.style.display = ""; el.dataset.on = "1"; el.classList.add("cmp-on");
@@ -2734,7 +2741,6 @@ function complimentSync(){   // elke paar seconden: alleen de juiste gebruikers 
 }
 function complimentIteration(){   // op het moment dat het compliment helemaal gedoofd is: het volgende
   const el = document.getElementById("compliment"); if(!el || !el.dataset.on) return;
-  if(!complimentReady()){ complimentHide(el); return; }
   const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
   complimentRender(el, n);
 }
