@@ -177,7 +177,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 22 okt 2026 · 77</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 22 okt 2026 · 78</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
   <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span><span class="cmp-emoji" aria-hidden="true"></span><span class="cmp-vertaling" lang="nl"></span></span></div>
@@ -525,8 +525,8 @@ async function settingsSetPersoon(naam, aan){   // de boodschap voor één colle
 async function settingsSetEigen(naam, actie, e){   // een persoonlijke boodschap voor één collega toevoegen, wijzigen (e.id) of verwijderen (e.id); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand (wat een collega intussen anders wijzigde blijft staan), schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
   if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan persoonlijke boodschappen maken." };
   if(!editUnlocked) return { error: "Bewerken staat uit." };
-  if(!TEAM.includes(naam)) return { error: "Onbekende collega." };
   if(!["toevoegen", "wijzigen", "verwijderen"].includes(actie)) return { error: "Onbekende actie." };
+  if(!TEAM.includes(naam) && actie !== "verwijderen") return { error: "Onbekende collega." };   // verwijderen mag ook voor wie niet meer in het team zit (zijn boodschappen staan nog in het bestand)
   if(actie !== "toevoegen" && !(e && typeof e.id === "string")) return { error: "Onbekende boodschap." };
   let nieuw = null;
   if(actie !== "verwijderen"){ nieuw = eigenValideer(naam, e && e.t, e && e.van, e && e.tot); if(nieuw.error) return nieuw; }
@@ -3294,7 +3294,9 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
       <div style="font-size:13px;font-weight:700;color:#80cbc4;">✍️ Persoonlijke boodschap</div>
       <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 4px;line-height:1.55;">Schrijf voor een collega een eigen tekst. Die komt in beeld zolang hij loopt, ook als de collega er niet is; is de collega er wel, dan komt hij om en om met de gewone complimenten. Staat de boodschap voor die collega uit, of voor iedereen, dan komt hij niet in beeld. Zet er eventueel een periode bij. De naam van de collega komt er vanzelf voor te staan, geel gemarkeerd zoals bij de gewone complimenten; zet je zelf {naam} in de tekst, dan komt de naam op die plek. Maximaal 100 tekens (met de naam erin), vijf per collega.</div>
       <div style="font-size:10px;color:#e0a96d;margin-bottom:10px;line-height:1.5;">Let op: de tekst staat in settings.json en is zolang de repo openbaar is voor iedereen leesbaar. Schrijf er niets vertrouwelijks in.</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><label for="msg-eigen-wie" style="font-size:11px;color:#bbb;">Voor</label><select id="msg-eigen-wie" style="font-family:inherit;font-size:12px;padding:5px 8px;border-radius:8px;background:#0b1220;color:#fff;border:1px solid rgba(255,255,255,0.2);"></select></div>
+      <div id="msg-eigen-actief-kop" style="font-size:12px;font-weight:700;color:#fff;margin:6px 0 2px;">Actieve boodschappen (0)</div>
+      <div id="msg-eigen-actief" style="margin-bottom:14px;"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><label for="msg-eigen-wie" style="font-size:11px;color:#bbb;">Maken of bekijken voor</label><select id="msg-eigen-wie" style="font-family:inherit;font-size:12px;padding:5px 8px;border-radius:8px;background:#0b1220;color:#fff;border:1px solid rgba(255,255,255,0.2);"></select></div>
       <div id="msg-eigen-lijst"></div>
       <div id="msg-eigen-form" style="margin-top:12px;">
         <input id="msg-eigen-tekst" type="text" maxlength="100" autocomplete="off" placeholder="Bijv. Gefeliciteerd met je verjaardag!" aria-label="Tekst van de persoonlijke boodschap" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:12px;padding:7px 9px;border-radius:8px;background:#0b1220;color:#fff;border:1px solid rgba(255,255,255,0.2);">
@@ -3387,40 +3389,55 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   };
   const resetE = ()=>{ q("#msg-eigen-tekst").value = ""; q("#msg-eigen-van").value = ""; q("#msg-eigen-tot").value = ""; delete q("#msg-eigen-form").dataset.edit; q("#msg-eigen-ok").textContent = "Toevoegen"; q("#msg-eigen-annuleer").style.display = "none"; vandaagStand(); tellerE(); };
   const datNl = v=>v ? v.slice(8, 10) + "-" + v.slice(5, 7) + "-" + v.slice(0, 4) : "";
-  const toonEigen = ()=>{   // de lijst van de gekozen collega en de knoppen; het formulier zelf blijft zoals de beheerder het invulde
+  const eigenRij = (naam, e, vandaag, vast, inOverzicht, notitie)=>{   // één boodschap als rij (tekst met de naam, status, periode, wie) met ✎ en × — voor de lijst van één collega en voor het overzicht van alle actieve
+    const st = eigenStatus(e, vandaag), rij = document.createElement("div"), tk = document.createElement("div"), meta = document.createElement("div"), kleur = st === "actief" ? "#80cbc4" : (st === "gepland" ? "#e0a96d" : "#888");
+    rij.className = "msg-eigen-rij"; rij.dataset.id = e.id; rij.dataset.naam = naam; rij.dataset.status = st; rij.style.cssText = "display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.06);";
+    const tekstkolom = document.createElement("div"); tekstkolom.style.cssText = "flex:1;min-width:0;";
+    tk.className = "msg-eigen-tekst"; vulVoorbeeld(tk, e.t, naam); tk.style.cssText = "font-size:12px;color:" + (st === "verlopen" ? "#888" : "#fff") + ";line-height:1.45;word-break:break-word;";
+    const periode = e.van && e.tot ? datNl(e.van) + " t/m " + datNl(e.tot) : (e.van ? "vanaf " + datNl(e.van) : (e.tot ? "t/m " + datNl(e.tot) : "altijd"));
+    meta.className = "msg-eigen-meta"; meta.style.cssText = "font-size:10px;color:#777;margin-top:2px;";
+    if(inOverzicht){ const wie = document.createElement("span"); wie.className = "msg-eigen-wie"; wie.textContent = naam; wie.style.cssText = "color:#bbb;font-weight:700;"; meta.appendChild(wie); meta.appendChild(document.createTextNode(" · ")); }
+    const badge = document.createElement("span"); badge.textContent = st; badge.style.cssText = "color:" + kleur + ";font-weight:700;"; meta.appendChild(badge);
+    meta.appendChild(document.createTextNode(" · " + periode + (e.by ? " · door " + e.by : "")));
+    tekstkolom.appendChild(tk); tekstkolom.appendChild(meta);
+    if(notitie){ const n = document.createElement("div"); n.className = "msg-eigen-notitie"; n.textContent = notitie; n.style.cssText = "font-size:10px;color:#e0a96d;margin-top:2px;line-height:1.4;"; tekstkolom.appendChild(n); }
+    rij.appendChild(tekstkolom);
+    if(mag){
+      [["wijzigen", "✎", "Wijzigen"], ["verwijderen", "×", "Verwijderen"]].forEach(([actie, sym, titel])=>{
+        if(actie === "wijzigen" && !TEAM.includes(naam)) return;   // wie niet meer in het team zit: alleen verwijderen
+        const bt = document.createElement("button"); bt.type = "button"; bt.dataset.actie = actie; bt.dataset.id = e.id; bt.dataset.naam = naam; bt.textContent = sym; bt.title = titel; bt.setAttribute("aria-label", titel + ": " + eigenTekst(e.t).replace(/\{naam\}/g, naam)); bt.disabled = vast;
+        bt.style.cssText = "font-family:inherit;font-size:13px;padding:2px 9px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#bbb;flex-shrink:0;cursor:" + (vast ? "not-allowed" : "pointer") + ";opacity:" + (vast ? "0.55" : "1") + ";";
+        rij.appendChild(bt);
+      });
+    }
+    return rij;
+  };
+  const toonEigen = ()=>{   // het overzicht van alle actieve boodschappen en de lijst van de gekozen collega; het formulier zelf blijft zoals de beheerder het invulde
     const sel = q("#msg-eigen-wie"); if(!sel.options.length) TEAM.forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; sel.appendChild(o); });
     const naam = eigenWie(), lijst = BOODSCHAP.persoonlijk[naam] || [], vast = eigenVast(), vandaag = eigenDatum(new Date()), wrap = q("#msg-eigen-lijst");
+    // het overzicht: alle actieve boodschappen van alle collega's (in de volgorde van het team), met een opmerking als een boodschap wel loopt maar niet in beeld komt
+    const volgorde = n=>{ const i = TEAM.indexOf(n); return i < 0 ? TEAM.length : i; }, ov = q("#msg-eigen-actief"), actief = [];
+    Object.keys(BOODSCHAP.persoonlijk).sort((x, y)=>volgorde(x) - volgorde(y)).forEach(n=>BOODSCHAP.persoonlijk[n].forEach(e=>{ if(eigenStatus(e, vandaag) === "actief") actief.push([n, e]); }));
+    q("#msg-eigen-actief-kop").textContent = "Actieve boodschappen (" + actief.length + ")";
+    ov.textContent = "";
+    if(!actief.length){ const l = document.createElement("div"); l.id = "msg-eigen-actief-leeg"; l.textContent = "Er zijn nu geen actieve persoonlijke boodschappen."; l.style.cssText = "font-size:11px;color:#777;padding:4px 0;"; ov.appendChild(l); }
+    actief.forEach(([n, e])=>{
+      const notitie = !BOODSCHAP.enabled ? "Komt niet in beeld: de boodschap staat voor iedereen uit." : (!TEAM.includes(n) ? "Komt niet in beeld: deze collega zit niet meer in het team." : (!complimentPersoonAan(n, BOODSCHAP.personen) ? "Komt niet in beeld: de boodschap voor " + n + " staat uit." : null));
+      ov.appendChild(eigenRij(n, e, vandaag, vast, true, notitie));
+    });
     wrap.textContent = "";
     if(!lijst.length){ const l = document.createElement("div"); l.textContent = "Nog geen persoonlijke boodschap voor " + naam + "."; l.style.cssText = "font-size:11px;color:#777;padding:4px 0;"; wrap.appendChild(l); }
     else if(!BOODSCHAP.enabled || !complimentPersoonAan(naam, BOODSCHAP.personen)){   // er staat een boodschap klaar, maar hij komt niet in beeld: zeg dat er duidelijk bij
       const w = document.createElement("div"); w.id = "msg-eigen-uit"; w.textContent = !BOODSCHAP.enabled ? "De boodschap staat voor iedereen uit (zie de schakelaar bovenaan): deze teksten komen daarom niet in beeld." : "De boodschap voor " + naam + " staat uit (zie hierboven bij Per collega): deze teksten komen daarom niet in beeld.";
       w.style.cssText = "font-size:11px;color:#e0a96d;padding:4px 0 6px;line-height:1.5;"; wrap.appendChild(w);
     }
-    lijst.forEach(e=>{
-      const st = eigenStatus(e, vandaag), rij = document.createElement("div"), tk = document.createElement("div"), meta = document.createElement("div"), kleur = st === "actief" ? "#80cbc4" : (st === "gepland" ? "#e0a96d" : "#888");
-      rij.className = "msg-eigen-rij"; rij.dataset.id = e.id; rij.dataset.status = st; rij.style.cssText = "display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.06);";
-      const tekstkolom = document.createElement("div"); tekstkolom.style.cssText = "flex:1;min-width:0;";
-      tk.className = "msg-eigen-tekst"; vulVoorbeeld(tk, e.t, naam); tk.style.cssText = "font-size:12px;color:" + (st === "verlopen" ? "#888" : "#fff") + ";line-height:1.45;word-break:break-word;";
-      const periode = e.van && e.tot ? datNl(e.van) + " t/m " + datNl(e.tot) : (e.van ? "vanaf " + datNl(e.van) : (e.tot ? "t/m " + datNl(e.tot) : "altijd"));
-      meta.className = "msg-eigen-meta"; meta.style.cssText = "font-size:10px;color:#777;margin-top:2px;";
-      const badge = document.createElement("span"); badge.textContent = st; badge.style.cssText = "color:" + kleur + ";font-weight:700;"; meta.appendChild(badge);
-      meta.appendChild(document.createTextNode(" · " + periode + (e.by ? " · door " + e.by : "")));
-      tekstkolom.appendChild(tk); tekstkolom.appendChild(meta); rij.appendChild(tekstkolom);
-      if(mag){
-        [["wijzigen", "✎", "Wijzigen"], ["verwijderen", "×", "Verwijderen"]].forEach(([actie, sym, titel])=>{
-          const b = document.createElement("button"); b.type = "button"; b.dataset.actie = actie; b.dataset.id = e.id; b.textContent = sym; b.title = titel; b.setAttribute("aria-label", titel + ": " + eigenTekst(e.t).replace(/\{naam\}/g, naam)); b.disabled = vast;
-          b.style.cssText = "font-family:inherit;font-size:13px;padding:2px 9px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#bbb;flex-shrink:0;cursor:" + (vast ? "not-allowed" : "pointer") + ";opacity:" + (vast ? "0.55" : "1") + ";";
-          rij.appendChild(b);
-        });
-      }
-      wrap.appendChild(rij);
-    });
+    lijst.forEach(e=>wrap.appendChild(eigenRij(naam, e, vandaag, vast, false, null)));
     q("#msg-eigen-form").style.display = mag ? "" : "none";
     ["#msg-eigen-tekst", "#msg-eigen-van", "#msg-eigen-tot", "#msg-eigen-vandaag", "#msg-eigen-ok", "#msg-eigen-annuleer"].forEach(s=>{ q(s).disabled = vast; });
     if(!mag) setMsgE("Alleen " + MESSAGE_ADMIN + " kan persoonlijke boodschappen maken.", "");
   };
-  const bewaarE = async (actie, e)=>{
-    const naam = eigenWie(); if(overlay.dataset.eigenBezig) return;
+  const bewaarE = async (actie, e, voor)=>{
+    const naam = voor || eigenWie(); if(overlay.dataset.eigenBezig) return;
     if(actie !== "verwijderen"){ const v = eigenValideer(naam, e.t, e.van, e.tot); if(v.error){ setMsgE(v.error, "fout"); return; } }
     overlay.dataset.eigenBezig = "1"; toonEigen(); setMsgE("Opslaan...", "");
     let r; try{ r = await settingsSetEigen(naam, actie, e); }catch(x){ r = { error: "Opslaan mislukt (" + ((x && x.message) || x) + "). De boodschap is niet veranderd." }; }
@@ -3443,6 +3460,16 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   };
   q("#msg-eigen-annuleer").onclick = ()=>{ resetE(); setMsgE("", ""); };
   q("#msg-eigen-ok").onclick = ()=>{ if(!mag) return; const f = q("#msg-eigen-form"), bewerk = f.dataset.edit; bewaarE(bewerk ? "wijzigen" : "toevoegen", { id: bewerk, t: q("#msg-eigen-tekst").value, van: q("#msg-eigen-van").value, tot: q("#msg-eigen-tot").value }); };
+  q("#msg-eigen-actief").onclick = (ev)=>{   // het overzicht van alle actieve boodschappen: verwijderen kan meteen; wijzigen kiest de collega in het keuzemenu en laadt de boodschap in het formulier
+    const b = ev.target.closest && ev.target.closest("button"); if(!b || b.disabled || !mag || overlay.dataset.eigenBezig) return;
+    const naam = b.dataset.naam, e = (BOODSCHAP.persoonlijk[naam] || []).find(x=>x.id === b.dataset.id); if(!e) return;
+    if(b.dataset.actie === "verwijderen") bewaarE("verwijderen", e, naam);
+    else if(b.dataset.actie === "wijzigen"){
+      q("#msg-eigen-wie").value = naam; resetE(); setMsgE("", ""); toonEigen();
+      const bt = q('#msg-eigen-lijst button[data-actie="wijzigen"][data-id="' + e.id + '"]'); if(bt) bt.click();
+      q("#msg-eigen-form").scrollIntoView({ block: "nearest" });
+    }
+  };
   q("#msg-eigen-lijst").onclick = (ev)=>{
     const b = ev.target.closest && ev.target.closest("button"); if(!b || b.disabled || !mag || overlay.dataset.eigenBezig) return;
     const e = (BOODSCHAP.persoonlijk[eigenWie()] || []).find(x=>x.id === b.dataset.id); if(!e) return;
