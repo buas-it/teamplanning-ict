@@ -14,5 +14,12 @@
  "talenWijziging": {
   "by": "Hans",
   "at": "2026-10-22T14:02:10.081Z"
+ },
+ "personen": {
+  "Ted": true
+ },
+ "personenWijziging": {
+  "by": "Hans",
+  "at": "2026-10-22T15:37:20.278Z"
  }
 }
