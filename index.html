@@ -94,6 +94,8 @@ button { font-family:inherit; cursor:pointer; }
 .compliment .cmp-inner { opacity:0; display:block; }
 .compliment .cmp-vertaling { display:block; margin-top:0.35em; font-size:0.6em; font-weight:500; line-height:1.3; color:rgba(255,255,255,0.78); text-shadow:none; }   /* de Nederlandse vertaling onder een Turks of Pools compliment: kleiner en rustiger, zonder gloed */
 .compliment .cmp-vertaling:empty { display:none; }
+.compliment .cmp-emoji { margin-left:0.3em; }   /* af en toe een smiley achter het compliment */
+.compliment .cmp-emoji:empty { display:none; }
 .compliment .cmp-naam { color:#ffcc66; font-weight:800; }
 .compliment .cmp-spark { margin-right:8px; }
 .compliment.cmp-on .cmp-inner { animation:tpCompliment var(--cmp-dur, 11s) ease-in-out infinite; }
@@ -175,10 +177,10 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 67</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 68</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
-  <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span><span class="cmp-vertaling" lang="nl"></span></span></div>
+  <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span><span class="cmp-emoji" aria-hidden="true"></span><span class="cmp-vertaling" lang="nl"></span></span></div>
 </div>
 
 <!-- Standaard modal -->
@@ -2948,6 +2950,25 @@ function complimentPick(now, taal){   // een compliment dat recent niet is getoo
   taal = taal || "nl"; const nl = taal === "nl";
   return complimentKies(complimentPool(now, nl ? COMPLIMENTEN : COMPLIMENTEN_TAAL[taal]), nl ? "tp_cmp_recent" : "tp_cmp_recent_" + taal, nl ? COMPLIMENT_RECENT : 10);
 }
+let COMPLIMENT_SMILEY_KANS = 0.35;   // af en toe: ongeveer een op de drie complimenten krijgt een smiley achteraan
+const SMILEYS = {   // per moment een eigen keuze, allemaal vrolijk
+  algemeen: ["😊", "🙂", "😄", "😀", "👍", "👏", "💪", "🌟", "🙌"],
+  ochtend: ["☀️", "😊", "🌞", "🙂"], middag: ["😊", "🙂", "👍", "😄"], maandag: ["💪", "😊", "🙌", "😄"], vrijdag: ["🎉", "😎", "😄", "🙌"],
+  eindAftellen: ["💪", "🙌", "😊", "👏"], eindKlaar: ["😊", "🌆", "🙌", "🌙", "😄"], eindWeekend: ["🎉", "😎", "🥳", "☀️", "🙌"],
+  vrijDag: ["😎", "🎉", "😊", "😄"], vakantie: ["🏖️", "🌴", "☀️", "😎", "✈️", "🎉", "🥳"],
+};
+function complimentSmileySoort(c){   // welke keuze past bij dit compliment
+  if(c.speciaal) return c.speciaal.startsWith("eind") ? c.speciaal : (/Vak/.test(c.speciaal) ? "vakantie" : "vrijDag");
+  if(c.d === "MA") return "maandag"; if(c.d === "VR") return "vrijdag"; if(c.w === "ochtend") return "ochtend"; if(c.w === "middag") return "middag";
+  return "algemeen";
+}
+let cmpSmileyRecent = [];
+function complimentSmiley(c, rnd){   // af en toe een smiley (anders ''), passend bij het compliment en niet dezelfde als een van de laatste drie
+  const r = rnd || Math.random; if(r() >= COMPLIMENT_SMILEY_KANS) return "";
+  const alle = SMILEYS[complimentSmileySoort(c)], vrij = alle.filter(e=>!cmpSmileyRecent.includes(e)), kies = vrij.length ? vrij : alle, e = kies[Math.floor(r() * kies.length)];
+  cmpSmileyRecent.push(e); cmpSmileyRecent = cmpSmileyRecent.slice(-3);
+  return e;
+}
 let cmpOrder = [], cmpLast = null, cmpTurn = {};
 function complimentNext(now){   // de volgende collega die aan de beurt is (iedereen die er is, om de beurt, niet twee keer achter elkaar dezelfde) met een nieuw compliment
   const aanwezig = complimentAudience(now); if(!aanwezig.length) return null;
@@ -2959,7 +2980,8 @@ function complimentNext(now){   // de volgende collega die aan de beurt is (iede
   const naam = cmpOrder.shift(); cmpLast = naam;
   const taal = complimentTaal(naam), sp = complimentSpeciaal(naam, now), slot = (cmpTurn[naam] = (cmpTurn[naam] || 0) + 1) % 4;
   const kies = (slot === 0 || slot === 2) ? sp.eind : (slot === 1 ? sp.collectief : sp.persoonlijk);   // per vier beurten: tweemaal einde werktijd (als het zover is), eenmaal een collectief en eenmaal een persoonlijk vooruitzicht (als die er zijn), anders een gewoon compliment
-  return { naam, compliment: kies ? complimentBouwSpeciaal(kies.cat, taal, kies.w) : complimentPick(now, taal) };
+  const compliment = kies ? complimentBouwSpeciaal(kies.cat, taal, kies.w) : complimentPick(now, taal);
+  return { naam, compliment, emoji: complimentSmiley(compliment) };
 }
 function complimentRender(el, n){   // de tekst met de naam duidelijk gemarkeerd
   const tekst = el.querySelector(".cmp-text"); tekst.textContent = ""; tekst.lang = n.compliment.taal || "nl";   // de taal van de tekst (voor schermlezers en woordafbreking)
@@ -2968,8 +2990,9 @@ function complimentRender(el, n){   // de tekst met de naam duidelijk gemarkeerd
   el.dataset.naam = n.naam; el.dataset.taal = n.compliment.taal || "nl"; el.dataset.cid = (el.dataset.taal === "nl" ? "" : el.dataset.taal + ":") + n.compliment.id;
   const vertaling = n.compliment.nl ? "Nederlands: " + n.compliment.nl.replace("{naam}", n.naam) : "";   // bij Turks en Pools: de betekenis, zichtbaar onder de tekst (een tekstballon werkt niet op een telefoon of tablet en is makkelijk te missen)
   el.title = vertaling; el.querySelector(".cmp-vertaling").textContent = vertaling;
+  el.dataset.emoji = n.emoji || ""; el.querySelector(".cmp-emoji").textContent = n.emoji || "";   // een smiley achter de tekst (apart, zodat de tekst zelf ongewijzigd blijft)
 }
-function complimentHide(el){ el.classList.remove("cmp-on"); el.style.display = "none"; el.dataset.on = ""; el.querySelector(".cmp-text").textContent = ""; el.dataset.naam = ""; el.dataset.taal = ""; el.title = ""; el.querySelector(".cmp-vertaling").textContent = ""; }
+function complimentHide(el){ el.classList.remove("cmp-on"); el.style.display = "none"; el.dataset.on = ""; el.querySelector(".cmp-text").textContent = ""; el.dataset.naam = ""; el.dataset.taal = ""; el.title = ""; el.querySelector(".cmp-vertaling").textContent = ""; el.dataset.emoji = ""; el.querySelector(".cmp-emoji").textContent = ""; }
 function complimentReady(){ return firstLoadSettled && HEALTH.data === "ok"; }   // pas met de echte planning van GitHub: niet met het standaardrooster van vóór het laden, anders krijgt iemand een compliment die er helemaal niet is
 function complimentRestart(el){   // een nieuw compliment voor een andere collega, vanaf onzichtbaar
   const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
