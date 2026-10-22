@@ -1,9 +1,9 @@
 {
  "v": 1,
  "boodschap": {
-  "enabled": true,
+  "enabled": false,
   "by": "Hans",
-  "at": "2026-10-22T09:37:42.329Z"
+  "at": "2026-10-22T18:14:56.358Z"
  },
  "talen": {
   "Wouter": [
