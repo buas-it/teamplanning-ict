@@ -177,7 +177,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 22 okt 2026 · 74</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 22 okt 2026 · 75</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
   <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span><span class="cmp-emoji" aria-hidden="true"></span><span class="cmp-vertaling" lang="nl"></span></span></div>
@@ -2813,9 +2813,9 @@ function eigenDatum(now){ const p = n=>String(n).padStart(2, "0"); return now.ge
 function eigenStatus(e, vandaag){ return e.van && vandaag < e.van ? "gepland" : (e.tot && vandaag > e.tot ? "verlopen" : "actief"); }
 function complimentEigenActief(naam, now){ const v = eigenDatum(now); return (BOODSCHAP.persoonlijk[naam] || []).filter(e=>eigenStatus(e, v) === "actief"); }
 let cmpEigenTurn = {};
-function complimentEigen(naam, now){   // een persoonlijke boodschap voor deze collega, als er een loopt en hij aan de beurt is: om en om met de gewone complimenten; meerdere: om de beurt (de volgorde en de taalwisseling blijven ongemoeid)
+function complimentEigen(naam, now, altijd){   // een persoonlijke boodschap voor deze collega, als er een loopt en hij aan de beurt is: om en om met de gewone complimenten, of bij elke beurt als hij er niet is; meerdere: om de beurt (de volgorde en de taalwisseling blijven ongemoeid)
   const lijst = complimentEigenActief(naam, now); if(!lijst.length) return null;
-  const n = cmpEigenTurn[naam] = (cmpEigenTurn[naam] || 0) + 1; if(n % 2 === 0) return null;   // de eerste, derde, … beurt
+  if(!altijd){ const n = cmpEigenTurn[naam] = (cmpEigenTurn[naam] || 0) + 1; if(n % 2 === 0) return null; }   // aanwezig: de eerste, derde, … beurt; niet aanwezig (altijd): elke beurt, want er is voor hem geen gewoon compliment
   const sleutel = "tp_cmp_eigen_" + naam; let laatste = null; try{ laatste = localStorage.getItem(sleutel); }catch(x){}
   const i = lijst.findIndex(e=>e.id === laatste), e = lijst[(i + 1) % lijst.length];
   try{ localStorage.setItem(sleutel, e.id); }catch(x){}
@@ -3178,9 +3178,10 @@ function complimentPresent(now){   // iedereen van het team die op dit moment op
   const data = getData(mondayOf(now)), dagdeel = now.getHours() < 12 ? "vm_kantoor" : "nm_kantoor";
   return TEAM.filter(p=>complimentPersoonAan(p, BOODSCHAP.personen)).filter(p=>{ const s = (data[p] || {})[dag] || []; return !s.includes("ziek") && (s.includes("kantoor") || s.includes(dagdeel)); });
 }
-function complimentAudience(now){   // wie er aan de beurt kan komen: wie op de campus is (Hans dus alleen als hij er echt is), alleen met de echte planning van GitHub en alleen als de boodschap aan staat
+function complimentAudience(now){   // wie er aan de beurt kan komen: wie op de campus is (Hans dus alleen als hij er echt is) én wie een lopende persoonlijke boodschap heeft, ook als hij er niet is; alleen met de echte planning van GitHub en alleen als de boodschap aan staat (voor iedereen en voor die collega)
   if(!BOODSCHAP.ready || !BOODSCHAP.enabled || !complimentReady()) return [];
-  return complimentPresent(now);
+  const aanwezig = complimentPresent(now);
+  return aanwezig.concat(TEAM.filter(p=>!aanwezig.includes(p) && complimentPersoonAan(p, BOODSCHAP.personen) && complimentEigenActief(p, now).length > 0));
 }
 function complimentPool(now, lijst){   // de complimenten die nu passen (dagdeel en dag van de week); standaard de Nederlandse
   const u = now.getHours(), dagdeel = u < 12 ? "ochtend" : (u < 18 ? "middag" : "avond"), dag = DAYS[(now.getDay() || 7) - 1] || "";
@@ -3225,7 +3226,7 @@ function complimentNext(now){   // de volgende collega die aan de beurt is (iede
     if(aanwezig.length > 1 && cmpOrder[0] === cmpLast) cmpOrder.push(cmpOrder.shift());
   }
   const naam = cmpOrder.shift(); cmpLast = naam;
-  const eigen = complimentEigen(naam, now);   // een persoonlijke boodschap als er een loopt: om en om met de gewone complimenten
+  const eigen = complimentEigen(naam, now, !complimentPresent(now).includes(naam));   // een persoonlijke boodschap als er een loopt: aanwezig om en om met de gewone complimenten; niet aanwezig altijd (een afwezige krijgt geen gewoon compliment)
   if(eigen) return { naam, compliment: eigen, emoji: complimentSmiley(eigen) };
   const taal = complimentTaal(naam), sp = complimentSpeciaal(naam, now), slot = (cmpTurn[naam] = (cmpTurn[naam] || 0) + 1) % 4;
   const kies = (slot === 0 || slot === 2) ? sp.eind : (slot === 1 ? sp.collectief : sp.persoonlijk);   // per vier beurten: tweemaal einde werktijd (als het zover is), eenmaal een collectief en eenmaal een persoonlijk vooruitzicht (als die er zijn), anders een gewoon compliment
@@ -3290,7 +3291,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     </div>
     <div style="margin-top:22px;border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;">
       <div style="font-size:13px;font-weight:700;color:#80cbc4;">✍️ Persoonlijke boodschap</div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 4px;line-height:1.55;">Schrijf voor een collega een eigen tekst. Die komt om en om met de gewone complimenten in beeld zodra de collega er is (en de boodschap voor hem aan staat). Zet er eventueel een periode bij. Met {naam} komt de naam in de tekst, geel gemarkeerd. Maximaal 100 tekens, vijf per collega.</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 4px;line-height:1.55;">Schrijf voor een collega een eigen tekst. Die komt in beeld zolang hij loopt, ook als de collega er niet is; is de collega er wel, dan komt hij om en om met de gewone complimenten. Staat de boodschap voor die collega uit, of voor iedereen, dan komt hij niet in beeld. Zet er eventueel een periode bij. Met {naam} komt de naam in de tekst, geel gemarkeerd. Maximaal 100 tekens, vijf per collega.</div>
       <div style="font-size:10px;color:#e0a96d;margin-bottom:10px;line-height:1.5;">Let op: de tekst staat in settings.json en is zolang de repo openbaar is voor iedereen leesbaar. Schrijf er niets vertrouwelijks in.</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><label for="msg-eigen-wie" style="font-size:11px;color:#bbb;">Voor</label><select id="msg-eigen-wie" style="font-family:inherit;font-size:12px;padding:5px 8px;border-radius:8px;background:#0b1220;color:#fff;border:1px solid rgba(255,255,255,0.2);"></select></div>
       <div id="msg-eigen-lijst"></div>
@@ -3375,6 +3376,10 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     const naam = eigenWie(), lijst = BOODSCHAP.persoonlijk[naam] || [], vast = eigenVast(), vandaag = eigenDatum(new Date()), wrap = q("#msg-eigen-lijst");
     wrap.textContent = "";
     if(!lijst.length){ const l = document.createElement("div"); l.textContent = "Nog geen persoonlijke boodschap voor " + naam + "."; l.style.cssText = "font-size:11px;color:#777;padding:4px 0;"; wrap.appendChild(l); }
+    else if(!BOODSCHAP.enabled || !complimentPersoonAan(naam, BOODSCHAP.personen)){   // er staat een boodschap klaar, maar hij komt niet in beeld: zeg dat er duidelijk bij
+      const w = document.createElement("div"); w.id = "msg-eigen-uit"; w.textContent = !BOODSCHAP.enabled ? "De boodschap staat voor iedereen uit (zie de schakelaar bovenaan): deze teksten komen daarom niet in beeld." : "De boodschap voor " + naam + " staat uit (zie hierboven bij Per collega): deze teksten komen daarom niet in beeld.";
+      w.style.cssText = "font-size:11px;color:#e0a96d;padding:4px 0 6px;line-height:1.5;"; wrap.appendChild(w);
+    }
     lijst.forEach(e=>{
       const st = eigenStatus(e, vandaag), rij = document.createElement("div"), tk = document.createElement("div"), meta = document.createElement("div"), kleur = st === "actief" ? "#80cbc4" : (st === "gepland" ? "#e0a96d" : "#888");
       rij.className = "msg-eigen-rij"; rij.dataset.id = e.id; rij.dataset.status = st; rij.style.cssText = "display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.06);";
