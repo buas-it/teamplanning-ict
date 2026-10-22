@@ -37,6 +37,7 @@ button { font-family:inherit; cursor:pointer; }
 .week-badge.other    { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); color:#aaa; }
 .week-badge.template { background:rgba(0,100,220,0.2);  border:1px solid rgba(0,150,255,0.4);   color:#60b0ff; }
 .week-lbl { font-size:10px; letter-spacing:2px; text-transform:uppercase; }
+.week-year { margin-left:auto; font-size:10px; letter-spacing:2px; color:#fff; }   /* het jaartal rechtsboven in de weekkop: wit, even groot als het label ernaast */
 .week-lbl.current  { color:#FF6C00; opacity:0.7; }
 .week-lbl.other    { color:#555; }
 .week-lbl.template { color:#60b0ff; opacity:0.8; }
@@ -159,7 +160,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 59</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 60</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 </div>
@@ -2601,7 +2602,8 @@ function buildWeekPanel(monday){
   const lbl=document.createElement("div"); lbl.className=`week-lbl ${isCurrent?"current":"other"}`;
   const yearLabel=yr!==today.getFullYear()?` ${yr}`:"";
   lbl.textContent=isCurrent?"huidige week":(isSameDay(monday,addWeeks(thisWeekMonday,1))?"volgende week":`week ${wk}${yearLabel}`);
-  hdr.appendChild(badge); hdr.appendChild(lbl); panel.appendChild(hdr);
+  const yrEl=document.createElement("div"); yrEl.className="week-year"; yrEl.textContent=String(addDays(monday,3).getFullYear());   // het jaar van de donderdag van die week: zo hoort het jaartal altijd bij het weeknummer, ook rond de jaarwisseling
+  hdr.appendChild(badge); hdr.appendChild(lbl); hdr.appendChild(yrEl); panel.appendChild(hdr);
   const dayHdr=document.createElement("div"); dayHdr.className="day-header";
   // Personen die altijd op kantoor moeten zijn
   const MUST_KANTOOR = GROUPS["ICT-Systeembeheer"];
