@@ -4,5 +4,15 @@
   "enabled": true,
   "by": "Hans",
   "at": "2026-10-22T09:37:42.329Z"
+ },
+ "talen": {
+  "Wouter": [
+   "nl",
+   "tb"
+  ]
+ },
+ "talenWijziging": {
+  "by": "Hans",
+  "at": "2026-10-22T14:02:10.081Z"
  }
 }
