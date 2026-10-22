@@ -173,7 +173,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 63</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 okt 2026 · 64</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
   <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span></span></div>
@@ -314,6 +314,10 @@ const GROUPS = JSON.parse(JSON.stringify(GROUP_DEFAULTS));   // de actuele indel
 const GROUPS_PATH = "groups.json";
 const RESTORE_GROUP = "ICT-Systeembeheer";   // alleen deze groep mag een backup terugzetten
 const GROUP_ADMIN = "ICT-Systeembeheer";     // alleen deze groep mag de groepen aanpassen
+const SETTINGS_PATH = "settings.json";       // gedeelde instellingen op de data-branch (nu: de boodschap aan of uit)
+const MESSAGE_ADMIN = "ICT-Systeembeheer";   // alleen deze groep mag de boodschap aan- en uitzetten
+let BOODSCHAP = { enabled: true, ready: false, by: null, at: null, sha: null, error: null };   // ready: de instelling is minstens één keer opgehaald; zolang dat niet zo is, geen boodschap
+function canToggleMessage(){ return !!(currentIdentity && inGroup(currentIdentity.user, MESSAGE_ADMIN)); }
 let groupsReady = false, groupsError = null, groupsSha = null;   // groupsReady: de indeling is opgehaald (of er is nog geen bestand: standaard). Zolang dat niet zo is, geldt niemand als lid: bij twijfel geen rechten
 function groupOf(user){ return GROUP_NAMES.find(g=>GROUPS[g].includes(user)) || null; }
 function inGroup(user, g){ return !!(groupsReady && user && GROUPS[g] && GROUPS[g].includes(user)); }
@@ -339,7 +343,7 @@ function canSeeAdmin(){   // Admin (logboek, wachtwoorden, groepen): alleen team
   return !!(me && groupsReady && TEAM.includes(me) && ADMIN_VIEW_GROUPS.some(g=>inGroup(me, g)));
 }
 function closeAdminWindows(all){   // Admin-vensters dicht: bij verloren rechten allemaal; als bewerken uitgaat alleen de vensters waarmee je iets wijzigt (Audit, Status en het backup-overzicht zijn alleen kijken en blijven open)
-  (all ? ["au-close", "status-close", "stat-close", "bc-close", "usr-close", "grp-close", "restore-close", "backup-close"] : ["usr-close", "grp-close", "restore-close", "backup-close"]).forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o) o.remove(); });
+  (all ? ["au-close", "status-close", "stat-close", "bc-close", "usr-close", "grp-close", "restore-close", "backup-close", "msg-close", "msg-view-close"] : ["usr-close", "grp-close", "restore-close", "backup-close", "msg-close"]).forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o) o.remove(); });
 }
 function canResetPasswords(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }   // wachtwoorden van anderen resetten: alleen leden van ICT-Systeembeheer (je eigen wachtwoord wijzigen kan iedereen)
 function denyRestore(){ adminNotice(groupsReady ? "Een backup terugzetten mag alleen " + RESTORE_GROUP + "." : "De groepen konden niet worden opgehaald, dus terugzetten kan nu niet. Probeer het zo opnieuw.", "♻ Backup terugzetten"); }
@@ -389,6 +393,47 @@ async function groupsMutate(mutator, message){
       applyGroups(cur.groups); groupsSha = sha; groupsReady = true; groupsError = null;
       try{ showLockIndicator(); }catch(e){}
       return { ok: true, groups: cur.groups };
+    }
+    if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
+  }
+  throw new Error("conflict");
+}
+// ── Instellingen (settings.json op de data-branch): nu alleen de boodschap aan of uit ──
+async function settingsFetch(){   // {boodschap:{enabled,by,at}, raw, sha}; 404 = nog nooit ingesteld: aan; gooit bij een storing of een ongeldig bestand
+  const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+  if(r.status === 404) return { boodschap: { enabled: true, by: null, at: null }, raw: { v: 1 }, sha: null };
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  const d = await r.json(), raw = JSON.parse(auditDecode(d.content));
+  if(!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("ongeldig bestand");
+  const b = raw.boodschap;
+  const boodschap = b === undefined ? { enabled: true, by: null, at: null } : (b && typeof b === "object" && typeof b.enabled === "boolean" ? { enabled: b.enabled, by: typeof b.by === "string" ? b.by : null, at: typeof b.at === "string" ? b.at : null } : null);
+  if(!boodschap) throw new Error("ongeldig bestand");
+  return { boodschap, raw, sha: d.sha };
+}
+function applySettings(cur){ BOODSCHAP = { enabled: cur.boodschap.enabled, ready: true, by: cur.boodschap.by, at: cur.boodschap.at, sha: cur.sha || null, error: null }; }
+async function settingsLoad(){   // haalt de instellingen op; bij een storing blijft de eerder opgehaalde stand gelden
+  try{ applySettings(await settingsFetch()); }
+  catch(e){ BOODSCHAP.error = (e && e.message) || String(e); }
+  try{ complimentSync(); }catch(e){}
+  return BOODSCHAP.ready;
+}
+async function settingsSetBoodschap(enabled){   // de boodschap voor iedereen aan- of uitzetten: alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand en schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
+  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de boodschap aan- of uitzetten." };
+  if(!editUnlocked) return { error: "Bewerken staat uit." };
+  const me = currentIdentity.user;
+  for(let i = 0; i < 4; i++){
+    const cur = await settingsFetch();
+    if(cur.boodschap.enabled === enabled){ applySettings(cur); try{ complimentSync(); }catch(e){} return { ok: true, changed: false }; }   // een collega had het al zo gezet: niets schrijven en niets in het logboek
+    const raw = cur.raw; raw.v = 1; raw.boodschap = { enabled, by: me, at: new Date().toISOString() };
+    const body = { message: "Boodschap " + (enabled ? "aangezet" : "uitgezet") + " door " + me, content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
+    if(cur.sha) body.sha = cur.sha;
+    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
+    if(r.ok){
+      let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
+      applySettings({ boodschap: raw.boodschap, sha });
+      auditEvent("boodschap " + (enabled ? "aangezet" : "uitgezet"));   // pas na een geslaagde opslag in het logboek
+      touchEditTimer(); try{ complimentSync(); }catch(e){}
+      return { ok: true, changed: true };
     }
     if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
   }
@@ -912,6 +957,7 @@ function openWhoMenu(){
     item("menu-groepen", "👥 Groepen", "c-admin", ()=>showGroupsModal());
     item("menu-status", "📊 Status", "c-status", ()=>showStatusWindow());
     item("menu-stats", "📈 Statistics", "c-status", ()=>showStatsWindow());
+    item("menu-boodschap", "💬 Boodschap", "c-admin", ()=>showBoodschapModal());
     // Backup/Restore: een tabblad onder Admin dat uitklapt naar Backup en Restore (klappen blijft het menu openhouden)
     const bkTab = document.createElement("button"); bkTab.type = "button"; bkTab.id = "menu-backuprestore"; bkTab.className = "c-admin";
     bkTab.setAttribute("role", "menuitem"); bkTab.setAttribute("aria-haspopup", "true"); bkTab.setAttribute("aria-expanded", "false"); bkTab.textContent = "🗄 Backup/Restore ▸";
@@ -922,8 +968,9 @@ function openWhoMenu(){
     bkTab.onclick = ()=>{ const open = bkTab.getAttribute("aria-expanded") !== "true"; bkTab.setAttribute("aria-expanded", String(open)); bkTab.textContent = "🗄 Backup/Restore " + (open ? "▾" : "▸"); bkSubs.forEach(x=>{ x.hidden = !open; }); };
     if(!canRestore()){ const t = m.querySelector("#menu-backup-terugzetten"); t.setAttribute("aria-disabled", "true"); t.title = "Een backup terugzetten mag alleen " + RESTORE_GROUP; }
     if(!editUnlocked){   // Admin werkt alleen als bewerken aan staat: een klik op een onderdeel geeft eerst de vraag om bewerken aan te zetten (bewuste tussenstap)
-      ["menu-wachtwoorden", "menu-groepen", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{   // Audit en Status zijn alleen kijken: zonder vraag
+      ["menu-wachtwoorden", "menu-groepen", "menu-boodschap", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{   // Audit, Status en Statistics zijn alleen kijken: zonder vraag
         const x = m.querySelector("#" + id); if(!x) return;
+        if(id === "menu-boodschap" && !canToggleMessage()) return;   // ICT-Management kijkt alleen mee: geen vraag
         if(id === "menu-backup-terugzetten" && !canRestore()) return;   // terugzetten mag deze gebruiker niet: blijft uitgeschakeld met uitleg
         x.title = "Eerst volgt de vraag om bewerken aan te zetten";
       });
@@ -1160,7 +1207,7 @@ async function promptUnlock(opts){
       try{ localStorage.removeItem("tp_ws"); localStorage.removeItem("tp_edit"); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); localStorage.setItem("tp_last_user", user); localStorage.setItem("tp_unlocked", String(lastActivity)); }catch(e){}   // onthoud op dit apparaat (tot 10 minuten na de laatste activiteit)
       document.dispatchEvent(new CustomEvent("tp-lock-changed"));
       showLockIndicator();
-      groupsLoad();   // verse indeling bij het inloggen
+      groupsLoad(); settingsLoad();   // verse indeling en instellingen bij het inloggen
       overlay.remove();
       resolve(true);
       auditEvent("ingelogd");   // begin van de sessie: ook alleen kijken telt, dus elke echte inlog (naam + wachtwoord) staat in het logboek; een pagina die zich na verversen herstelt niet
@@ -2205,7 +2252,7 @@ async function checkForNewVersion(){
   async function backgroundSync(){
     if(syncBusy) return; syncBusy = true; lastSyncRun = Date.now();
     try{
-      groupsLoad();   // groepen elke minuut verversen
+      groupsLoad(); settingsLoad();   // groepen en instellingen elke minuut verversen
       if(ghSaving || savePending) return;   // er wordt net opgeslagen of er wacht een wijziging: die niet overschrijven
       const beforeJson = JSON.stringify(serializeState());
       const loaded = await loadFromGitHub();
@@ -2618,9 +2665,8 @@ function groupCoverage(dayData, group, day){   // dekking van een groep op een d
   return { hasData: true, vm, nm, gap: !vm && !nm ? "hele dag" : (!vm ? "'s ochtends" : (!nm ? "'s middags" : "")) };
 }
 
-// ── Compliment: voor iedereen die op dat moment op de campus is (behalve Ted), onder de legenda, alleen voor Monitor en Hans ──
+// ── Compliment (de boodschap): voor iedereen die op dat moment op de campus is (behalve Ted), onder de legenda, alleen voor Monitor en Hans; aan/uit via Admin ▸ Boodschap ──
 const COMPLIMENT_USERS = ["Monitor", "Hans"];   // wie het compliment ziet
-const COMPLIMENT_ALTIJD = "Hans";               // Hans krijgt het altijd te zien (om het te kunnen controleren), ook als er niemand op de campus is: hij zit dan zelf in de beurtenrij
 const COMPLIMENT_NIET = ["Ted"];                 // Ted zit niet in die ruimte
 let COMPLIMENT_SECONDS = 11;                    // één compliment: ruim 3 seconden oplichten, even blijven staan, ruim 3 seconden doven
 const COMPLIMENT_RECENT = 40;                   // zoveel keer wordt hetzelfde compliment niet herhaald
@@ -2687,10 +2733,9 @@ function complimentPresent(now){   // iedereen van het team die op dit moment op
   const data = getData(mondayOf(now)), dagdeel = now.getHours() < 12 ? "vm_kantoor" : "nm_kantoor";
   return TEAM.filter(p=>!COMPLIMENT_NIET.includes(p)).filter(p=>{ const s = (data[p] || {})[dag] || []; return !s.includes("ziek") && (s.includes("kantoor") || s.includes(dagdeel)); });
 }
-function complimentAudience(now){   // wie er aan de beurt kan komen: wie op de campus is (alleen met de echte planning van GitHub), en voor Hans altijd Hans zelf erbij
-  const lijst = complimentReady() ? complimentPresent(now) : [];
-  if(currentIdentity && currentIdentity.user === COMPLIMENT_ALTIJD && !lijst.includes(COMPLIMENT_ALTIJD)) lijst.push(COMPLIMENT_ALTIJD);
-  return lijst;
+function complimentAudience(now){   // wie er aan de beurt kan komen: wie op de campus is (Hans dus alleen als hij er echt is), alleen met de echte planning van GitHub en alleen als de boodschap aan staat
+  if(!BOODSCHAP.ready || !BOODSCHAP.enabled || !complimentReady()) return [];
+  return complimentPresent(now);
 }
 function complimentPool(now){   // de complimenten die nu passen (dagdeel en dag van de week)
   const u = now.getHours(), dagdeel = u < 12 ? "ochtend" : (u < 18 ? "middag" : "avond"), dag = DAYS[(now.getDay() || 7) - 1] || "";
@@ -2727,7 +2772,7 @@ function complimentRestart(el){   // een nieuw compliment voor een andere colleg
   const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
   el.classList.remove("cmp-on"); complimentRender(el, n); void el.offsetWidth; el.classList.add("cmp-on");
 }
-function complimentSync(){   // elke paar seconden: alleen de juiste gebruikers zien het, en alleen als er iemand aan de beurt kan komen (wie op de campus is; voor Hans altijd); anders verdwijnt het blok
+function complimentSync(){   // elke paar seconden: alleen de juiste gebruikers zien het, en alleen als de boodschap aan staat en er iemand aan de beurt kan komen (wie op de campus is); anders verdwijnt het blok
   const el = document.getElementById("compliment"); if(!el) return;
   const mag = !!currentIdentity && COMPLIMENT_USERS.includes(currentIdentity.user);
   if(!mag){ if(el.dataset.on) complimentHide(el); return; }
@@ -2743,6 +2788,50 @@ function complimentIteration(){   // op het moment dat het compliment helemaal g
   const el = document.getElementById("compliment"); if(!el || !el.dataset.on) return;
   const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
   complimentRender(el, n);
+}
+
+async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor iedereen aan- of uitzetten (ICT-Systeembeheer, met bewerken aan); ICT-Management kijkt alleen mee
+  const mag = canToggleMessage();
+  if(!await ensureAdmin(mag ? undefined : { view: true })) return;
+  const old = document.getElementById("msg-overlay"); if(old) old.remove();
+  const overlay = document.createElement("div"); overlay.className = "tp-overlay"; overlay.id = "msg-overlay";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:870;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 10px;";
+  overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:480px;max-width:98vw;font-family:'Courier New',monospace;">
+    <div style="font-size:14px;font-weight:700;color:#80cbc4;padding-right:40px;">💬 Boodschap</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 18px;line-height:1.55;">Een vriendelijk compliment onder de legenda, voor iedereen die op dat moment op de campus is (behalve Ted). Alleen Monitor en Hans zien het.</div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <button id="msg-toggle" type="button" role="switch" aria-checked="true" aria-label="Boodschap aan of uit" style="position:relative;width:64px;height:32px;border-radius:16px;border:1px solid rgba(255,255,255,0.25);padding:0;cursor:pointer;flex-shrink:0;transition:background 0.2s;"><span id="msg-knob" style="position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform 0.2s;"></span></button>
+      <div id="msg-status" style="font-size:20px;font-weight:800;"></div>
+    </div>
+    <div id="msg-last" style="font-size:10px;color:#777;margin-top:14px;min-height:14px;"></div>
+    <div id="msg-msg" style="font-size:11px;min-height:16px;margin-top:10px;line-height:1.5;"></div></div>`;
+  document.body.appendChild(overlay);
+  const q = s=>overlay.querySelector(s), sw = q("#msg-toggle"), knob = q("#msg-knob"), st = q("#msg-status"), last = q("#msg-last"), msg = q("#msg-msg");
+  addWinX(overlay.firstElementChild, ()=>overlay.remove(), mag ? "msg-close" : "msg-view-close");   // alleen kijken sluit niet als bewerken uitgaat
+  const setMsg = (t, kleur)=>{ msg.textContent = t || ""; msg.style.color = kleur === "ok" ? "#80cbc4" : (kleur === "fout" ? "#f48fb1" : "#999"); };
+  const toon = ()=>{
+    const aan = BOODSCHAP.enabled;
+    sw.setAttribute("aria-checked", String(aan)); sw.style.background = aan ? "#2e7d6b" : "#3a3f4b"; knob.style.transform = aan ? "translateX(32px)" : "translateX(0)";
+    st.textContent = aan ? "Aan" : "Uit"; st.style.color = aan ? "#80cbc4" : "#f48fb1";
+    const d = BOODSCHAP.at ? new Date(BOODSCHAP.at) : null;
+    last.textContent = d ? "Laatst gewijzigd: " + d.toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + (BOODSCHAP.by ? " door " + BOODSCHAP.by : "") : "";
+    sw.disabled = !mag || !BOODSCHAP.ready; sw.style.cursor = sw.disabled ? "not-allowed" : "pointer"; sw.style.opacity = sw.disabled ? "0.5" : "1";
+  };
+  sw.disabled = true; setMsg("Laden...", "");
+  await settingsLoad();
+  if(!document.body.contains(overlay)) return;
+  setMsg(!BOODSCHAP.ready ? "De instelling kon niet worden opgehaald" + (BOODSCHAP.error ? " (" + BOODSCHAP.error + ")" : "") + ". Probeer het zo opnieuw." : (mag ? "" : "Alleen " + MESSAGE_ADMIN + " kan de boodschap aan- en uitzetten."), !BOODSCHAP.ready ? "fout" : "");
+  toon();
+  if(!mag) sw.title = "Alleen " + MESSAGE_ADMIN + " kan dit wijzigen.";
+  sw.onclick = async ()=>{
+    if(!mag || sw.dataset.bezig) return; sw.dataset.bezig = "1"; sw.disabled = true;
+    const wil = !BOODSCHAP.enabled; setMsg("Opslaan...", "");
+    let r; try{ r = await settingsSetBoodschap(wil); }catch(e){ r = { error: "Opslaan mislukt (" + ((e && e.message) || e) + "). De stand is niet veranderd." }; }
+    delete sw.dataset.bezig;
+    if(!document.body.contains(overlay)) return;
+    if(r.error) setMsg(r.error, "fout"); else setMsg(r.changed ? (wil ? "De boodschap staat aan." : "De boodschap staat uit.") : "Dat stond al zo: een collega had het net gewijzigd.", "ok");
+    toon();
+  };
 }
 
 // ── Week panel ───────────────────────────────────────────────────
@@ -3908,7 +3997,7 @@ if(currentIdentity){ gateOff(); revalidateSession(); } else { gateOn(); }
 siteAccessAudit();   // wie de site opent komt in het audit-logboek (automatische herladingen niet)
 // Slot-indicator klikbaar maken
 showLockIndicator();
-groupsLoad();   // de indeling van de groepen ophalen (daarna elke minuut en bij het inloggen)
+groupsLoad(); settingsLoad();   // de indeling van de groepen en de instellingen ophalen (daarna elke minuut en bij het inloggen)
 document.addEventListener("tp-team-changed", ()=>{ try{ showLockIndicator(); }catch(e){} });   // de teamlijst is binnen of veranderd: knoppen en rechten die daarvan afhangen (zoals Admin) opnieuw bepalen
 document.getElementById("lock-ind").addEventListener("click", async ()=>{
   if(editUnlocked) disableEditing(); else if(currentIdentity) enableEditing(); else await promptUnlock();   // het slotje schakelt bewerken aan/uit; uitloggen doe je via de pulldown rechtsboven
