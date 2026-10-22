@@ -177,7 +177,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 22 okt 2026 · 71</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 22 okt 2026 · 72</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
   <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span><span class="cmp-emoji" aria-hidden="true"></span><span class="cmp-vertaling" lang="nl"></span></span></div>
@@ -2721,7 +2721,7 @@ function complimentTalenVoor(naam, talen){   // de talen van deze collega: de in
   const std = complimentTalenSorteer(COMPLIMENT_TALEN[naam] || ["nl"]);
   return std.length ? std : ["nl"];
 }
-const COMPLIMENT_EINDE_WERKTIJD = [17, 0];      // einde werktijd (uur, minuut): het laatste anderhalf uur ervoor een aftelling, daarna 'de werkdag zit erop'
+const COMPLIMENT_EINDE_WERKTIJD = [17, 0];      // einde werktijd (uur, minuut): vanaf dat moment 'de werkdag zit erop' (geen aftelling ervoor: de eindtijd verschilt per collega)
 const COMPLIMENT_VOORUIT_DAGEN = 14;            // zo ver vooruit wordt gekeken naar vrije dagen en vakanties
 const COMPLIMENT_VAKANTIE_MIN = 3;              // vanaf zoveel werkdagen achter elkaar vrij heet het een vakantie, korter een vrije dag
 let COMPLIMENT_SECONDS = 22;                    // één compliment: bijna 6 seconden oplichten, 10 seconden blijven staan, bijna 6 seconden doven (was 11: te snel om te lezen)
@@ -2944,9 +2944,8 @@ const COMPLIMENT_FEESTEN = {   // de namen van de collectieve vrije dagen uit LO
   "2027-W20-MA": { nl: "Pinksteren", tr: "Pinksteren (Pentekost)", pl: "Pinksteren (Zielone Świątki)", tb: "Pinksteren" },
   "2027-W51-VR": { nl: "de kerstvakantie", tr: "Noel tatili", pl: "przerwa bożonarodzeniowa", tb: "de kèrsemesvakantie" },
 };
-const SPECIAAL = {   // {naam}, {n} (dagen), {tijd} (minuten) en {feest}; nl bij Turks en Pools is de betekenis in het Nederlands (tekstballon)
+const SPECIAAL = {   // {naam}, {n} (dagen) en {feest}; nl bij Turks en Pools is de betekenis in het Nederlands (tekstballon)
   nl: {
-    eindAftellen: [{t:"Nog {tijd} tot het einde van de werkdag, {naam}. Je hebt er een mooie dag van gemaakt!"}, {t:"{naam}, over {tijd} zit de werkdag erop. Bedankt voor je inzet vandaag!"}, {t:"Het einde van de werkdag komt in zicht, {naam}: nog {tijd}. Goed bezig!"}],
     eindKlaar: [{t:"De werkdag zit erop, {naam}! Bedankt voor je inzet. Fijne avond!"}, {t:"{naam}, het is zover: einde werkdag! Dank je wel en geniet van je avond!"}, {t:"Goed gedaan vandaag, {naam}! De werkdag zit erop. Rust lekker uit!"}],
     eindWeekend: [{t:"De werkdag én de werkweek zitten erop, {naam}! Bedankt en fijn weekend!"}, {t:"{naam}, einde van de week! Dank je wel voor je inzet. Geniet van je weekend!"}],
     collectiefDagMorgen: [{t:"{naam}, morgen is het vrij: {feest}. Geniet ervan!"}, {t:"Morgen vrij voor iedereen, {naam}: {feest}! Rust lekker uit."}],
@@ -2959,7 +2958,6 @@ const SPECIAAL = {   // {naam}, {n} (dagen), {tijd} (minuten) en {feest}; nl bij
     persVak: [{t:"Nog {n} dagen en dan begint je vakantie, {naam}! Je hebt het verdiend."}, {t:"{naam}, je vakantie komt eraan: over {n} dagen begint hij. Straks heerlijk ontspannen!"}],
   },
   tr: {
-    eindAftellen: [{t:"{naam}, iş gününün bitmesine {tijd} kaldı. Güzel bir gün geçirdin!", nl:"{naam}, nog {tijd} tot het einde van de werkdag. Je hebt een mooie dag gehad!"}, {t:"{naam}, {tijd} sonra iş günü bitiyor. Bugünkü emeklerin için teşekkürler!", nl:"{naam}, over {tijd} zit de werkdag erop. Bedankt voor je inzet van vandaag!"}, {t:"İş gününün sonu yaklaşıyor, {naam}: {tijd} kaldı. Harika gidiyorsun!", nl:"Het einde van de werkdag komt dichterbij, {naam}: nog {tijd}. Je doet het geweldig!"}],
     eindKlaar: [{t:"İş günü bitti, {naam}! Emeklerin için teşekkürler. İyi akşamlar!", nl:"De werkdag zit erop, {naam}! Bedankt voor je inzet. Fijne avond!"}, {t:"{naam}, iş günü sona erdi. Teşekkürler, akşamın tadını çıkar!", nl:"{naam}, de werkdag is voorbij. Bedankt, geniet van je avond!"}, {t:"Bugün harikaydın, {naam}! İş günü bitti. İyi dinlenmeler!", nl:"Je was geweldig vandaag, {naam}! De werkdag zit erop. Rust lekker uit!"}],
     eindWeekend: [{t:"İş günü ve iş haftası bitti, {naam}! Teşekkürler, iyi hafta sonları!", nl:"De werkdag en de werkweek zitten erop, {naam}! Bedankt en fijn weekend!"}, {t:"{naam}, haftanın sonu geldi! Emeklerin için teşekkürler, hafta sonunun keyfini çıkar!", nl:"{naam}, het is het einde van de week! Bedankt voor je inzet, geniet van het weekend!"}],
     collectiefDagMorgen: [{t:"{naam}, yarın tatil: {feest}. Tadını çıkar!", nl:"{naam}, morgen is het vrij: {feest}. Geniet ervan!"}, {t:"Yarın herkes için tatil, {naam}: {feest}! İyi dinlenmeler.", nl:"Morgen vrij voor iedereen, {naam}: {feest}! Rust lekker uit."}],
@@ -2972,7 +2970,6 @@ const SPECIAAL = {   // {naam}, {n} (dagen), {tijd} (minuten) en {feest}; nl bij
     persVak: [{t:"Tatiline {n} gün kaldı, {naam}! Hak ettin.", nl:"Nog {n} dagen tot je vakantie, {naam}! Je hebt het verdiend."}, {t:"{naam}, tatilin yaklaşıyor: {n} gün sonra başlıyor. Yakında dinlenme zamanı!", nl:"{naam}, je vakantie komt eraan: over {n} dagen begint hij. Straks tijd om te ontspannen!"}],
   },
   pl: {
-    eindAftellen: [{t:"Jeszcze {tijd} do końca dnia pracy, {naam}. Świetnie ci dzisiaj poszło!", nl:"Nog {tijd} tot het einde van de werkdag, {naam}. Het is je vandaag geweldig afgegaan!"}, {t:"{naam}, jeszcze {tijd} i koniec dnia pracy. Dziękujemy za dzisiejszą pracę!", nl:"{naam}, nog {tijd} en de werkdag zit erop. Bedankt voor je werk van vandaag!"}, {t:"Koniec dnia pracy coraz bliżej, {naam}: jeszcze {tijd}. Dobra robota!", nl:"Het einde van de werkdag komt dichterbij, {naam}: nog {tijd}. Goed werk!"}],
     eindKlaar: [{t:"Dzień pracy dobiegł końca, {naam}! Dziękujemy za twoją pracę. Miłego wieczoru!", nl:"De werkdag is ten einde, {naam}! Bedankt voor je werk. Fijne avond!"}, {t:"{naam}, koniec dnia pracy. Dziękujemy i ciesz się wieczorem!", nl:"{naam}, einde van de werkdag. Bedankt en geniet van je avond!"}, {t:"Dobra robota dzisiaj, {naam}! Dzień pracy się skończył. Odpocznij!", nl:"Goed werk vandaag, {naam}! De werkdag is voorbij. Rust uit!"}],
     eindWeekend: [{t:"Dzień pracy i tydzień pracy dobiegły końca, {naam}! Dziękujemy i miłego weekendu!", nl:"De werkdag en de werkweek zijn voorbij, {naam}! Bedankt en fijn weekend!"}, {t:"{naam}, koniec tygodnia! Dziękujemy za twoją pracę. Ciesz się weekendem!", nl:"{naam}, einde van de week! Bedankt voor je werk. Geniet van het weekend!"}],
     collectiefDagMorgen: [{t:"{naam}, jutro wolne: {feest}. Ciesz się nim!", nl:"{naam}, morgen is het vrij: {feest}. Geniet ervan!"}, {t:"Jutro wolne dla wszystkich, {naam}: {feest}! Odpocznij.", nl:"Morgen vrij voor iedereen, {naam}: {feest}! Rust uit."}],
@@ -2985,7 +2982,6 @@ const SPECIAAL = {   // {naam}, {n} (dagen), {tijd} (minuten) en {feest}; nl bij
     persVak: [{t:"Urlop za {n} dni, {naam}! Zasłużony odpoczynek już blisko.", nl:"Vakantie over {n} dagen, {naam}! Verdiende rust is dichtbij."}, {t:"{naam}, twój urlop zbliża się wielkimi krokami: za {n} dni! Wkrótce czas na relaks.", nl:"{naam}, je vakantie komt met rasse schreden dichterbij: over {n} dagen! Straks tijd om te ontspannen."}],
   },
   tb: {   // Bas: de bijzondere complimenten in het Tilburgs, met de woorden en spelling uit de aangeleverde lijst
-    eindAftellen: [{t:"Nog {tijd} tot ut einde van de werkdag, {naam}. Ge hèt ur unne schôone dag van gemaakt!"}, {t:"{naam}, over {tijd} zit de werkdag ur op. Hil bedankt vur vendaog!"}, {t:"Ut einde van de werkdag komt in zicht, {naam}: nog {tijd}. Goed bezig!"}],
     eindKlaar: [{t:"De werkdag zit ur op, {naam}! Hil bedankt. Fijne aovend!"}, {t:"{naam}, ut is zover: einde werkdag! Geniet van den aovend, ge hèt ut verdiend!"}, {t:"Goed bezig vendaog, {naam}! De werkdag zit ur op. Rust mar lekker öt!"}],
     eindWeekend: [{t:"De werkdag én de werkweek zitte ur op, {naam}! Hil bedankt èn fijn weekend!"}, {t:"{naam}, einde van de week! Hil bedankt vur alles. Geniet van ut weekend!"}],
     collectiefDagMorgen: [{t:"{naam}, mèèrege is ut vrij: {feest}. Geniet ur van!"}, {t:"Mèèrege vrij vur iedereen, {naam}: {feest}! Rust mar lekker öt."}],
@@ -2999,11 +2995,6 @@ const SPECIAAL = {   // {naam}, {n} (dagen), {tijd} (minuten) en {feest}; nl bij
   },
 };
 Object.keys(SPECIAAL).forEach(t=>Object.keys(SPECIAAL[t]).forEach(cat=>SPECIAAL[t][cat].forEach((c, i)=>{ c.id = i; c.cat = cat; c.taal = t; })));
-function complimentMinuten(m, taal){   // 'n minuten' in de juiste taal, met het Poolse meervoud (1 minuta, 2 minuty, 5 minut, 22 minuty …)
-  if(taal === "tr") return m + " dakika";
-  if(taal === "pl"){ const e = m % 10, t = m % 100; return m + " " + (m === 1 ? "minuta" : (e >= 2 && e <= 4 && !(t >= 12 && t <= 14) ? "minuty" : "minut")); }
-  return m + (m === 1 ? " minuut" : " minuten");
-}
 let cmpCollectief = null;
 function complimentCollectief(){   // de collectieve vrije dagen uit LOCKED_DAYS als reeksen opeenvolgende werkdagen (een weekend ertussen telt niet): [{start, laatste, k, feest}]
   if(cmpCollectief) return cmpCollectief;
@@ -3048,9 +3039,7 @@ function complimentSpeciaal(naam, now){   // welke bijzondere complimenten er nu
   const uit = { eind: null, collectief: null, persoonlijk: null };
   const dag = DAYS[(now.getDay() || 7) - 1]; if(!dag) return uit;   // weekend: geen werkdag
   const eind = new Date(now); eind.setHours(COMPLIMENT_EINDE_WERKTIJD[0], COMPLIMENT_EINDE_WERKTIJD[1], 0, 0);
-  const m = Math.ceil((eind - now) / 60000);   // minuten tot einde werktijd; 0 of minder: voorbij
-  if(m > 0 && m <= 90) uit.eind = { cat: "eindAftellen", w: { m: m > 5 ? Math.round(m / 5) * 5 : m } };
-  else if(m <= 0) uit.eind = { cat: dag === "VR" ? "eindWeekend" : "eindKlaar", w: {} };
+  if(now >= eind) uit.eind = { cat: dag === "VR" ? "eindWeekend" : "eindKlaar", w: {} };   // pas vanaf het einde van de werktijd: 'de werkdag zit erop'; ervoor geen aftelling, want de eindtijd verschilt per collega
   const c = complimentVooruitCollectief(now);
   if(c) uit.collectief = { cat: "collectief" + (c.k >= COMPLIMENT_VAKANTIE_MIN ? "Vak" : "Dag") + (c.n === 1 ? "Morgen" : ""), w: { n: c.n, feest: c.feest } };
   const p = complimentVooruitPersoon(naam, now);
@@ -3059,7 +3048,7 @@ function complimentSpeciaal(naam, now){   // welke bijzondere complimenten er nu
 }
 function complimentBouwSpeciaal(cat, taal, w){   // een bijzonder compliment in de gewenste taal, met de plaatsvervangers ingevuld ({naam} blijft staan: die wordt gemarkeerd)
   const lijst = SPECIAAL[taal][cat], c = complimentKies(lijst, "tp_cmp_s_" + taal + "_" + cat, Math.max(1, lijst.length - 1));
-  const vul = (s, t)=>{ const x = s.replace(/\{n\}/g, w.n).replace(/\{tijd\}/g, w.m != null ? complimentMinuten(w.m, t) : "").replace(/\{feest\}/g, w.feest ? w.feest[t] : ""); return x.charAt(0).toLocaleUpperCase(COMPLIMENT_LANG[t] || t) + x.slice(1); };   // een zin begint met een hoofdletter, ook als de feestnaam vooraan staat (voor het Turks met de Turkse regels: i wordt İ)
+  const vul = (s, t)=>{ const x = s.replace(/\{n\}/g, w.n).replace(/\{feest\}/g, w.feest ? w.feest[t] : ""); return x.charAt(0).toLocaleUpperCase(COMPLIMENT_LANG[t] || t) + x.slice(1); };   // een zin begint met een hoofdletter, ook als de feestnaam vooraan staat (voor het Turks met de Turkse regels: i wordt İ)
   return { t: vul(c.t, taal), nl: c.nl ? vul(c.nl, "nl") : undefined, taal, id: "s:" + cat + ":" + c.id, speciaal: cat };
 }
 function complimentTaal(naam){   // in welke taal deze collega nu het compliment krijgt: de ingestelde taal of talen (Admin ▸ Boodschap), anders de standaard; staan er meer talen aan, dan om de beurt (de stand wordt bewaard, ook na verversen)
@@ -3098,7 +3087,7 @@ let COMPLIMENT_SMILEY_KANS = 0.35;   // af en toe: ongeveer een op de drie compl
 const SMILEYS = {   // per moment een eigen keuze, allemaal vrolijk
   algemeen: ["😊", "🙂", "😄", "😀", "👍", "👏", "💪", "🌟", "🙌"],
   ochtend: ["☀️", "😊", "🌞", "🙂"], middag: ["😊", "🙂", "👍", "😄"], maandag: ["💪", "😊", "🙌", "😄"], vrijdag: ["🎉", "😎", "😄", "🙌"],
-  eindAftellen: ["💪", "🙌", "😊", "👏"], eindKlaar: ["😊", "🌆", "🙌", "🌙", "😄"], eindWeekend: ["🎉", "😎", "🥳", "☀️", "🙌"],
+  eindKlaar: ["😊", "🌆", "🙌", "🌙", "😄"], eindWeekend: ["🎉", "😎", "🥳", "☀️", "🙌"],
   vrijDag: ["😎", "🎉", "😊", "😄"], vakantie: ["🏖️", "🌴", "☀️", "😎", "✈️", "🎉", "🥳"],
 };
 function complimentSmileySoort(c){   // welke keuze past bij dit compliment
