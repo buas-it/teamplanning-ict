@@ -177,7 +177,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 22 okt 2026 · 76</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 22 okt 2026 · 77</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
   <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span><span class="cmp-emoji" aria-hidden="true"></span><span class="cmp-vertaling" lang="nl"></span></span></div>
@@ -3304,6 +3304,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:4px;">
           <label style="font-size:11px;color:#bbb;display:flex;align-items:center;gap:6px;">Vanaf <input id="msg-eigen-van" type="date" style="font-family:inherit;font-size:11px;padding:4px 6px;border-radius:8px;background:#0b1220;color:#fff;border:1px solid rgba(255,255,255,0.2);color-scheme:dark;"></label>
           <label style="font-size:11px;color:#bbb;display:flex;align-items:center;gap:6px;">Tot en met <input id="msg-eigen-tot" type="date" style="font-family:inherit;font-size:11px;padding:4px 6px;border-radius:8px;background:#0b1220;color:#fff;border:1px solid rgba(255,255,255,0.2);color-scheme:dark;"></label>
+          <button id="msg-eigen-vandaag" type="button" aria-pressed="false" title="Alleen vandaag tonen: vult vanaf en tot en met met de datum van vandaag" style="font-family:inherit;font-size:11px;padding:4px 11px;border-radius:12px;border:1px solid rgba(255,255,255,0.25);background:transparent;color:#bbb;cursor:pointer;">Vandaag</button>
         </div>
         <div style="display:flex;gap:8px;margin-top:10px;"><button id="msg-eigen-ok" type="button" style="font-family:inherit;font-size:12px;font-weight:700;padding:6px 14px;border-radius:14px;border:1px solid #80cbc4;background:#2e7d6b;color:#fff;cursor:pointer;">Toevoegen</button><button id="msg-eigen-annuleer" type="button" style="display:none;font-family:inherit;font-size:12px;padding:6px 14px;border-radius:14px;border:1px solid rgba(255,255,255,0.25);background:transparent;color:#bbb;cursor:pointer;">Annuleren</button></div>
       </div>
@@ -3380,7 +3381,11 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     el.textContent = n + "/" + EIGEN_MAX_TEKST; el.style.color = n > EIGEN_MAX_TEKST ? "#f48fb1" : "#777";
     const vb = q("#msg-eigen-voorbeeld"); if(t) vulVoorbeeld(vb, t, naam); else vb.textContent = "";
   };
-  const resetE = ()=>{ q("#msg-eigen-tekst").value = ""; q("#msg-eigen-van").value = ""; q("#msg-eigen-tot").value = ""; delete q("#msg-eigen-form").dataset.edit; q("#msg-eigen-ok").textContent = "Toevoegen"; q("#msg-eigen-annuleer").style.display = "none"; tellerE(); };
+  const vandaagStand = ()=>{   // de knop 'Vandaag' staat aan als vanaf én tot en met allebei vandaag zijn (ook als de beheerder dat zelf zo invulde)
+    const b = q("#msg-eigen-vandaag"), v = q("#msg-eigen-van").value, t = q("#msg-eigen-tot").value, aan = !!v && v === eigenDatum(new Date()) && t === v;
+    b.setAttribute("aria-pressed", String(aan)); b.textContent = aan ? "✓ Vandaag" : "Vandaag"; b.style.background = aan ? "#2e7d6b" : "transparent"; b.style.borderColor = aan ? "#80cbc4" : "rgba(255,255,255,0.25)"; b.style.color = aan ? "#fff" : "#bbb";
+  };
+  const resetE = ()=>{ q("#msg-eigen-tekst").value = ""; q("#msg-eigen-van").value = ""; q("#msg-eigen-tot").value = ""; delete q("#msg-eigen-form").dataset.edit; q("#msg-eigen-ok").textContent = "Toevoegen"; q("#msg-eigen-annuleer").style.display = "none"; vandaagStand(); tellerE(); };
   const datNl = v=>v ? v.slice(8, 10) + "-" + v.slice(5, 7) + "-" + v.slice(0, 4) : "";
   const toonEigen = ()=>{   // de lijst van de gekozen collega en de knoppen; het formulier zelf blijft zoals de beheerder het invulde
     const sel = q("#msg-eigen-wie"); if(!sel.options.length) TEAM.forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; sel.appendChild(o); });
@@ -3411,7 +3416,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
       wrap.appendChild(rij);
     });
     q("#msg-eigen-form").style.display = mag ? "" : "none";
-    ["#msg-eigen-tekst", "#msg-eigen-van", "#msg-eigen-tot", "#msg-eigen-ok", "#msg-eigen-annuleer"].forEach(s=>{ q(s).disabled = vast; });
+    ["#msg-eigen-tekst", "#msg-eigen-van", "#msg-eigen-tot", "#msg-eigen-vandaag", "#msg-eigen-ok", "#msg-eigen-annuleer"].forEach(s=>{ q(s).disabled = vast; });
     if(!mag) setMsgE("Alleen " + MESSAGE_ADMIN + " kan persoonlijke boodschappen maken.", "");
   };
   const bewaarE = async (actie, e)=>{
@@ -3430,12 +3435,18 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   };
   q("#msg-eigen-wie").onchange = ()=>{ resetE(); setMsgE("", ""); toonEigen(); };
   q("#msg-eigen-tekst").oninput = tellerE;
+  q("#msg-eigen-van").oninput = q("#msg-eigen-tot").oninput = q("#msg-eigen-van").onchange = q("#msg-eigen-tot").onchange = vandaagStand;
+  q("#msg-eigen-vandaag").onclick = ()=>{   // alleen vandaag: vanaf en tot en met allebei vandaag; nog een keer klikken haalt ze weer weg (er wordt nog niets opgeslagen: dat doet 'Toevoegen')
+    if(eigenVast()) return; const v = q("#msg-eigen-van"), t = q("#msg-eigen-tot"), nu = eigenDatum(new Date());
+    if(v.value === nu && t.value === nu){ v.value = ""; t.value = ""; } else { v.value = nu; t.value = nu; }
+    vandaagStand();
+  };
   q("#msg-eigen-annuleer").onclick = ()=>{ resetE(); setMsgE("", ""); };
   q("#msg-eigen-ok").onclick = ()=>{ if(!mag) return; const f = q("#msg-eigen-form"), bewerk = f.dataset.edit; bewaarE(bewerk ? "wijzigen" : "toevoegen", { id: bewerk, t: q("#msg-eigen-tekst").value, van: q("#msg-eigen-van").value, tot: q("#msg-eigen-tot").value }); };
   q("#msg-eigen-lijst").onclick = (ev)=>{
     const b = ev.target.closest && ev.target.closest("button"); if(!b || b.disabled || !mag || overlay.dataset.eigenBezig) return;
     const e = (BOODSCHAP.persoonlijk[eigenWie()] || []).find(x=>x.id === b.dataset.id); if(!e) return;
-    if(b.dataset.actie === "wijzigen"){ q("#msg-eigen-tekst").value = e.t; q("#msg-eigen-van").value = e.van || ""; q("#msg-eigen-tot").value = e.tot || ""; q("#msg-eigen-form").dataset.edit = e.id; q("#msg-eigen-ok").textContent = "Wijziging opslaan"; q("#msg-eigen-annuleer").style.display = ""; tellerE(); setMsgE("", ""); q("#msg-eigen-tekst").focus(); }
+    if(b.dataset.actie === "wijzigen"){ q("#msg-eigen-tekst").value = e.t; q("#msg-eigen-van").value = e.van || ""; q("#msg-eigen-tot").value = e.tot || ""; q("#msg-eigen-form").dataset.edit = e.id; q("#msg-eigen-ok").textContent = "Wijziging opslaan"; q("#msg-eigen-annuleer").style.display = ""; vandaagStand(); tellerE(); setMsgE("", ""); q("#msg-eigen-tekst").focus(); }
     else if(b.dataset.actie === "verwijderen") bewaarE("verwijderen", e);
   };
   const toon = ()=>{
@@ -3446,7 +3457,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     last.textContent = d ? "Laatst gewijzigd: " + d.toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + (BOODSCHAP.by ? " door " + BOODSCHAP.by : "") : "";
     sw.disabled = !mag || !BOODSCHAP.ready; sw.style.cursor = sw.disabled ? "not-allowed" : "pointer"; sw.style.opacity = sw.disabled ? "0.5" : "1";
   };
-  sw.disabled = true; setMsg("Laden...", ""); toonTalen(); toonEigen(); tellerE();
+  sw.disabled = true; setMsg("Laden...", ""); toonTalen(); toonEigen(); vandaagStand(); tellerE();
   await settingsLoad();
   if(!document.body.contains(overlay)) return;
   setMsg(!BOODSCHAP.ready ? "De instelling kon niet worden opgehaald" + (BOODSCHAP.error ? " (" + BOODSCHAP.error + ")" : "") + ". Probeer het zo opnieuw." : (mag ? "" : "Alleen " + MESSAGE_ADMIN + " kan de boodschap aan- en uitzetten."), !BOODSCHAP.ready ? "fout" : "");
