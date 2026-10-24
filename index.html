@@ -154,13 +154,22 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 @keyframes vjbVal { to { transform:translateY(200px) rotate(540deg); opacity:0.2; } }
 @keyframes vjbVlam { from { transform:scale(1, 1); } to { transform:scale(0.85, 1.18); } }
 .vjb .vjb-foto { position:absolute; top:0; right:0; bottom:0; width:58%; z-index:0; height:100%; object-fit:cover; object-position:50% 60%; opacity:0; transition:opacity 0.8s; -webkit-mask-image:linear-gradient(to right, transparent 0, #000 36%); mask-image:linear-gradient(to right, transparent 0, #000 36%); }
-.vjb.vjb-met-foto .vjb-foto { opacity:1; }
-.vjb.vjb-met-foto { justify-content:flex-start; }
-.vjb.vjb-met-foto .vjb-art { opacity:0.55; }   /* met de foto erbij is de tekening een zachte achtergrond links */
-.vjb.vjb-met-foto .vjb-tekst { margin-left:3.5%; max-width:48%; }
-@media (max-width:760px){ .vjb .vjb-foto { width:100%; -webkit-mask-image:none; mask-image:none; } .vjb.vjb-met-foto .vjb-foto { opacity:0.38; } .vjb.vjb-met-foto { justify-content:center; } .vjb.vjb-met-foto .vjb-tekst { margin-left:0; max-width:92%; } }
+.vjb.vjb-feest.vjb-met-foto .vjb-foto { opacity:1; }
+.vjb.vjb-feest.vjb-met-foto { justify-content:flex-start; }
+.vjb.vjb-feest.vjb-met-foto .vjb-art { opacity:0.55; }   /* met de foto erbij is de tekening een zachte achtergrond links */
+.vjb.vjb-feest.vjb-met-foto .vjb-tekst { margin-left:3.5%; max-width:48%; }
+@media (max-width:760px){ .vjb .vjb-foto { width:100%; -webkit-mask-image:none; mask-image:none; } .vjb.vjb-feest.vjb-met-foto .vjb-foto { opacity:0.38; } .vjb.vjb-feest.vjb-met-foto { justify-content:center; } .vjb.vjb-feest.vjb-met-foto .vjb-tekst { margin-left:0; max-width:92%; } }
 @media (prefers-reduced-motion: reduce){ .vjb .vjb-confetti span, .vjb .vjb-vlam { animation:none; } .vjb .vjb-foto { transition:none; } }
 @media (max-width:520px){ .vjb .vjb-tekst { max-width:92%; } }
+.vjb.vjb-bericht { background:radial-gradient(120% 150% at 50% 0%, #1f5b73 0%, #243a6b 55%, #3a2f5e 125%); aspect-ratio:auto; min-height:clamp(150px, 18vw, 200px); }
+.vjb.vjb-bericht .vjb-foto, .vjb.vjb-bericht .vjb-confetti { display:none; }
+.vjb.vjb-bericht .vjb-tekst { max-width:min(780px, 88%); margin:14px 0; padding-top:12px; padding-bottom:14px; }
+.vjb.vjb-bericht .vjb-hoera { font-size:clamp(18px, 2.4vw, 28px); letter-spacing:0.5px; }
+.vjb.vjb-bericht .vjb-titel { font-size:clamp(18px, 2.6vw, 30px); }
+.vjb.vjb-bericht .vjb-titel.vjb-lang { font-size:clamp(15px, 2vw, 23px); }
+.vjb .vjb-emoji { margin-left:0.3em; }
+.vjb.vjb-cyc { animation:tpComplimentFade var(--cmp-dur, 22s) ease-in-out infinite; }
+.compliment.cmp-kaart { visibility:hidden; position:absolute; left:0; right:0; margin-left:auto; margin-right:auto; width:min(940px, 94%); }   /* de kaart staat in beeld: het tekstblok blijft onzichtbaar meedraaien als klok */
 </style>
 </head>
 <body>
@@ -199,7 +208,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 90</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 91</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -2924,7 +2933,6 @@ function complimentEigen(naam, now, altijd){   // een persoonlijke boodschap voo
   return { t: naam === EIGEN_ALGEMEEN ? eigenAlgemeenTekst(basis) : eigenTekst(basis), taal: "nl", id: "e:" + e.id, eigen: true, emoji: e.emoji || null };
 }
 const VERJAARDAG_ID = "__verjaardag__";   // de sleutel voor de verjaardagsberichten: een eigen 'kandidaat' zonder collega, net als de algemene boodschap
-const VERJAARDAG_DAGEN_VOORAF = 7;   // de herinnering loopt de week ervoor: 7 dagen tot en met de dag ervoor
 const VERJAARDAG_FELICITATIES = [
   { t: "Gefeliciteerd met je verjaardag, {naam}!", emoji: "🎂" }, { t: "Hip hip hoera! {naam} is vandaag jarig!", emoji: "🎉" },
   { t: "Van harte gefeliciteerd, {naam}! Geniet van je dag!", emoji: "🌟" }, { t: "{naam}, de allerbeste wensen voor je verjaardag!", emoji: "💐" },
@@ -2932,9 +2940,9 @@ const VERJAARDAG_FELICITATIES = [
 const VERJAARDAG_NAFELICITATIES = [   // op de eerste werkdag na een verjaardag in het weekend
   { t: "Alsnog van harte gefeliciteerd met je verjaardag, {naam}!", emoji: "🎂" }, { t: "{naam} was in het weekend jarig: nog een fijne verjaardag gewenst!", emoji: "🎉" },
   { t: "Iets later, maar niet minder gemeend: gefeliciteerd, {naam}!", emoji: "🎁" }, { t: "Het weekend is voorbij, maar het feest voor {naam} gaat door: gefeliciteerd!", emoji: "🌟" }];
-const VERJAARDAG_HERINNERINGEN = [
-  { t: "Over {n} dagen is {naam} jarig!", emoji: "🎁" }, { t: "Nog {n} dagen tot de verjaardag van {naam}!", emoji: "🎂" },
-  { t: "Zet het in je agenda: over {n} dagen is {naam} jarig!", emoji: "🎉" }];
+const VERJAARDAG_GISTEREN = [   // de dag na de verjaardag
+  { t: "Gisteren was {naam} jarig: nog van harte gefeliciteerd!", emoji: "🎂" }, { t: "{naam} was gisteren jarig: nog een fijne dag gewenst!", emoji: "🎉" },
+  { t: "Nog even gefeliciteerd met de verjaardag van gisteren, {naam}!", emoji: "🎁" }];
 function verjaardagDatum(md, j){ const schrikkel = (j % 4 === 0 && j % 100 !== 0) || j % 400 === 0; return j + "-" + (md === "02-29" && !schrikkel ? "02-28" : md); }   // de verjaardag in dat jaar (JJJJ-MM-DD); 29 februari komt in een jaar zonder schrikkeldag op 28 februari
 function verjaardagVolgende(md, vandaag){ const j0 = parseInt(vandaag.slice(0, 4)), d = verjaardagDatum(md, j0); return d < vandaag ? verjaardagDatum(md, j0 + 1) : d; }   // de eerstvolgende verjaardag op of na vandaag
 function verjaardagVorige(md, vandaag){ const j0 = parseInt(vandaag.slice(0, 4)), d = verjaardagDatum(md, j0); return d <= vandaag ? d : verjaardagDatum(md, j0 - 1); }   // de laatste verjaardag op of voor vandaag
@@ -2948,18 +2956,17 @@ function verjaardagNaWeekend(md, vandaag){   // is vandaag de eerste werkdag na 
   return w === vandaag;
 }
 function verjaardagDagen(md, vandaag){ return eigenDagenTot(vandaag, verjaardagVolgende(md, vandaag)); }
-function verjaardagItems(now, verj){   // wat er vandaag voor verjaardagen is: de felicitatie op de dag zelf en een herinnering in de 7 dagen ervoor; de naaste eerst
-  const vandaag = eigenDatum(now), jaar = parseInt(vandaag.slice(0, 4)), uit = [];
+function verjaardagItems(now, verj){   // wat er vandaag voor verjaardagen is: de dag ervoor ('morgen'), de dag zelf (felicitatie), de dag erna ('gisteren') en na een weekendverjaardag de eerste werkdag erna; eerst de felicitatie van vandaag
+  const vandaag = eigenDatum(now), jaar = parseInt(vandaag.slice(0, 4)), uit = [], gisteren = datumPlus(vandaag, -1);
   Object.keys(verj || {}).forEach(naam=>{
     const n = verjaardagDagen(verj[naam], vandaag), som = naam.split("").reduce((a, c)=>a + c.charCodeAt(0), 0);
     if(n === 0){ const v = VERJAARDAG_FELICITATIES[(som + jaar) % VERJAARDAG_FELICITATIES.length]; uit.push({ n, id: "f:" + naam, t: v.t, emoji: v.emoji, toonNaam: naam }); }
     else if(verjaardagNaWeekend(verj[naam], vandaag)){ const v = VERJAARDAG_NAFELICITATIES[(som + jaar) % VERJAARDAG_NAFELICITATIES.length]; uit.push({ n: 0, id: "n:" + naam, t: v.t, emoji: v.emoji, toonNaam: naam }); }   // jarig in het weekend: ook op de eerste werkdag erna
-    else if(n >= 1 && n <= VERJAARDAG_DAGEN_VOORAF){
-      const v = n === 1 ? { t: "Morgen is {naam} jarig!", emoji: "🎂" } : VERJAARDAG_HERINNERINGEN[(som + n) % VERJAARDAG_HERINNERINGEN.length];
-      uit.push({ n, id: "h:" + naam, t: v.t.replace("{n}", n), emoji: v.emoji, toonNaam: naam });
-    }
+    else if(verjaardagVorige(verj[naam], vandaag) === gisteren){ const v = VERJAARDAG_GISTEREN[(som + jaar) % VERJAARDAG_GISTEREN.length]; uit.push({ n: 0, id: "g:" + naam, t: v.t, emoji: v.emoji, toonNaam: naam }); }
+    else if(n === 1) uit.push({ n, id: "h:" + naam, t: "Morgen is {naam} jarig!", emoji: "🎂", toonNaam: naam });
   });
-  return uit.sort((a, b)=>a.n - b.n || (a.id < b.id ? -1 : 1));
+  const rang = { f: 0, n: 1, g: 2, h: 3 };
+  return uit.sort((a, b)=>rang[a.id.charAt(0)] - rang[b.id.charAt(0)] || (a.id < b.id ? -1 : 1));
 }
 function complimentVerjaardag(now){   // het volgende verjaardagsbericht, om de beurt als er meerdere zijn (de laatst getoonde wordt bewaard)
   const items = verjaardagItems(now, BOODSCHAP.verjaardagen); if(!items.length) return null;
@@ -2987,29 +2994,68 @@ function verjaardagArt(){   // de tekening: slingers, ballonnen links en rechts,
   return s;
 }
 function verjaardagBannerTekst(it, wie){   // de tekst voor deze persoon en dit moment, en voor wie het bekijkt: de jarige zelf leest 'je', de rest de naam; {naam} wordt geel
-  const eigen = wie === it.toonNaam, soort = it.id.charAt(0), n = it.n;
+  const eigen = wie === it.toonNaam, soort = it.id.charAt(0);
   if(soort === "f") return { titel: eigen ? "Je bent vandaag jarig, {naam}!" : "{naam} is vandaag jarig!", sub: eigen ? "Gefeliciteerd! Het hele team wenst je een fantastische dag." : "Van harte gefeliciteerd!", kort: eigen ? "jij bent vandaag jarig" : "{naam} is vandaag jarig" };
   if(soort === "n") return { titel: eigen ? "Alsnog gefeliciteerd, {naam}!" : "{naam} was in het weekend jarig!", sub: eigen ? "Het weekend is voorbij, maar het feest gaat door!" : "Alsnog van harte gefeliciteerd!", kort: eigen ? "jij was in het weekend jarig" : "{naam} was in het weekend jarig" };
-  if(n === 1) return { titel: eigen ? "Morgen ben je jarig, {naam}!" : "{naam} is morgen jarig!", sub: eigen ? "Wij zijn er klaar voor!" : "Zet de slingers maar klaar!", kort: eigen ? "jij bent morgen jarig" : "{naam} is morgen jarig" };
-  return { titel: eigen ? "Over " + n + " dagen ben je jarig, {naam}!" : "{naam} is over " + n + " dagen jarig!", sub: eigen ? "Het feest komt eraan!" : "Zet het in je agenda!", kort: eigen ? "jij bent over " + n + " dagen jarig" : "{naam} is over " + n + " dagen jarig" };
+  if(soort === "g") return { titel: eigen ? "Gisteren was je verjaardag, {naam}!" : "{naam} was gisteren jarig!", sub: eigen ? "Nog een fijne dag gewenst!" : "Nog van harte gefeliciteerd!", kort: eigen ? "jij was gisteren jarig" : "{naam} was gisteren jarig" };
+  return { titel: eigen ? "Morgen ben je jarig, {naam}!" : "{naam} is morgen jarig!", sub: eigen ? "Wij zijn er klaar voor!" : "Zet de slingers maar klaar!", kort: eigen ? "jij bent morgen jarig" : "{naam} is morgen jarig" };
 }
-function verjaardagBanner(){   // de banner onder de legenda: bij iedere gebruiker, ook als de boodschap uit staat; eerst de naaste verjaardag, de rest als 'ook'; hij kan niet gesloten worden
-  const el = document.getElementById("verjaardag-banner"); if(!el) return;
-  const items = currentIdentity && BOODSCHAP.ready ? verjaardagItems(new Date(), BOODSCHAP.verjaardagen) : [], wie = currentIdentity ? currentIdentity.user : "";
-  const ids = items.map(i=>i.id).join(","), vandaag = eigenDatum(new Date());
-  if(!items.length){ if(el.style.display !== "none"){ el.style.display = "none"; delete el.dataset.sleutel; } return; }   // de banner staat er zolang er een verjaardag is en kan niet gesloten worden
-  const sleutel = ids + "|" + wie + "|" + vandaag;
-  if(el.dataset.sleutel === sleutel && el.style.display !== "none") return;   // niets veranderd: niet opnieuw tekenen
-  if(!el.dataset.getekend){
-    el.querySelector(".vjb-art").innerHTML = verjaardagArt();
-    const cf = el.querySelector(".vjb-confetti"); for(let i = 0; i < 22; i++){ const s = document.createElement("span"); s.style.left = (3 + (i * 4.4) % 94) + "%"; s.style.background = VJB_PALET[i % 5]; s.style.animationDuration = (5 + (i * 7) % 5) + "s"; s.style.animationDelay = "-" + ((i * 13) % 9) + "s"; cf.appendChild(s); }
-    el.dataset.getekend = "1";
+function berichtArt(){   // de tekening bij een algemene of persoonlijke boodschap: dezelfde slingers en sterren als bij een verjaardag, met twee tekstballonnen en zachte lichtjes
+  let s = '<path d="M0 12 Q275 40 550 12 Q825 -14 1100 12" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.6"/>';
+  for(let i = 0; i < 22; i++){ const x = 25 + i * 50, y = 22 - 12 * Math.cos(x / 1100 * Math.PI * 4); s += '<path d="M' + (x - 13) + ' ' + y.toFixed(1) + ' L' + (x + 13) + ' ' + y.toFixed(1) + ' L' + x + ' ' + (y + 28).toFixed(1) + ' Z" fill="' + VJB_PALET[i % 5] + '" opacity="0.55"/>'; }
+  [[130, 130, 74, 0.10], [270, 70, 40, 0.08], [980, 140, 82, 0.10], [850, 60, 44, 0.08], [1050, 50, 30, 0.10], [560, 185, 60, 0.06]].forEach(c=>{ s += '<circle cx="' + c[0] + '" cy="' + c[1] + '" r="' + c[2] + '" fill="rgba(255,255,255,' + c[3] + ')"/>'; });
+  s += '<rect x="58" y="70" width="136" height="80" rx="24" fill="rgba(255,255,255,0.14)"/><path d="M96 148 L86 176 L128 148 Z" fill="rgba(255,255,255,0.14)"/><circle cx="102" cy="110" r="5" fill="rgba(255,255,255,0.45)"/><circle cx="126" cy="110" r="5" fill="rgba(255,255,255,0.45)"/><circle cx="150" cy="110" r="5" fill="rgba(255,255,255,0.45)"/>';
+  s += '<rect x="906" y="86" width="136" height="80" rx="24" fill="rgba(255,255,255,0.14)"/><path d="M1004 164 L1014 190 L972 164 Z" fill="rgba(255,255,255,0.14)"/><circle cx="950" cy="126" r="5" fill="rgba(255,255,255,0.45)"/><circle cx="974" cy="126" r="5" fill="rgba(255,255,255,0.45)"/><circle cx="998" cy="126" r="5" fill="rgba(255,255,255,0.45)"/>';
+  const ster = (x, y, r)=>'<path d="M' + x + ' ' + (y - r) + ' L' + (x + r * 0.28) + ' ' + (y - r * 0.28) + ' L' + (x + r) + ' ' + y + ' L' + (x + r * 0.28) + ' ' + (y + r * 0.28) + ' L' + x + ' ' + (y + r) + ' L' + (x - r * 0.28) + ' ' + (y + r * 0.28) + ' L' + (x - r) + ' ' + y + ' L' + (x - r * 0.28) + ' ' + (y - r * 0.28) + ' Z" fill="#fff3b0" opacity="0.8"/>';
+  return s + ster(260, 150, 9) + ster(420, 60, 7) + ster(700, 160, 8) + ster(790, 70, 10) + ster(220, 40, 6) + ster(880, 175, 6);
+}
+function berichtKandidaten(now){   // wie een lopende persoonlijke boodschap heeft, plus de algemene; alleen voor wie de boodschappen te zien krijgt (Monitor en Hans) en als de boodschap voor iedereen aan staat
+  if(!currentIdentity || !BOODSCHAP.ready || !BOODSCHAP.enabled || !COMPLIMENT_USERS.includes(currentIdentity.user) || !complimentReady()) return [];
+  const k = TEAM.filter(p=>complimentEigenActief(p, now).length > 0); if(complimentEigenActief(EIGEN_ALGEMEEN, now).length > 0) k.push(EIGEN_ALGEMEEN);
+  return k;
+}
+function kaartVul(node, tekst, naam){ node.textContent = ""; tekst.split("{naam}").forEach((d, i)=>{ if(i > 0){ const s = document.createElement("span"); s.className = "vjb-naam"; s.textContent = naam; node.appendChild(s); } node.appendChild(document.createTextNode(d)); }); }   // tekst met de naam geel; altijd als tekst, nooit als HTML
+function kaartKlaar(kaart, soort){   // de kaart in de stand 'feest' (verjaardag, met foto en confetti) of 'bericht' (algemeen of persoonlijk)
+  if(kaart.dataset.art !== soort){ kaart.querySelector(".vjb-art").innerHTML = soort === "feest" ? verjaardagArt() : berichtArt(); kaart.dataset.art = soort; }
+  kaart.classList.toggle("vjb-feest", soort === "feest"); kaart.classList.toggle("vjb-bericht", soort === "bericht"); kaart.setAttribute("aria-label", soort === "feest" ? "Verjaardag" : "Boodschap");
+  if(soort === "feest" && !kaart.dataset.getekend){
+    const cf = kaart.querySelector(".vjb-confetti"); for(let i = 0; i < 22; i++){ const s = document.createElement("span"); s.style.left = (3 + (i * 4.4) % 94) + "%"; s.style.background = VJB_PALET[i % 5]; s.style.animationDuration = (5 + (i * 7) % 5) + "s"; s.style.animationDelay = "-" + ((i * 13) % 9) + "s"; cf.appendChild(s); }
+    kaart.dataset.getekend = "1";
   }
-  if(!el.dataset.foto){ el.dataset.foto = "1"; const im = el.querySelector(".vjb-foto"); im.onload = ()=>{ el.classList.add("vjb-met-foto"); }; im.onerror = ()=>{ im.removeAttribute("src"); }; im.src = VJB_FOTO; }   // de foto wordt één keer geladen en komt er als hij binnen is, rechts in de banner; zo niet, dan blijft het bij de tekening
-  const t = verjaardagBannerTekst(items[0], wie), vul = (node, tekst, naam)=>{ node.textContent = ""; tekst.split("{naam}").forEach((d, i)=>{ if(i > 0){ const s = document.createElement("span"); s.className = "vjb-naam"; s.textContent = naam; node.appendChild(s); } node.appendChild(document.createTextNode(d)); }); };
-  vul(el.querySelector(".vjb-titel"), t.titel, items[0].toonNaam); el.querySelector(".vjb-sub").textContent = t.sub;
-  el.querySelector(".vjb-meer").textContent = items.length > 1 ? "Ook: " + items.slice(1, 4).map(i=>verjaardagBannerTekst(i, wie).kort.replace("{naam}", i.toonNaam)).join(" · ") : "";
-  el.dataset.sleutel = sleutel; el.dataset.ids = ids; el.style.display = "";
+  if(soort === "feest" && !kaart.dataset.foto){ kaart.dataset.foto = "1"; const im = kaart.querySelector(".vjb-foto"); im.onload = ()=>{ kaart.classList.add("vjb-met-foto"); }; im.onerror = ()=>{ im.removeAttribute("src"); }; im.src = VJB_FOTO; }   // de foto wordt één keer geladen en komt er als hij binnen is, rechts in de banner; zo niet, dan blijft het bij de tekening
+}
+function kaartFeestInhoud(kaart, items, wie){   // de verjaardag: eerst de naaste, de rest als 'ook'
+  if(!items.length) return false;
+  kaartKlaar(kaart, "feest"); const t = verjaardagBannerTekst(items[0], wie);
+  kaart.querySelector(".vjb-hoera").textContent = "Hoera!"; kaartVul(kaart.querySelector(".vjb-titel"), t.titel, items[0].toonNaam); kaart.querySelector(".vjb-titel").classList.remove("vjb-lang"); kaart.querySelector(".vjb-sub").textContent = t.sub;
+  kaart.querySelector(".vjb-meer").textContent = items.length > 1 ? "Ook: " + items.slice(1, 4).map(i=>verjaardagBannerTekst(i, wie).kort.replace("{naam}", i.toonNaam)).join(" · ") : "";
+  kaart.dataset.ids = items.map(i=>i.id).join(","); return true;
+}
+function kaartBerichtInhoud(kaart, n){   // een algemene of persoonlijke boodschap in dezelfde stijl: bovenaan 'Voor Wim' of 'Voor iedereen', daaronder de tekst
+  kaartKlaar(kaart, "bericht"); const alg = n.naam === EIGEN_ALGEMEEN, t = n.compliment.t, m = /^\{naam\}:\s*/.exec(t), hoofd = m ? t.slice(m[0].length) : t, titel = kaart.querySelector(".vjb-titel");
+  kaart.querySelector(".vjb-hoera").textContent = alg ? "Voor iedereen" : "Voor " + n.naam; kaartVul(titel, hoofd, n.naam);
+  if(n.emoji){ const e = document.createElement("span"); e.className = "vjb-emoji"; e.textContent = n.emoji; titel.appendChild(e); }
+  titel.classList.toggle("vjb-lang", hoofd.length > 60); kaart.querySelector(".vjb-sub").textContent = ""; kaart.querySelector(".vjb-meer").textContent = ""; kaart.dataset.ids = "";
+}
+function kaartCyclusUit(){ const k = document.getElementById("verjaardag-banner"); if(k && k.dataset.modus === "cyc"){ k.classList.remove("vjb-cyc"); k.style.display = "none"; delete k.dataset.modus; delete k.dataset.sleutel; } }   // de kaart die met het blok meedraait gaat weg
+function complimentToon(el, n){   // het volgende bericht in beeld: een gewoon compliment als tekst; een verjaardag, algemene of persoonlijke boodschap als kaart (het tekstblok blijft dan onzichtbaar de klok van het wisselen)
+  complimentRender(el, n);
+  const kaart = document.getElementById("verjaardag-banner"), isKaart = !!kaart && (n.naam === VERJAARDAG_ID || !!(n.compliment && n.compliment.eigen)), wie = currentIdentity ? currentIdentity.user : "";
+  el.classList.toggle("cmp-kaart", false);
+  if(!isKaart){ kaartCyclusUit(); return; }
+  if(n.naam === VERJAARDAG_ID){ if(!kaartFeestInhoud(kaart, verjaardagItems(new Date(), BOODSCHAP.verjaardagen), wie)){ kaartCyclusUit(); return; } } else kaartBerichtInhoud(kaart, n);
+  el.classList.add("cmp-kaart"); kaart.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
+  kaart.dataset.modus = "cyc"; delete kaart.dataset.sleutel; kaart.style.display = ""; kaart.classList.remove("vjb-cyc"); void kaart.offsetWidth; kaart.classList.add("vjb-cyc");
+}
+function verjaardagBanner(){   // de vaste banner: zolang er een verjaardag is en er geen boodschappen zijn om mee af te wisselen (bij iedere gebruiker, ook als de boodschap uit staat); anders draait de kaart mee met het blok. Hij kan niet gesloten worden
+  const el = document.getElementById("verjaardag-banner"); if(!el) return;
+  const nu = new Date(), items = currentIdentity && BOODSCHAP.ready ? verjaardagItems(nu, BOODSCHAP.verjaardagen) : [], wie = currentIdentity ? currentIdentity.user : "";
+  const vast = items.length > 0 && berichtKandidaten(nu).length === 0;
+  if(!vast){ if(el.dataset.modus === "vast"){ el.style.display = "none"; delete el.dataset.modus; delete el.dataset.sleutel; } return; }
+  if(el.dataset.modus === "cyc") kaartCyclusUit();
+  const sleutel = items.map(i=>i.id).join(",") + "|" + wie + "|" + eigenDatum(nu);
+  if(el.dataset.modus === "vast" && el.dataset.sleutel === sleutel && el.style.display !== "none") return;   // niets veranderd: niet opnieuw tekenen
+  el.classList.remove("vjb-cyc"); kaartFeestInhoud(el, items, wie); el.dataset.modus = "vast"; el.dataset.sleutel = sleutel; el.style.display = "";
 }
 function complimentPersoonAan(naam, personen){   // krijgt deze collega de boodschap? Een eigen keuze (Admin ▸ Boodschap) gaat voor; anders de standaard: aan, behalve wie in COMPLIMENT_NIET staat
   if(personen && typeof personen[naam] === "boolean") return personen[naam];
@@ -3411,10 +3457,18 @@ function complimentSmiley(c, rnd){   // af en toe een smiley (anders ''), passen
   cmpSmileyRecent.push(e); cmpSmileyRecent = cmpSmileyRecent.slice(-3);
   return e;
 }
-let cmpOrder = [], cmpLast = null, cmpTurn = {};
+let cmpOrder = [], cmpLast = null, cmpTurn = {}, vjbBeurtBanner = false;
 function verjaardagActief(now){ return !!currentIdentity && BOODSCHAP.ready && verjaardagItems(now, BOODSCHAP.verjaardagen).length > 0; }   // zolang er een verjaardag is (de dag zelf of de week ervoor) staat de banner in plaats van het blok met de andere berichten
 function complimentNext(now, zonderVerjaardag){   // de volgende collega die aan de beurt is (iedereen die er is, om de beurt, niet twee keer achter elkaar dezelfde) met een nieuw compliment; op het scherm zonder het verjaardagsbericht, want dat staat als banner boven dit blok
-  if(zonderVerjaardag && verjaardagActief(now)) return null;   // op het scherm: de banner vervangt het hele blok zolang er een verjaardag is
+  if(zonderVerjaardag && verjaardagActief(now)){   // op het scherm: zolang er een verjaardag is wisselt de banner om en om af met de algemene en persoonlijke boodschappen (de gewone complimenten wachten); zijn die er niet, dan staat de banner vast
+    const kand = berichtKandidaten(now); if(!kand.length) return null;
+    vjbBeurtBanner = !vjbBeurtBanner;
+    if(vjbBeurtBanner){ const v = complimentVerjaardag(now); if(v) return v; }
+    cmpOrder = cmpOrder.filter(n=>kand.includes(n));
+    if(!cmpOrder.length){ cmpOrder = [...kand].sort(()=>Math.random() - 0.5); if(kand.length > 1 && cmpOrder[0] === cmpLast) cmpOrder.push(cmpOrder.shift()); }
+    const nm = cmpOrder.shift(); cmpLast = nm; const eg = complimentEigen(nm, now, true); if(!eg) return null;
+    return { naam: nm, compliment: eg, emoji: eg.emoji || complimentSmiley(eg) };
+  }
   const aanwezig = complimentAudience(now).filter(n=>!zonderVerjaardag || n !== VERJAARDAG_ID); if(!aanwezig.length) return null;
   cmpOrder = cmpOrder.filter(n=>aanwezig.includes(n));
   if(!cmpOrder.length){
@@ -3439,28 +3493,29 @@ function complimentRender(el, n){   // de tekst met de naam duidelijk gemarkeerd
   el.title = vertaling; el.querySelector(".cmp-vertaling").textContent = vertaling;
   el.dataset.emoji = n.emoji || ""; el.querySelector(".cmp-emoji").textContent = n.emoji || "";   // een smiley achter de tekst (apart, zodat de tekst zelf ongewijzigd blijft)
 }
-function complimentHide(el){ el.classList.remove("cmp-on"); el.style.display = "none"; el.dataset.on = ""; el.querySelector(".cmp-text").textContent = ""; el.dataset.naam = ""; el.dataset.taal = ""; el.title = ""; el.querySelector(".cmp-vertaling").textContent = ""; el.dataset.emoji = ""; el.querySelector(".cmp-emoji").textContent = ""; }
+function complimentHide(el){ el.classList.remove("cmp-on", "cmp-kaart"); kaartCyclusUit(); el.style.display = "none"; el.dataset.on = ""; el.querySelector(".cmp-text").textContent = ""; el.dataset.naam = ""; el.dataset.taal = ""; el.title = ""; el.querySelector(".cmp-vertaling").textContent = ""; el.dataset.emoji = ""; el.querySelector(".cmp-emoji").textContent = ""; }
 function complimentReady(){ return firstLoadSettled && HEALTH.data === "ok"; }   // pas met de echte planning van GitHub: niet met het standaardrooster van vóór het laden, anders krijgt iemand een compliment die er helemaal niet is
 function complimentRestart(el){   // een nieuw compliment voor een andere collega, vanaf onzichtbaar
   const n = complimentNext(new Date(), true); if(!n){ complimentHide(el); return; }
-  el.classList.remove("cmp-on"); complimentRender(el, n); void el.offsetWidth; el.classList.add("cmp-on");
+  el.classList.remove("cmp-on"); complimentToon(el, n); void el.offsetWidth; el.classList.add("cmp-on");
 }
 function complimentSync(){   // elke paar seconden: wie er aan de beurt kan komen (zie complimentAudience); is dat er niemand, dan verdwijnt het blok
   try{ verjaardagBanner(); }catch(e){}   // de verjaardagsbanner volgt hetzelfde ritme
   const el = document.getElementById("compliment"); if(!el) return;
   if(!currentIdentity){ if(el.dataset.on) complimentHide(el); return; }   // wie er aan de beurt kan komen (en dus wie wat ziet) bepaalt complimentAudience: verjaardagen zijn voor iedereen, de rest voor Monitor en Hans
   el.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
-  const aanwezig = verjaardagActief(new Date()) ? [] : complimentAudience(new Date()).filter(n=>n !== VERJAARDAG_ID);   // zolang er een verjaardag is staat de banner in plaats van dit blok: dan is er niemand aan de beurt
+  const nu = new Date(), kand = verjaardagActief(nu) ? berichtKandidaten(nu) : null;   // zolang er een verjaardag is: de banner, om en om met de algemene en persoonlijke boodschappen (als die er zijn)
+  const aanwezig = kand ? (kand.length ? [VERJAARDAG_ID, ...kand] : []) : complimentAudience(nu).filter(n=>n !== VERJAARDAG_ID);
   if(!el.dataset.on){
     const n = complimentNext(new Date(), true); if(!n) return;
-    complimentRender(el, n); el.style.display = ""; el.dataset.on = "1"; el.classList.add("cmp-on");
+    complimentToon(el, n); el.style.display = ""; el.dataset.on = "1"; el.classList.add("cmp-on");
   } else if(!aanwezig.length) complimentHide(el);
   else if(!aanwezig.includes(el.dataset.naam)) complimentRestart(el);   // de collega in beeld is intussen ziek, vrij of weg gezet: meteen iemand anders
 }
 function complimentIteration(){   // op het moment dat het compliment helemaal gedoofd is: het volgende
   const el = document.getElementById("compliment"); if(!el || !el.dataset.on) return;
   const n = complimentNext(new Date(), true); if(!n){ complimentHide(el); return; }
-  complimentRender(el, n);
+  complimentToon(el, n);
 }
 
 async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor iedereen aan- of uitzetten (ICT-Systeembeheer, met bewerken aan); ICT-Management kijkt alleen mee
@@ -3517,7 +3572,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     </div>
     <div style="margin-top:22px;border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;">
       <div style="font-size:13px;font-weight:700;color:#80cbc4;">🎂 Verjaardagen</div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 4px;line-height:1.55;">Vul per collega de verjaardag in als dd-mm, bijvoorbeeld 28-12. Op die dag komt er een felicitatie in beeld, de hele dag en ook als de collega er niet is, en in de week ervoor (de 7 dagen tot en met de dag ervoor) een herinnering voor iedereen. Dat gaat elk jaar vanzelf opnieuw. Alleen dag en maand worden bewaard, geen jaar. Verjaardagsberichten staan altijd in beeld: bij iedere gebruiker en ook als de boodschap uit staat. Valt een verjaardag in het weekend, dan staat de felicitatie op de dag zelf én op de eerstvolgende werkdag in beeld. Zolang er een verjaardag is (de dag zelf of de week ervoor), staat de banner in plaats van de andere berichten onder de legenda: ook gewone complimenten en persoonlijke of algemene boodschappen komen dan niet in beeld.</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 4px;line-height:1.55;">Vul per collega de verjaardag in als dd-mm, bijvoorbeeld 28-12. Op die dag komt er een felicitatie in beeld, de hele dag en ook als de collega er niet is, de dag ervoor een aankondiging (‘Morgen is … jarig’) en de dag erna nog een felicitatie. Dat gaat elk jaar vanzelf opnieuw. Alleen dag en maand worden bewaard, geen jaar. Verjaardagsberichten staan altijd in beeld: bij iedere gebruiker en ook als de boodschap uit staat. Valt een verjaardag in het weekend, dan staat de felicitatie op de dag zelf én op de eerstvolgende werkdag in beeld. Zolang er een verjaardag is (de dag ervoor, de dag zelf en de dag erna), wisselt de banner om en om af met de algemene en persoonlijke boodschappen als die er zijn; de gewone complimenten komen dan niet in beeld.</div>
       <div style="font-size:10px;color:#e0a96d;margin-bottom:10px;line-height:1.5;">Let op: de gegevens staan in settings.json en zijn zolang de repo openbaar is voor iedereen leesbaar. Vraag de collega's om toestemming.</div>
       <div id="msg-verj-eerst" style="font-size:11px;color:#bbb;margin-bottom:8px;line-height:1.5;"></div>
       <div id="msg-verj-lijst"></div>
