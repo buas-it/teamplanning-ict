@@ -177,7 +177,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 22 okt 2026 · 81</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 22 okt 2026 · 83</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
   <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span><span class="cmp-emoji" aria-hidden="true"></span><span class="cmp-vertaling" lang="nl"></span></span></div>
@@ -422,7 +422,9 @@ function settingsParseEigen(x){   // één persoonlijke boodschap uit het bestan
   const jl = x.jaarlijks == null ? null : (typeof x.jaarlijks === "string" && eigenMdGeldig(x.jaarlijks) ? x.jaarlijks : undefined);
   if(jl === undefined) return null;   // een kapotte dag bij 'elk jaar': de boodschap telt niet mee
   const emoji = typeof x.emoji === "string" && EIGEN_EMOJI.includes(x.emoji) ? x.emoji : null;
-  return { id: x.id, t, van: jl ? null : van, tot: jl ? null : tot, jaarlijks: jl, emoji, by: typeof x.by === "string" ? x.by : null, at: typeof x.at === "string" ? x.at : null };
+  const doel = x.doel == null ? null : d(x.doel); if(x.doel != null && doel === null) return null;   // een kapotte datum bij 'aftellen': de boodschap telt niet mee
+  if(doel && jl) return null;   // aftellen en elk jaar herhalen samen kan niet
+  return { id: x.id, t, van: jl ? null : van, tot: (jl || doel) ? null : tot, jaarlijks: jl, doel, emoji, by: typeof x.by === "string" ? x.by : null, at: typeof x.at === "string" ? x.at : null };
 }
 function settingsParsePersoonlijk(p){   // {naam: [boodschappen]}: alleen geldige boodschappen, hooguit EIGEN_MAX_AANTAL per collega; rommel breekt niets
   const uit = {}; if(!p || typeof p !== "object" || Array.isArray(p)) return uit;
@@ -532,26 +534,26 @@ async function settingsSetEigen(naam, actie, e){   // een persoonlijke boodschap
   if(naam !== EIGEN_ALGEMEEN && !TEAM.includes(naam) && actie !== "verwijderen") return { error: "Onbekende collega." };   // verwijderen mag ook voor wie niet meer in het team zit (zijn boodschappen staan nog in het bestand)
   if(actie !== "toevoegen" && !(e && typeof e.id === "string")) return { error: "Onbekende boodschap." };
   let nieuw = null;
-  if(actie !== "verwijderen"){ nieuw = eigenValideer(naam, e && e.t, e && e.van, e && e.tot, e && e.jaarlijks, e && e.emoji); if(nieuw.error) return nieuw; }
+  if(actie !== "verwijderen"){ nieuw = eigenValideer(naam, e && e.t, e && e.van, e && e.tot, e && e.jaarlijks, e && e.emoji, e && e.aftellen); if(nieuw.error) return nieuw; }
   const me = currentIdentity.user, kort = t=>t.length > 40 ? t.slice(0, 40) + "…" : t;
   for(let i = 0; i < 4; i++){
     const cur = await settingsFetch(), lijst = (cur.persoonlijk[naam] || []).map(x=>({ ...x })), idx = actie === "toevoegen" ? -1 : lijst.findIndex(x=>x.id === e.id), nu = new Date().toISOString();
     let werkwoord, tekst;
     if(actie === "toevoegen"){
       if(lijst.length >= EIGEN_MAX_AANTAL) return { error: "Maximaal " + EIGEN_MAX_AANTAL + " persoonlijke boodschappen per collega." };
-      lijst.push({ id: eigenId(), t: nieuw.t, van: nieuw.van, tot: nieuw.tot, jaarlijks: nieuw.jaarlijks, emoji: nieuw.emoji, by: me, at: nu }); werkwoord = "toegevoegd"; tekst = nieuw.t;
+      lijst.push({ id: eigenId(), t: nieuw.t, van: nieuw.van, tot: nieuw.tot, jaarlijks: nieuw.jaarlijks, doel: nieuw.doel, emoji: nieuw.emoji, by: me, at: nu }); werkwoord = "toegevoegd"; tekst = nieuw.t;
     } else if(actie === "wijzigen"){
       if(idx < 0){ applySettings(cur); try{ complimentSync(); }catch(x){} return { error: "Deze boodschap bestaat niet meer: een collega heeft hem verwijderd." }; }
       const o = lijst[idx];
-      if(o.t === nieuw.t && (o.van || null) === nieuw.van && (o.tot || null) === nieuw.tot && (o.jaarlijks || null) === nieuw.jaarlijks && (o.emoji || null) === nieuw.emoji){ applySettings(cur); try{ complimentSync(); }catch(x){} return { ok: true, changed: false }; }   // een collega had het al zo gezet
-      lijst[idx] = { id: o.id, t: nieuw.t, van: nieuw.van, tot: nieuw.tot, jaarlijks: nieuw.jaarlijks, emoji: nieuw.emoji, by: me, at: nu }; werkwoord = "gewijzigd"; tekst = nieuw.t;
+      if(o.t === nieuw.t && (o.van || null) === nieuw.van && (o.tot || null) === nieuw.tot && (o.jaarlijks || null) === nieuw.jaarlijks && (o.doel || null) === nieuw.doel && (o.emoji || null) === nieuw.emoji){ applySettings(cur); try{ complimentSync(); }catch(x){} return { ok: true, changed: false }; }   // een collega had het al zo gezet
+      lijst[idx] = { id: o.id, t: nieuw.t, van: nieuw.van, tot: nieuw.tot, jaarlijks: nieuw.jaarlijks, doel: nieuw.doel, emoji: nieuw.emoji, by: me, at: nu }; werkwoord = "gewijzigd"; tekst = nieuw.t;
     } else {
       if(idx < 0){ applySettings(cur); try{ complimentSync(); }catch(x){} return { ok: true, changed: false }; }   // al weg
       tekst = lijst[idx].t; lijst.splice(idx, 1); werkwoord = "verwijderd";
     }
     const raw = cur.raw; raw.v = 1;
     const alle = raw.persoonlijk && typeof raw.persoonlijk === "object" && !Array.isArray(raw.persoonlijk) ? raw.persoonlijk : {};
-    if(lijst.length) alle[naam] = lijst.map(x=>({ id: x.id, t: x.t, van: x.van || null, tot: x.tot || null, jaarlijks: x.jaarlijks || null, emoji: x.emoji || null, by: x.by || null, at: x.at || null })); else delete alle[naam];
+    if(lijst.length) alle[naam] = lijst.map(x=>({ id: x.id, t: x.t, van: x.van || null, tot: x.tot || null, jaarlijks: x.jaarlijks || null, doel: x.doel || null, emoji: x.emoji || null, by: x.by || null, at: x.at || null })); else delete alle[naam];
     raw.persoonlijk = alle;
     const body = { message: (naam === EIGEN_ALGEMEEN ? "Algemene boodschap" : "Persoonlijke boodschap voor " + naam) + " " + werkwoord + " (door " + me + ")", content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
     if(cur.sha) body.sha = cur.sha;
@@ -2807,7 +2809,7 @@ const EIGEN_EMOJI = ["🎂", "🎉", "🏆", "🌟", "💐", "🎁", "🙌"];   
 function eigenMdGeldig(md){ const m = /^(\d\d)-(\d\d)$/.exec(md || ""); if(!m) return false; const mnd = +m[1], dag = +m[2]; return mnd >= 1 && mnd <= 12 && dag >= 1 && dag <= [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mnd - 1]; }   // 'MM-DD' van een bestaande dag (29 februari mag)
 const EIGEN_MAX_TEKST = 100, EIGEN_MAX_AANTAL = 5;   // een persoonlijke boodschap past op twee regels (met de naam erin); per collega hooguit vijf
 function eigenSchoon(t){ return String(t == null ? "" : t).replace(/\s+/g, " ").trim(); }
-function eigenValideer(naam, t, van, tot, jaarlijks, emoji){   // {t, van, tot, jaarlijks, emoji} of {error}; 'elk jaar' bewaart alleen dag en maand (geen jaar, dus ook geen geboortejaar)
+function eigenValideer(naam, t, van, tot, jaarlijks, emoji, aftellen){   // {t, van, tot, jaarlijks, doel, emoji} of {error}; 'elk jaar' bewaart alleen dag en maand (geen jaar, dus ook geen geboortejaar); 'aftellen' gebruikt de datum van 'tot' als de dag waarnaar wordt afgeteld
   t = eigenSchoon(t); van = van || null; tot = tot || null;
   const dat = v=>v === null || (/^\d{4}-\d\d-\d\d$/.test(v) && !isNaN(Date.parse(v)));
   if(!t) return { error: "Schrijf eerst een tekst." };
@@ -2816,14 +2818,25 @@ function eigenValideer(naam, t, van, tot, jaarlijks, emoji){   // {t, van, tot, 
     if(t.length > EIGEN_MAX_TEKST) return { error: "Maximaal " + EIGEN_MAX_TEKST + " tekens." };
   } else if(eigenTekst(t).replace(/\{naam\}/g, naam).length > EIGEN_MAX_TEKST) return { error: "Maximaal " + EIGEN_MAX_TEKST + " tekens (met de naam erin)." };
   emoji = emoji || null; if(emoji && !EIGEN_EMOJI.includes(emoji)) return { error: "Kies een emoji uit de lijst." };
+  if(aftellen && jaarlijks) return { error: "Aftellen en elk jaar herhalen kunnen niet samen." };
+  const heeftDagen = t.indexOf("{dagen}") >= 0;
+  if(aftellen && !heeftDagen) return { error: "Zet {dagen} in de tekst: dat wordt het aantal dagen dat nog te gaan is." };
+  if(!aftellen && heeftDagen) return { error: "{dagen} werkt alleen bij aftellen: vink ‘Aftellen naar een datum’ aan en kies de datum." };
   if(jaarlijks){
     if(!van) return { error: "Kies de datum waarop de boodschap elk jaar komt." };
     if(!dat(van) || !eigenMdGeldig(van.slice(5))) return { error: "Kies een geldige datum." };
-    return { t, van: null, tot: null, jaarlijks: van.slice(5), emoji };
+    return { t, van: null, tot: null, jaarlijks: van.slice(5), doel: null, emoji };
+  }
+  if(aftellen){
+    if(!tot) return { error: "Kies de datum waarnaar je aftelt." };
+    if(!dat(van) || !dat(tot)) return { error: "Kies een geldige datum." };
+    if(tot <= eigenDatum(new Date())) return { error: "Kies een datum in de toekomst." };
+    if(van && van >= tot) return { error: "‘Vanaf’ moet vóór de datum liggen waarnaar je aftelt." };
+    return { t, van, tot: null, jaarlijks: null, doel: tot, emoji };
   }
   if(!dat(van) || !dat(tot)) return { error: "Kies een geldige datum." };
   if(van && tot && van > tot) return { error: "‘Vanaf’ moet vóór ‘Tot en met’ liggen." };
-  return { t, van, tot, jaarlijks: null, emoji };
+  return { t, van, tot, jaarlijks: null, doel: null, emoji };
 }
 function eigenTekst(t){ return t.indexOf("{naam}") >= 0 ? t : "{naam}: " + t; }   // zonder {naam} in de tekst komt de naam er vooraan bij ("Wim: …"), in dezelfde opmaak als bij de gewone complimenten; met {naam} staat de naam waar de beheerder hem zette
 function eigenId(){ return Math.random().toString(36).slice(2, 10) || "x" + Date.now().toString(36); }
@@ -2832,7 +2845,13 @@ function eigenJaarlijksVandaag(md, vandaag){   // is het vandaag de dag van 'elk
   const j = parseInt(vandaag.slice(0, 4)), vmd = vandaag.slice(5), schrikkel = (j % 4 === 0 && j % 100 !== 0) || j % 400 === 0;
   return vmd === md || (md === "02-29" && !schrikkel && vmd === "02-28");
 }
-function eigenStatus(e, vandaag){ if(e.jaarlijks) return eigenJaarlijksVandaag(e.jaarlijks, vandaag) ? "actief" : "gepland"; return e.van && vandaag < e.van ? "gepland" : (e.tot && vandaag > e.tot ? "verlopen" : "actief"); }
+function eigenDagenTot(vandaag, doel){ const p = s=>Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); return Math.round((p(doel) - p(vandaag)) / 86400000); }   // hele dagen tussen twee data, via UTC-middernacht: zomer- en wintertijd veranderen niets
+function eigenMetDagen(e, vandaag){   // bij aftellen: {dagen} wordt het aantal dagen dat nog te gaan is; '{dagen} dagen' wordt bij 1 netjes '1 dag'
+  if(!e.doel || String(e.t).indexOf("{dagen}") < 0) return e.t;
+  const n = eigenDagenTot(vandaag, e.doel);
+  return e.t.replace(/\{dagen\}( dagen)?/g, (m, eenheid)=>n + (eenheid ? (n === 1 ? " dag" : " dagen") : ""));
+}
+function eigenStatus(e, vandaag){ if(e.doel) return vandaag >= e.doel ? "verlopen" : (e.van && vandaag < e.van ? "gepland" : "actief"); if(e.jaarlijks) return eigenJaarlijksVandaag(e.jaarlijks, vandaag) ? "actief" : "gepland"; return e.van && vandaag < e.van ? "gepland" : (e.tot && vandaag > e.tot ? "verlopen" : "actief"); }
 function complimentEigenActief(naam, now){ const v = eigenDatum(now); return (BOODSCHAP.persoonlijk[naam] || []).filter(e=>eigenStatus(e, v) === "actief" && (naam !== EIGEN_ALGEMEEN || eigenAlgemeenTekst(e.t) !== "")); }   // een algemene boodschap die zonder {naam} leeg zou zijn, doet niet mee
 let cmpEigenTurn = {};
 function complimentEigen(naam, now, altijd){   // een persoonlijke boodschap voor deze collega, als er een loopt en hij aan de beurt is: om en om met de gewone complimenten, of bij elke beurt als hij er niet is; meerdere: om de beurt (de volgorde en de taalwisseling blijven ongemoeid)
@@ -2841,7 +2860,8 @@ function complimentEigen(naam, now, altijd){   // een persoonlijke boodschap voo
   const sleutel = "tp_cmp_eigen_" + naam; let laatste = null; try{ laatste = localStorage.getItem(sleutel); }catch(x){}
   const i = lijst.findIndex(e=>e.id === laatste), e = lijst[(i + 1) % lijst.length];
   try{ localStorage.setItem(sleutel, e.id); }catch(x){}
-  return { t: naam === EIGEN_ALGEMEEN ? eigenAlgemeenTekst(e.t) : eigenTekst(e.t), taal: "nl", id: "e:" + e.id, eigen: true, emoji: e.emoji || null };
+  const basis = eigenMetDagen(e, eigenDatum(now));   // bij aftellen: het aantal dagen van vandaag
+  return { t: naam === EIGEN_ALGEMEEN ? eigenAlgemeenTekst(basis) : eigenTekst(basis), taal: "nl", id: "e:" + e.id, eigen: true, emoji: e.emoji || null };
 }
 function complimentPersoonAan(naam, personen){   // krijgt deze collega de boodschap? Een eigen keuze (Admin ▸ Boodschap) gaat voor; anders de standaard: aan, behalve wie in COMPLIMENT_NIET staat
   if(personen && typeof personen[naam] === "boolean") return personen[naam];
@@ -3315,7 +3335,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     </div>
     <div style="margin-top:22px;border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;">
       <div style="font-size:13px;font-weight:700;color:#80cbc4;">✍️ Persoonlijke en algemene boodschap</div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 4px;line-height:1.55;">Schrijf voor een collega een eigen tekst, of kies ‘Algemeen’ voor een boodschap voor iedereen, zonder naam. Die komt in beeld zolang hij loopt, ook als de collega er niet is; is de collega er wel, dan komt hij om en om met de gewone complimenten. Staat de boodschap voor iedereen uit, dan komt hij niet in beeld. Staat hij alleen voor die collega uit (bij Per collega), dan komt hij wel in beeld: zonder gewone complimenten. Zet er eventueel een periode bij. De naam van de collega komt er vanzelf voor te staan, geel gemarkeerd zoals bij de gewone complimenten; zet je zelf {naam} in de tekst, dan komt de naam op die plek. Maximaal 100 tekens (met de naam erin), vijf per collega. Met ‘Elk jaar herhalen’ komt de boodschap elk jaar op die dag in beeld (alleen dag en maand worden bewaard); een gekozen emoji staat altijd achter de tekst.</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 4px;line-height:1.55;">Schrijf voor een collega een eigen tekst, of kies ‘Algemeen’ voor een boodschap voor iedereen, zonder naam. Die komt in beeld zolang hij loopt, ook als de collega er niet is; is de collega er wel, dan komt hij om en om met de gewone complimenten. Staat de boodschap voor iedereen uit, dan komt hij niet in beeld. Staat hij alleen voor die collega uit (bij Per collega), dan komt hij wel in beeld: zonder gewone complimenten. Zet er eventueel een periode bij. De naam van de collega komt er vanzelf voor te staan, geel gemarkeerd zoals bij de gewone complimenten; zet je zelf {naam} in de tekst, dan komt de naam op die plek. Maximaal 100 tekens (met de naam erin), vijf per collega. Met ‘Eén dag’ komt de boodschap alleen op die ene dag in beeld. Met ‘Elk jaar herhalen’ komt de boodschap elk jaar op die dag in beeld (alleen dag en maand worden bewaard); een gekozen emoji staat altijd achter de tekst. Met ‘Aftellen naar een datum’ kies je de dag waarnaar je aftelt en zet je {dagen} in de tekst, bijvoorbeeld ‘Nog {dagen} dagen tot het teamuitje!’: het getal klopt elke dag vanzelf (bij 1 staat er ‘1 dag’) en de boodschap stopt als die dag aanbreekt.</div>
       <div style="font-size:10px;color:#e0a96d;margin-bottom:10px;line-height:1.5;">Let op: de tekst staat in settings.json en is zolang de repo openbaar is voor iedereen leesbaar. Schrijf er niets vertrouwelijks in.</div>
       <div id="msg-eigen-actief-kop" style="font-size:12px;font-weight:700;color:#fff;margin:6px 0 2px;">Actieve boodschappen (0)</div>
       <div id="msg-eigen-actief" style="margin-bottom:14px;"></div>
@@ -3328,11 +3348,14 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
         <div id="msg-eigen-voorbeeld" style="font-size:12px;color:#fff;min-height:17px;margin-top:2px;line-height:1.45;word-break:break-word;"></div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:4px;">
           <label style="font-size:11px;color:#bbb;display:flex;align-items:center;gap:6px;"><span id="msg-eigen-van-label">Vanaf</span> <input id="msg-eigen-van" type="date" style="font-family:inherit;font-size:11px;padding:4px 6px;border-radius:8px;background:#0b1220;color:#fff;border:1px solid rgba(255,255,255,0.2);color-scheme:dark;"></label>
-          <label style="font-size:11px;color:#bbb;display:flex;align-items:center;gap:6px;">Tot en met <input id="msg-eigen-tot" type="date" style="font-family:inherit;font-size:11px;padding:4px 6px;border-radius:8px;background:#0b1220;color:#fff;border:1px solid rgba(255,255,255,0.2);color-scheme:dark;"></label>
+          <label style="font-size:11px;color:#bbb;display:flex;align-items:center;gap:6px;"><span id="msg-eigen-tot-label">Tot en met</span> <input id="msg-eigen-tot" type="date" style="font-family:inherit;font-size:11px;padding:4px 6px;border-radius:8px;background:#0b1220;color:#fff;border:1px solid rgba(255,255,255,0.2);color-scheme:dark;"></label>
           <button id="msg-eigen-vandaag" type="button" aria-pressed="false" title="Alleen vandaag tonen: vult vanaf en tot en met met de datum van vandaag" style="font-family:inherit;font-size:11px;padding:4px 11px;border-radius:12px;border:1px solid rgba(255,255,255,0.25);background:transparent;color:#bbb;cursor:pointer;">Vandaag</button>
         </div>
         <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px;">
           <label style="font-size:11px;color:#bbb;display:flex;align-items:center;gap:6px;cursor:pointer;"><input id="msg-eigen-jaarlijks" type="checkbox" style="accent-color:#2e7d6b;"> 🎂 Elk jaar herhalen (verjaardag, jubileum)</label>
+          <label style="font-size:11px;color:#bbb;display:flex;align-items:center;gap:6px;cursor:pointer;"><input id="msg-eigen-eendag" type="checkbox" style="accent-color:#2e7d6b;"> 📅 Eén dag</label>
+          <label style="font-size:11px;color:#bbb;display:flex;align-items:center;gap:6px;cursor:pointer;"><input id="msg-eigen-aftellen" type="checkbox" style="accent-color:#2e7d6b;"> ⏳ Aftellen naar een datum</label>
+          <button id="msg-eigen-dagen-knop" type="button" title="Zet {dagen} in de tekst: het aantal dagen dat nog te gaan is" style="display:none;font-family:inherit;font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,0.25);background:transparent;color:#bbb;cursor:pointer;">Voeg {dagen} in</button>
           <label style="font-size:11px;color:#bbb;display:flex;align-items:center;gap:6px;">Emoji <select id="msg-eigen-emoji" style="font-family:inherit;font-size:12px;padding:3px 6px;border-radius:8px;background:#0b1220;color:#fff;border:1px solid rgba(255,255,255,0.2);"><option value="">automatisch</option><option value="🎂">🎂</option><option value="🎉">🎉</option><option value="🏆">🏆</option><option value="🌟">🌟</option><option value="💐">💐</option><option value="🎁">🎁</option><option value="🙌">🙌</option></select></label>
         </div>
         <div style="display:flex;gap:8px;margin-top:10px;"><button id="msg-eigen-ok" type="button" style="font-family:inherit;font-size:12px;font-weight:700;padding:6px 14px;border-radius:14px;border:1px solid #80cbc4;background:#2e7d6b;color:#fff;cursor:pointer;">Toevoegen</button><button id="msg-eigen-annuleer" type="button" style="display:none;font-family:inherit;font-size:12px;padding:6px 14px;border-radius:14px;border:1px solid rgba(255,255,255,0.25);background:transparent;color:#bbb;cursor:pointer;">Annuleren</button></div>
@@ -3409,27 +3432,30 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   const tellerE = ()=>{   // de teller (met de naam erin) en de voorbeeldregel
     const t = eigenSchoon(q("#msg-eigen-tekst").value), naam = eigenWie(), n = t ? (naam === EIGEN_ALGEMEEN ? t.length : eigenTekst(t).replace(/\{naam\}/g, naam).length) : 0, el = q("#msg-eigen-teller");
     el.textContent = n + "/" + EIGEN_MAX_TEKST; el.style.color = n > EIGEN_MAX_TEKST ? "#f48fb1" : "#777";
-    const vb = q("#msg-eigen-voorbeeld"); if(t) vulVoorbeeld(vb, t, naam, q("#msg-eigen-emoji").value); else vb.textContent = "";
+    const vb = q("#msg-eigen-voorbeeld"); const doel = q("#msg-eigen-aftellen").checked ? q("#msg-eigen-tot").value : "";   // bij aftellen: het voorbeeld met het aantal dagen van vandaag
+    if(t) vulVoorbeeld(vb, doel ? eigenMetDagen({ t, doel }, eigenDatum(new Date())) : t, naam, q("#msg-eigen-emoji").value); else vb.textContent = "";
   };
   const vandaagStand = ()=>{   // de knop 'Vandaag' staat aan als vanaf én tot en met allebei vandaag zijn (ook als de beheerder dat zelf zo invulde)
     const b = q("#msg-eigen-vandaag"), v = q("#msg-eigen-van").value, t = q("#msg-eigen-tot").value, aan = !!v && v === eigenDatum(new Date()) && t === v;
     b.setAttribute("aria-pressed", String(aan)); b.textContent = aan ? "✓ Vandaag" : "Vandaag"; b.style.background = aan ? "#2e7d6b" : "transparent"; b.style.borderColor = aan ? "#80cbc4" : "rgba(255,255,255,0.25)"; b.style.color = aan ? "#fff" : "#bbb";
   };
-  const jaarlijksStand = ()=>{   // 'elk jaar herhalen': één datum (de dag), dus 'tot en met' en de knop 'Vandaag' doen dan niet mee
-    const aan = q("#msg-eigen-jaarlijks").checked, vast = eigenVast();
-    q("#msg-eigen-van-label").textContent = aan ? "Datum" : "Vanaf"; if(aan) q("#msg-eigen-tot").value = "";
-    q("#msg-eigen-tot").disabled = vast || aan; q("#msg-eigen-vandaag").disabled = vast || aan; q("#msg-eigen-jaarlijks").disabled = vast; q("#msg-eigen-emoji").disabled = vast;
-    q("#msg-eigen-tot").parentElement.style.opacity = aan ? "0.4" : "1"; q("#msg-eigen-vandaag").style.opacity = aan ? "0.4" : "1";   // zichtbaar dat deze twee dan niet meedoen
+  const jaarlijksStand = ()=>{   // 'eén dag': één datum, 'tot en met' laat dezelfde dag zien (uitgeschakeld); 'elk jaar herhalen': één datum (de dag), 'tot en met' en 'Vandaag' doen niet mee; 'aftellen': 'tot en met' wordt de dag waarnaar wordt afgeteld, 'Vandaag' doet niet mee; deze drie kunnen niet samen
+    const jaar = q("#msg-eigen-jaarlijks").checked, af = q("#msg-eigen-aftellen").checked, een = q("#msg-eigen-eendag").checked, vast = eigenVast();
+    q("#msg-eigen-van-label").textContent = (jaar || een) ? "Datum" : "Vanaf"; q("#msg-eigen-tot-label").textContent = af ? "Aftellen naar" : "Tot en met";
+    if(jaar) q("#msg-eigen-tot").value = ""; else if(een) q("#msg-eigen-tot").value = q("#msg-eigen-van").value;
+    q("#msg-eigen-tot").disabled = vast || jaar || een; q("#msg-eigen-vandaag").disabled = vast || jaar || af; q("#msg-eigen-jaarlijks").disabled = vast || af; q("#msg-eigen-aftellen").disabled = vast || jaar; q("#msg-eigen-eendag").disabled = vast; q("#msg-eigen-emoji").disabled = vast;
+    q("#msg-eigen-tot").parentElement.style.opacity = (jaar || een) ? "0.4" : "1"; q("#msg-eigen-vandaag").style.opacity = (jaar || af) ? "0.4" : "1";   // zichtbaar wat dan niet meedoet
+    q("#msg-eigen-dagen-knop").style.display = af ? "" : "none"; q("#msg-eigen-dagen-knop").disabled = vast;
     vandaagStand();
   };
-  const resetE = ()=>{ q("#msg-eigen-tekst").value = ""; q("#msg-eigen-van").value = ""; q("#msg-eigen-tot").value = ""; q("#msg-eigen-jaarlijks").checked = false; q("#msg-eigen-emoji").value = ""; delete q("#msg-eigen-form").dataset.edit; q("#msg-eigen-ok").textContent = "Toevoegen"; q("#msg-eigen-annuleer").style.display = "none"; jaarlijksStand(); tellerE(); };
+  const resetE = ()=>{ q("#msg-eigen-tekst").value = ""; q("#msg-eigen-van").value = ""; q("#msg-eigen-tot").value = ""; q("#msg-eigen-jaarlijks").checked = false; q("#msg-eigen-aftellen").checked = false; q("#msg-eigen-eendag").checked = false; q("#msg-eigen-emoji").value = ""; delete q("#msg-eigen-form").dataset.edit; q("#msg-eigen-ok").textContent = "Toevoegen"; q("#msg-eigen-annuleer").style.display = "none"; jaarlijksStand(); tellerE(); };
   const datNl = v=>v ? v.slice(8, 10) + "-" + v.slice(5, 7) + "-" + v.slice(0, 4) : "";
   const eigenRij = (naam, e, vandaag, vast, inOverzicht, notitie)=>{   // één boodschap als rij (tekst met de naam, status, periode, wie) met ✎ en × — voor de lijst van één collega en voor het overzicht van alle actieve
     const st = eigenStatus(e, vandaag), rij = document.createElement("div"), tk = document.createElement("div"), meta = document.createElement("div"), kleur = st === "actief" ? "#80cbc4" : (st === "gepland" ? "#e0a96d" : "#888");
     rij.className = "msg-eigen-rij"; rij.dataset.id = e.id; rij.dataset.naam = naam; rij.dataset.status = st; rij.style.cssText = "display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.06);";
     const tekstkolom = document.createElement("div"); tekstkolom.style.cssText = "flex:1;min-width:0;";
-    tk.className = "msg-eigen-tekst"; vulVoorbeeld(tk, e.t, naam, e.emoji); tk.style.cssText = "font-size:12px;color:" + (st === "verlopen" ? "#888" : "#fff") + ";line-height:1.45;word-break:break-word;";
-    const periode = e.jaarlijks ? "elk jaar op " + e.jaarlijks.slice(3) + "-" + e.jaarlijks.slice(0, 2) : e.van && e.tot ? datNl(e.van) + " t/m " + datNl(e.tot) : (e.van ? "vanaf " + datNl(e.van) : (e.tot ? "t/m " + datNl(e.tot) : "altijd"));
+    tk.className = "msg-eigen-tekst"; vulVoorbeeld(tk, eigenMetDagen(e, vandaag), naam, e.emoji); tk.style.cssText = "font-size:12px;color:" + (st === "verlopen" ? "#888" : "#fff") + ";line-height:1.45;word-break:break-word;";
+    const periode = e.doel ? (e.van ? "vanaf " + datNl(e.van) + " · " : "") + "aftellen naar " + datNl(e.doel) : e.jaarlijks ? "elk jaar op " + e.jaarlijks.slice(3) + "-" + e.jaarlijks.slice(0, 2) : e.van && e.van === e.tot ? "alleen op " + datNl(e.van) : e.van && e.tot ? datNl(e.van) + " t/m " + datNl(e.tot) : (e.van ? "vanaf " + datNl(e.van) : (e.tot ? "t/m " + datNl(e.tot) : "altijd"));
     meta.className = "msg-eigen-meta"; meta.style.cssText = "font-size:10px;color:#777;margin-top:2px;";
     if(inOverzicht){ const wie = document.createElement("span"); wie.className = "msg-eigen-wie"; wie.textContent = naam === EIGEN_ALGEMEEN ? "Algemeen" : naam; wie.style.cssText = "color:#bbb;font-weight:700;"; meta.appendChild(wie); meta.appendChild(document.createTextNode(" · ")); }
     const badge = document.createElement("span"); badge.textContent = st; badge.style.cssText = "color:" + kleur + ";font-weight:700;"; meta.appendChild(badge);
@@ -3440,7 +3466,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     if(mag){
       [["wijzigen", "✎", "Wijzigen"], ["verwijderen", "×", "Verwijderen"]].forEach(([actie, sym, titel])=>{
         if(actie === "wijzigen" && naam !== EIGEN_ALGEMEEN && !TEAM.includes(naam)) return;   // wie niet meer in het team zit: alleen verwijderen
-        const bt = document.createElement("button"); bt.type = "button"; bt.dataset.actie = actie; bt.dataset.id = e.id; bt.dataset.naam = naam; bt.textContent = sym; bt.title = titel; bt.setAttribute("aria-label", titel + ": " + eigenWeergave(naam, e.t)); bt.disabled = vast;
+        const bt = document.createElement("button"); bt.type = "button"; bt.dataset.actie = actie; bt.dataset.id = e.id; bt.dataset.naam = naam; bt.textContent = sym; bt.title = titel; bt.setAttribute("aria-label", titel + ": " + eigenWeergave(naam, eigenMetDagen(e, vandaag))); bt.disabled = vast;
         bt.style.cssText = "font-family:inherit;font-size:13px;padding:2px 9px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#bbb;flex-shrink:0;cursor:" + (vast ? "not-allowed" : "pointer") + ";opacity:" + (vast ? "0.55" : "1") + ";";
         rij.appendChild(bt);
       });
@@ -3477,7 +3503,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   };
   const bewaarE = async (actie, e, voor)=>{
     const naam = voor || eigenWie(); if(overlay.dataset.eigenBezig) return;
-    if(actie !== "verwijderen"){ const v = eigenValideer(naam, e.t, e.van, e.tot, e.jaarlijks, e.emoji); if(v.error){ setMsgE(v.error, "fout"); return; } }
+    if(actie !== "verwijderen"){ const v = eigenValideer(naam, e.t, e.van, e.tot, e.jaarlijks, e.emoji, e.aftellen); if(v.error){ setMsgE(v.error, "fout"); return; } }
     overlay.dataset.eigenBezig = "1"; toonEigen(); setMsgE("Opslaan...", "");
     let r; try{ r = await settingsSetEigen(naam, actie, e); }catch(x){ r = { error: "Opslaan mislukt (" + ((x && x.message) || x) + "). De boodschap is niet veranderd." }; }
     delete overlay.dataset.eigenBezig;
@@ -3491,16 +3517,25 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   };
   q("#msg-eigen-wie").onchange = ()=>{ resetE(); setMsgE("", ""); toonEigen(); };
   q("#msg-eigen-tekst").oninput = tellerE;
-  q("#msg-eigen-jaarlijks").onchange = ()=>{ jaarlijksStand(); tellerE(); };
+  q("#msg-eigen-jaarlijks").onchange = ()=>{ if(q("#msg-eigen-jaarlijks").checked){ q("#msg-eigen-aftellen").checked = false; q("#msg-eigen-eendag").checked = false; } jaarlijksStand(); tellerE(); };
+  q("#msg-eigen-aftellen").onchange = ()=>{ if(q("#msg-eigen-aftellen").checked){ q("#msg-eigen-jaarlijks").checked = false; q("#msg-eigen-eendag").checked = false; } jaarlijksStand(); tellerE(); };
+  q("#msg-eigen-eendag").onchange = ()=>{ if(q("#msg-eigen-eendag").checked){ q("#msg-eigen-jaarlijks").checked = false; q("#msg-eigen-aftellen").checked = false; } jaarlijksStand(); tellerE(); };
+  q("#msg-eigen-tot").addEventListener("input", ()=>tellerE()); q("#msg-eigen-tot").addEventListener("change", ()=>tellerE());   // bij aftellen verandert het voorbeeld mee met de datum
+  q("#msg-eigen-dagen-knop").onclick = ()=>{ const i = q("#msg-eigen-tekst"); if(i.disabled) return; const a = i.selectionStart == null ? i.value.length : i.selectionStart, z = i.selectionEnd == null ? a : i.selectionEnd; i.value = i.value.slice(0, a) + "{dagen}" + i.value.slice(z); i.focus(); try{ i.setSelectionRange(a + 7, a + 7); }catch(x){} tellerE(); };
   q("#msg-eigen-emoji").onchange = tellerE;
-  q("#msg-eigen-van").oninput = q("#msg-eigen-tot").oninput = q("#msg-eigen-van").onchange = q("#msg-eigen-tot").onchange = vandaagStand;
+  const spiegelDag = ()=>{ if(q("#msg-eigen-eendag").checked) q("#msg-eigen-tot").value = q("#msg-eigen-van").value; vandaagStand(); };   // bij 'Eén dag' toont 'tot en met' dezelfde dag
+  q("#msg-eigen-van").oninput = q("#msg-eigen-tot").oninput = q("#msg-eigen-van").onchange = q("#msg-eigen-tot").onchange = spiegelDag;
   q("#msg-eigen-vandaag").onclick = ()=>{   // alleen vandaag: vanaf en tot en met allebei vandaag; nog een keer klikken haalt ze weer weg (er wordt nog niets opgeslagen: dat doet 'Toevoegen')
     if(eigenVast()) return; const v = q("#msg-eigen-van"), t = q("#msg-eigen-tot"), nu = eigenDatum(new Date());
-    if(v.value === nu && t.value === nu){ v.value = ""; t.value = ""; } else { v.value = nu; t.value = nu; }
-    vandaagStand();
+    if(v.value === nu && t.value === nu){ v.value = ""; t.value = ""; q("#msg-eigen-eendag").checked = false; }
+    else { v.value = nu; t.value = nu; q("#msg-eigen-eendag").checked = true; q("#msg-eigen-jaarlijks").checked = false; q("#msg-eigen-aftellen").checked = false; }   // vandaag is één dag
+    jaarlijksStand(); tellerE();
   };
   q("#msg-eigen-annuleer").onclick = ()=>{ resetE(); setMsgE("", ""); };
-  q("#msg-eigen-ok").onclick = ()=>{ if(!mag) return; const f = q("#msg-eigen-form"), bewerk = f.dataset.edit; bewaarE(bewerk ? "wijzigen" : "toevoegen", { id: bewerk, t: q("#msg-eigen-tekst").value, van: q("#msg-eigen-van").value, tot: q("#msg-eigen-tot").value, jaarlijks: q("#msg-eigen-jaarlijks").checked, emoji: q("#msg-eigen-emoji").value }); };
+  q("#msg-eigen-ok").onclick = ()=>{
+    if(!mag) return; const f = q("#msg-eigen-form"), bewerk = f.dataset.edit, een = q("#msg-eigen-eendag").checked, van = q("#msg-eigen-van").value;
+    if(een && !van){ setMsgE("Kies de datum waarop de boodschap komt.", "fout"); return; }
+    bewaarE(bewerk ? "wijzigen" : "toevoegen", { id: bewerk, t: q("#msg-eigen-tekst").value, van, tot: een ? van : q("#msg-eigen-tot").value, jaarlijks: q("#msg-eigen-jaarlijks").checked, aftellen: q("#msg-eigen-aftellen").checked, emoji: q("#msg-eigen-emoji").value }); };
   q("#msg-eigen-actief").onclick = (ev)=>{   // het overzicht van alle actieve boodschappen: verwijderen kan meteen; wijzigen kiest de collega in het keuzemenu en laadt de boodschap in het formulier
     const b = ev.target.closest && ev.target.closest("button"); if(!b || b.disabled || !mag || overlay.dataset.eigenBezig) return;
     const naam = b.dataset.naam, e = (BOODSCHAP.persoonlijk[naam] || []).find(x=>x.id === b.dataset.id); if(!e) return;
@@ -3514,7 +3549,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   q("#msg-eigen-lijst").onclick = (ev)=>{
     const b = ev.target.closest && ev.target.closest("button"); if(!b || b.disabled || !mag || overlay.dataset.eigenBezig) return;
     const e = (BOODSCHAP.persoonlijk[eigenWie()] || []).find(x=>x.id === b.dataset.id); if(!e) return;
-    if(b.dataset.actie === "wijzigen"){ q("#msg-eigen-tekst").value = e.t; q("#msg-eigen-jaarlijks").checked = !!e.jaarlijks; q("#msg-eigen-emoji").value = e.emoji || ""; q("#msg-eigen-van").value = e.jaarlijks ? (e.jaarlijks === "02-29" ? 2028 : new Date().getFullYear()) + "-" + e.jaarlijks : (e.van || ""); q("#msg-eigen-tot").value = e.tot || ""; q("#msg-eigen-form").dataset.edit = e.id; q("#msg-eigen-ok").textContent = "Wijziging opslaan"; q("#msg-eigen-annuleer").style.display = ""; jaarlijksStand(); tellerE(); setMsgE("", ""); q("#msg-eigen-tekst").focus(); }
+    if(b.dataset.actie === "wijzigen"){ q("#msg-eigen-tekst").value = e.t; q("#msg-eigen-jaarlijks").checked = !!e.jaarlijks; q("#msg-eigen-emoji").value = e.emoji || ""; q("#msg-eigen-van").value = e.jaarlijks ? (e.jaarlijks === "02-29" ? 2028 : new Date().getFullYear()) + "-" + e.jaarlijks : (e.van || ""); q("#msg-eigen-aftellen").checked = !!e.doel; q("#msg-eigen-eendag").checked = !e.jaarlijks && !e.doel && !!e.van && e.van === e.tot; q("#msg-eigen-tot").value = e.doel || e.tot || ""; q("#msg-eigen-form").dataset.edit = e.id; q("#msg-eigen-ok").textContent = "Wijziging opslaan"; q("#msg-eigen-annuleer").style.display = ""; jaarlijksStand(); tellerE(); setMsgE("", ""); q("#msg-eigen-tekst").focus(); }
     else if(b.dataset.actie === "verwijderen") bewaarE("verwijderen", e);
   };
   const toon = ()=>{
