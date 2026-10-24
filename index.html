@@ -199,7 +199,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 89</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 90</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -3412,7 +3412,9 @@ function complimentSmiley(c, rnd){   // af en toe een smiley (anders ''), passen
   return e;
 }
 let cmpOrder = [], cmpLast = null, cmpTurn = {};
+function verjaardagActief(now){ return !!currentIdentity && BOODSCHAP.ready && verjaardagItems(now, BOODSCHAP.verjaardagen).length > 0; }   // zolang er een verjaardag is (de dag zelf of de week ervoor) staat de banner in plaats van het blok met de andere berichten
 function complimentNext(now, zonderVerjaardag){   // de volgende collega die aan de beurt is (iedereen die er is, om de beurt, niet twee keer achter elkaar dezelfde) met een nieuw compliment; op het scherm zonder het verjaardagsbericht, want dat staat als banner boven dit blok
+  if(zonderVerjaardag && verjaardagActief(now)) return null;   // op het scherm: de banner vervangt het hele blok zolang er een verjaardag is
   const aanwezig = complimentAudience(now).filter(n=>!zonderVerjaardag || n !== VERJAARDAG_ID); if(!aanwezig.length) return null;
   cmpOrder = cmpOrder.filter(n=>aanwezig.includes(n));
   if(!cmpOrder.length){
@@ -3448,7 +3450,7 @@ function complimentSync(){   // elke paar seconden: wie er aan de beurt kan kome
   const el = document.getElementById("compliment"); if(!el) return;
   if(!currentIdentity){ if(el.dataset.on) complimentHide(el); return; }   // wie er aan de beurt kan komen (en dus wie wat ziet) bepaalt complimentAudience: verjaardagen zijn voor iedereen, de rest voor Monitor en Hans
   el.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
-  const aanwezig = complimentAudience(new Date()).filter(n=>n !== VERJAARDAG_ID);   // het verjaardagsbericht is de banner erboven
+  const aanwezig = verjaardagActief(new Date()) ? [] : complimentAudience(new Date()).filter(n=>n !== VERJAARDAG_ID);   // zolang er een verjaardag is staat de banner in plaats van dit blok: dan is er niemand aan de beurt
   if(!el.dataset.on){
     const n = complimentNext(new Date(), true); if(!n) return;
     complimentRender(el, n); el.style.display = ""; el.dataset.on = "1"; el.classList.add("cmp-on");
@@ -3515,7 +3517,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     </div>
     <div style="margin-top:22px;border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;">
       <div style="font-size:13px;font-weight:700;color:#80cbc4;">🎂 Verjaardagen</div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 4px;line-height:1.55;">Vul per collega de verjaardag in als dd-mm, bijvoorbeeld 28-12. Op die dag komt er een felicitatie in beeld, de hele dag en ook als de collega er niet is, en in de week ervoor (de 7 dagen tot en met de dag ervoor) een herinnering voor iedereen. Dat gaat elk jaar vanzelf opnieuw. Alleen dag en maand worden bewaard, geen jaar. Verjaardagsberichten staan altijd in beeld: bij iedere gebruiker en ook als de boodschap uit staat. Valt een verjaardag in het weekend, dan staat de felicitatie op de dag zelf én op de eerstvolgende werkdag in beeld.</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 4px;line-height:1.55;">Vul per collega de verjaardag in als dd-mm, bijvoorbeeld 28-12. Op die dag komt er een felicitatie in beeld, de hele dag en ook als de collega er niet is, en in de week ervoor (de 7 dagen tot en met de dag ervoor) een herinnering voor iedereen. Dat gaat elk jaar vanzelf opnieuw. Alleen dag en maand worden bewaard, geen jaar. Verjaardagsberichten staan altijd in beeld: bij iedere gebruiker en ook als de boodschap uit staat. Valt een verjaardag in het weekend, dan staat de felicitatie op de dag zelf én op de eerstvolgende werkdag in beeld. Zolang er een verjaardag is (de dag zelf of de week ervoor), staat de banner in plaats van de andere berichten onder de legenda: ook gewone complimenten en persoonlijke of algemene boodschappen komen dan niet in beeld.</div>
       <div style="font-size:10px;color:#e0a96d;margin-bottom:10px;line-height:1.5;">Let op: de gegevens staan in settings.json en zijn zolang de repo openbaar is voor iedereen leesbaar. Vraag de collega's om toestemming.</div>
       <div id="msg-verj-eerst" style="font-size:11px;color:#bbb;margin-bottom:8px;line-height:1.5;"></div>
       <div id="msg-verj-lijst"></div>
