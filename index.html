@@ -139,6 +139,23 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 #who-menu .ver { padding:6px 10px 2px; font-size:10px; color:rgba(255,255,255,0.3); }
 #who-menu button.c-maand { color:#80cbc4; } #who-menu button.c-periode { color:#ce93d8; } #who-menu button.c-geenbeheer { color:#f48fb1; } #who-menu button.c-template { color:#60b0ff; } #who-menu button.c-admin { color:#ffcc80; } #who-menu button.c-status { color:#a5d6a7; }
 #who-btn .hdot { display:none; width:8px; height:8px; border-radius:50%; background:#e53935; margin-left:3px; flex-shrink:0; }   /* alleen bij een echte storing */
+/* ── de verjaardagsbanner: feestelijke kaart boven het rooster, met slingers, ballonnen, cadeaus en een taart (alles als tekening, geen plaatjes van buiten) ── */
+.vjb { position:relative; max-width:min(1100px, 96%); margin:4px auto 14px; border-radius:18px; overflow:hidden; background:radial-gradient(120% 150% at 50% 0%, #4b3a7a 0%, #24366b 55%, #5a3a1e 125%); box-shadow:0 8px 28px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.12); min-height:150px; aspect-ratio:11 / 2; display:flex; align-items:center; justify-content:center; text-align:center; isolation:isolate; }
+.vjb .vjb-art { position:absolute; inset:0; width:100%; height:100%; z-index:0; }
+.vjb .vjb-confetti { position:absolute; inset:0; z-index:1; pointer-events:none; overflow:hidden; }
+.vjb .vjb-confetti span { position:absolute; top:-14px; width:7px; height:12px; border-radius:2px; opacity:0.9; animation:vjbVal linear infinite; }
+.vjb .vjb-tekst { position:relative; z-index:2; padding:10px clamp(14px, 3vw, 34px) 12px; background:rgba(8,12,36,0.55); border-radius:16px; max-width:min(640px, 82%); box-sizing:border-box; }
+.vjb .vjb-hoera { font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:clamp(24px, 4vw, 44px); letter-spacing:1px; color:#ffd66b; text-shadow:0 2px 0 rgba(0,0,0,0.35); line-height:1.05; }
+.vjb .vjb-titel { font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:clamp(18px, 2.7vw, 32px); color:#f4f7ff; line-height:1.2; margin-top:2px; overflow-wrap:anywhere; }
+.vjb .vjb-naam { color:#ffcc66; }
+.vjb .vjb-sub { font-family:Georgia,'Times New Roman',serif; font-style:italic; font-size:clamp(13px, 1.7vw, 19px); color:#cfe3ff; margin-top:3px; }
+.vjb .vjb-meer { font-size:clamp(10px, 1.2vw, 13px); color:rgba(255,255,255,0.78); margin-top:6px; }
+.vjb .vjb-weg { position:absolute; top:8px; right:10px; z-index:3; width:28px; height:28px; border-radius:14px; border:1px solid rgba(255,255,255,0.3); background:rgba(0,0,0,0.35); color:#fff; cursor:pointer; font-size:16px; line-height:1; padding:0; }
+.vjb .vjb-vlam { transform-box:fill-box; transform-origin:50% 100%; animation:vjbVlam 1.1s ease-in-out infinite alternate; }
+@keyframes vjbVal { to { transform:translateY(200px) rotate(540deg); opacity:0.2; } }
+@keyframes vjbVlam { from { transform:scale(1, 1); } to { transform:scale(0.85, 1.18); } }
+@media (prefers-reduced-motion: reduce){ .vjb .vjb-confetti span, .vjb .vjb-vlam { animation:none; } }
+@media (max-width:520px){ .vjb .vjb-tekst { max-width:92%; } }
 </style>
 </head>
 <body>
@@ -167,6 +184,13 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
   </div>
 </div>
 
+<div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
+  <svg class="vjb-art" viewBox="0 0 1100 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"></svg>
+  <div class="vjb-confetti" aria-hidden="true"></div>
+  <div class="vjb-tekst"><div class="vjb-hoera">Hoera!</div><div class="vjb-titel"></div><div class="vjb-sub"></div><div class="vjb-meer"></div></div>
+  <button class="vjb-weg" id="verjaardag-weg" type="button" aria-label="Verberg deze banner voor vandaag" title="Verberg voor vandaag">×</button>
+</div>
+
 <div class="scroll-wrap">
   <div class="grid-layout" id="main-grid"><div class="name-col"><div class="name-spacer"></div></div><div class="divider"></div></div>
   <div id="health-bar" style="max-width:1100px;margin:10px auto 0;display:none;align-items:center;gap:12px;padding:8px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;font-family:'Courier New',monospace;font-size:10px;">
@@ -177,7 +201,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 85</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 86</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
   <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span><span class="cmp-emoji" aria-hidden="true"></span><span class="cmp-vertaling" lang="nl"></span></span></div>
@@ -2940,6 +2964,49 @@ function complimentVerjaardag(now){   // het volgende verjaardagsbericht, om de 
   try{ localStorage.setItem(sleutel, e.id); }catch(x){}
   return { naam: VERJAARDAG_ID, toonNaam: e.toonNaam, compliment: { t: e.t, taal: "nl", id: "v:" + e.id, eigen: true, emoji: e.emoji }, emoji: e.emoji };
 }
+const VJB_PALET = ["#ffcc66", "#7ec8ff", "#ff8fa3", "#a5e6a1", "#d7a8ff"];
+function verjaardagArt(){   // de tekening: slingers, ballonnen links en rechts, cadeaus en een taart met kaarsen (vaste tekening, geen invoer van buiten)
+  let s = '<path d="M0 12 Q275 40 550 12 Q825 -14 1100 12" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.6"/>';
+  for(let i = 0; i < 22; i++){ const x = 25 + i * 50, y = 22 - 12 * Math.cos(x / 1100 * Math.PI * 4); s += '<path d="M' + (x - 13) + ' ' + y.toFixed(1) + ' L' + (x + 13) + ' ' + y.toFixed(1) + ' L' + x + ' ' + (y + 28).toFixed(1) + ' Z" fill="' + VJB_PALET[i % 5] + '" opacity="0.92"/>'; }
+  const ballon = (x, y, r, kleur, tx, ty)=>'<path d="M' + x + ' ' + (y + r * 1.25) + ' Q' + ((x + tx) / 2 + 8) + ' ' + ((y + ty) / 2) + ' ' + tx + ' ' + ty + '" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.2"/><ellipse cx="' + x + '" cy="' + y + '" rx="' + r + '" ry="' + (r * 1.22) + '" fill="' + kleur + '"/><ellipse cx="' + (x - r * 0.35) + '" cy="' + (y - r * 0.4) + '" rx="' + (r * 0.22) + '" ry="' + (r * 0.34) + '" fill="rgba(255,255,255,0.55)"/><path d="M' + (x - 4) + ' ' + (y + r * 1.25 + 5) + ' L' + x + ' ' + (y + r * 1.25) + ' L' + (x + 4) + ' ' + (y + r * 1.25 + 5) + ' Z" fill="' + kleur + '"/>';
+  s += ballon(60, 92, 27, "#4aa3ff", 120, 196) + ballon(122, 66, 27, "#f4f6ff", 120, 196) + ballon(160, 112, 27, "#ffcc66", 120, 196);
+  s += ballon(900, 70, 27, "#ff9f43", 985, 196) + ballon(960, 98, 27, "#4aa3ff", 985, 196) + ballon(1018, 66, 27, "#f4f6ff", 985, 196) + ballon(1040, 122, 27, "#ffcc66", 985, 196);
+  s += '<ellipse cx="300" cy="189" rx="70" ry="9" fill="#e9ecf5"/><rect x="243" y="150" width="114" height="37" rx="7" fill="#5b3219"/><rect x="243" y="150" width="114" height="9" rx="4" fill="#8a5a36"/><rect x="266" y="121" width="68" height="31" rx="6" fill="#6b3a1f"/><rect x="266" y="121" width="68" height="8" rx="4" fill="#9a6a44"/>';
+  for(let i = 0; i < 16; i++) s += '<circle cx="' + (252 + (i * 37) % 96) + '" cy="' + (163 + (i * 13) % 20) + '" r="1.6" fill="' + VJB_PALET[i % 5] + '"/>';
+  for(let i = 0; i < 5; i++){ const x = 276 + i * 12; s += '<rect x="' + (x - 2.5) + '" y="102" width="5" height="19" rx="1.5" fill="' + VJB_PALET[(i + 1) % 5] + '"/><ellipse class="vjb-vlam" cx="' + x + '" cy="97" rx="3.2" ry="5.5" fill="#ffb347"/><ellipse class="vjb-vlam" cx="' + x + '" cy="98.5" rx="1.5" ry="3" fill="#fff3b0"/>'; }
+  s += '<rect x="22" y="152" width="58" height="42" rx="3" fill="#7aa6ff"/><rect x="45" y="152" width="12" height="42" fill="#ffcc66"/><rect x="22" y="167" width="58" height="9" fill="#ffcc66"/><circle cx="51" cy="150" r="7" fill="#ffcc66"/>';
+  s += '<rect x="86" y="168" width="46" height="26" rx="3" fill="#ff9f43"/><rect x="104" y="168" width="10" height="26" fill="#7aa6ff"/><rect x="86" y="178" width="46" height="7" fill="#7aa6ff"/><circle cx="109" cy="166" r="6" fill="#7aa6ff"/>';
+  s += '<rect x="868" y="158" width="52" height="36" rx="3" fill="#ff8fa3"/><rect x="889" y="158" width="10" height="36" fill="#f4f6ff"/><circle cx="894" cy="156" r="6" fill="#f4f6ff"/>';
+  const ster = (x, y, r)=>'<path d="M' + x + ' ' + (y - r) + ' L' + (x + r * 0.28) + ' ' + (y - r * 0.28) + ' L' + (x + r) + ' ' + y + ' L' + (x + r * 0.28) + ' ' + (y + r * 0.28) + ' L' + x + ' ' + (y + r) + ' L' + (x - r * 0.28) + ' ' + (y + r * 0.28) + ' L' + (x - r) + ' ' + y + ' L' + (x - r * 0.28) + ' ' + (y - r * 0.28) + ' Z" fill="#fff3b0" opacity="0.85"/>';
+  s += ster(420, 70, 9) + ster(700, 150, 7) + ster(790, 60, 10) + ster(380, 160, 6) + ster(850, 120, 6);
+  return s;
+}
+function verjaardagBannerTekst(it, wie){   // de tekst voor deze persoon en dit moment, en voor wie het bekijkt: de jarige zelf leest 'je', de rest de naam; {naam} wordt geel
+  const eigen = wie === it.toonNaam, soort = it.id.charAt(0), n = it.n;
+  if(soort === "f") return { titel: eigen ? "Je bent vandaag jarig, {naam}!" : "{naam} is vandaag jarig!", sub: eigen ? "Gefeliciteerd! Het hele team wenst je een fantastische dag." : "Van harte gefeliciteerd!", kort: eigen ? "jij bent vandaag jarig" : "{naam} is vandaag jarig" };
+  if(soort === "n") return { titel: eigen ? "Alsnog gefeliciteerd, {naam}!" : "{naam} was in het weekend jarig!", sub: eigen ? "Het weekend is voorbij, maar het feest gaat door!" : "Alsnog van harte gefeliciteerd!", kort: eigen ? "jij was in het weekend jarig" : "{naam} was in het weekend jarig" };
+  if(n === 1) return { titel: eigen ? "Morgen ben je jarig, {naam}!" : "{naam} is morgen jarig!", sub: eigen ? "Wij zijn er klaar voor!" : "Zet de slingers maar klaar!", kort: eigen ? "jij bent morgen jarig" : "{naam} is morgen jarig" };
+  return { titel: eigen ? "Over " + n + " dagen ben je jarig, {naam}!" : "{naam} is over " + n + " dagen jarig!", sub: eigen ? "Het feest komt eraan!" : "Zet het in je agenda!", kort: eigen ? "jij bent over " + n + " dagen jarig" : "{naam} is over " + n + " dagen jarig" };
+}
+function verjaardagBanner(){   // de banner boven het rooster: bij iedere gebruiker, ook als de boodschap uit staat; eerst de naaste verjaardag, de rest als 'ook'; een × verbergt hem voor vandaag (niet op de Monitor)
+  const el = document.getElementById("verjaardag-banner"); if(!el) return;
+  const items = currentIdentity && BOODSCHAP.ready ? verjaardagItems(new Date(), BOODSCHAP.verjaardagen) : [], wie = currentIdentity ? currentIdentity.user : "", monitor = wie === "Monitor";
+  const ids = items.map(i=>i.id).join(","), vandaag = eigenDatum(new Date());
+  let weg = false; try{ const w = JSON.parse(localStorage.getItem("tp_verj_weg") || "null"); weg = !monitor && !!w && w.dag === vandaag && w.ids === ids; }catch(e){}
+  if(!items.length || weg){ if(el.style.display !== "none"){ el.style.display = "none"; delete el.dataset.sleutel; } return; }
+  const sleutel = ids + "|" + wie + "|" + vandaag;
+  if(el.dataset.sleutel === sleutel && el.style.display !== "none") return;   // niets veranderd: niet opnieuw tekenen
+  if(!el.dataset.getekend){
+    el.querySelector(".vjb-art").innerHTML = verjaardagArt();
+    const cf = el.querySelector(".vjb-confetti"); for(let i = 0; i < 22; i++){ const s = document.createElement("span"); s.style.left = (3 + (i * 4.4) % 94) + "%"; s.style.background = VJB_PALET[i % 5]; s.style.animationDuration = (5 + (i * 7) % 5) + "s"; s.style.animationDelay = "-" + ((i * 13) % 9) + "s"; cf.appendChild(s); }
+    el.dataset.getekend = "1";
+  }
+  const t = verjaardagBannerTekst(items[0], wie), vul = (node, tekst, naam)=>{ node.textContent = ""; tekst.split("{naam}").forEach((d, i)=>{ if(i > 0){ const s = document.createElement("span"); s.className = "vjb-naam"; s.textContent = naam; node.appendChild(s); } node.appendChild(document.createTextNode(d)); }); };
+  vul(el.querySelector(".vjb-titel"), t.titel, items[0].toonNaam); el.querySelector(".vjb-sub").textContent = t.sub;
+  el.querySelector(".vjb-meer").textContent = items.length > 1 ? "Ook: " + items.slice(1, 4).map(i=>verjaardagBannerTekst(i, wie).kort.replace("{naam}", i.toonNaam)).join(" · ") : "";
+  el.querySelector(".vjb-weg").style.display = monitor ? "none" : "";
+  el.dataset.sleutel = sleutel; el.dataset.ids = ids; el.style.display = "";
+}
 function complimentPersoonAan(naam, personen){   // krijgt deze collega de boodschap? Een eigen keuze (Admin ▸ Boodschap) gaat voor; anders de standaard: aan, behalve wie in COMPLIMENT_NIET staat
   if(personen && typeof personen[naam] === "boolean") return personen[naam];
   return !COMPLIMENT_NIET.includes(naam);
@@ -3373,6 +3440,7 @@ function complimentRestart(el){   // een nieuw compliment voor een andere colleg
   el.classList.remove("cmp-on"); complimentRender(el, n); void el.offsetWidth; el.classList.add("cmp-on");
 }
 function complimentSync(){   // elke paar seconden: wie er aan de beurt kan komen (zie complimentAudience); is dat er niemand, dan verdwijnt het blok
+  try{ verjaardagBanner(); }catch(e){}   // de verjaardagsbanner volgt hetzelfde ritme
   const el = document.getElementById("compliment"); if(!el) return;
   if(!currentIdentity){ if(el.dataset.on) complimentHide(el); return; }   // wie er aan de beurt kan komen (en dus wie wat ziet) bepaalt complimentAudience: verjaardagen zijn voor iedereen, de rest voor Monitor en Hans
   el.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
@@ -4972,6 +5040,7 @@ setInterval(()=>{
 // ── Bewerken uit na 10 minuten zonder wijziging (ook als timers stilstonden); je blijft ingelogd ──
 setInterval(checkEditExpiry, 10000);
 document.getElementById("compliment").addEventListener("animationiteration", complimentIteration);
+document.getElementById("verjaardag-weg").onclick = ()=>{ const el = document.getElementById("verjaardag-banner"); try{ localStorage.setItem("tp_verj_weg", JSON.stringify({ dag: eigenDatum(new Date()), ids: el.dataset.ids || "" })); }catch(e){} el.style.display = "none"; delete el.dataset.sleutel; };   // voor vandaag verbergen (dezelfde verjaardagen); komt er iets bij, dan verschijnt hij weer
 setInterval(complimentSync, 3000); complimentSync();   // het compliment onder de legenda (alleen Monitor en Hans)
 setInterval(revalidateSession, 5 * 60 * 1000);   // een gereset wachtwoord beëindigt ook sessies op andere apparaten
 // Vangnet: niet ingelogd = nooit iets van de planning zichtbaar; ingelogd = nooit een zwart scherm
