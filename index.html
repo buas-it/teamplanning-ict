@@ -208,7 +208,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 93</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 94</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -475,39 +475,15 @@ async function settingsFetch(){   // {boodschap:{enabled,by,at}, talen:{naam:[co
   if(!r.ok) throw new Error("HTTP " + r.status);
   const d = await r.json(), raw = JSON.parse(auditDecode(d.content));
   if(!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("ongeldig bestand");
-  const b = raw.boodschap;
-  const boodschap = b === undefined ? { enabled: true, by: null, at: null } : (b && typeof b === "object" && typeof b.enabled === "boolean" ? { enabled: b.enabled, by: typeof b.by === "string" ? b.by : null, at: typeof b.at === "string" ? b.at : null } : null);
-  if(!boodschap) throw new Error("ongeldig bestand");
+  const boodschap = { enabled: true, by: null, at: null };   // de boodschap staat altijd aan: een eventuele oude stand in het bestand telt niet meer
   return { boodschap, talen: settingsParseTalen(raw.talen), talenWijz: settingsParseWijz(raw.talenWijziging), personen: settingsParsePersonen(raw.personen), personenWijz: settingsParseWijz(raw.personenWijziging), persoonlijk: settingsParsePersoonlijk(raw.persoonlijk), raw, sha: d.sha };
 }
-function applySettings(cur){ const w = cur.talenWijz || { by: null, at: null }, pw = cur.personenWijz || { by: null, at: null }; BOODSCHAP = { enabled: cur.boodschap.enabled, ready: true, by: cur.boodschap.by, at: cur.boodschap.at, talen: cur.talen || {}, talenBy: w.by, talenAt: w.at, personen: cur.personen || {}, personenBy: pw.by, personenAt: pw.at, persoonlijk: cur.persoonlijk || {}, sha: cur.sha || null, error: null }; }
+function applySettings(cur){ const w = cur.talenWijz || { by: null, at: null }, pw = cur.personenWijz || { by: null, at: null }; BOODSCHAP = { enabled: true, ready: true, by: null, at: null, talen: cur.talen || {}, talenBy: w.by, talenAt: w.at, personen: cur.personen || {}, personenBy: pw.by, personenAt: pw.at, persoonlijk: cur.persoonlijk || {}, sha: cur.sha || null, error: null }; }
 async function settingsLoad(){   // haalt de instellingen op; bij een storing blijft de eerder opgehaalde stand gelden
   try{ applySettings(await settingsFetch()); }
   catch(e){ BOODSCHAP.error = (e && e.message) || String(e); }
   try{ complimentSync(); }catch(e){}
   return BOODSCHAP.ready;
-}
-async function settingsSetBoodschap(enabled){   // de boodschap voor iedereen aan- of uitzetten: alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand en schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
-  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de boodschap aan- of uitzetten." };
-  if(!editUnlocked) return { error: "Bewerken staat uit." };
-  const me = currentIdentity.user;
-  for(let i = 0; i < 4; i++){
-    const cur = await settingsFetch();
-    if(cur.boodschap.enabled === enabled){ applySettings(cur); try{ complimentSync(); }catch(e){} return { ok: true, changed: false }; }   // een collega had het al zo gezet: niets schrijven en niets in het logboek
-    const raw = cur.raw; raw.v = 1; raw.boodschap = { enabled, by: me, at: new Date().toISOString() };
-    const body = { message: "Boodschap " + (enabled ? "aangezet" : "uitgezet") + " door " + me, content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
-    if(cur.sha) body.sha = cur.sha;
-    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
-    if(r.ok){
-      let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
-      applySettings({ boodschap: raw.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, sha });   // de talen en de keuzes per collega blijven zoals ze waren
-      auditEvent("boodschap " + (enabled ? "aangezet" : "uitgezet"));   // pas na een geslaagde opslag in het logboek
-      touchEditTimer(); try{ complimentSync(); }catch(e){}
-      return { ok: true, changed: true };
-    }
-    if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
-  }
-  throw new Error("conflict");
 }
 async function settingsSetTalen(naam, lijst){   // de talen van één collega instellen (lijst = null: terug naar de standaard); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand (een collega kan intussen iets anders hebben gewijzigd: dat blijft staan), schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
   if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de talen wijzigen." };
@@ -2899,6 +2875,7 @@ function complimentEigen(naam, now, altijd){   // een persoonlijke boodschap voo
   const basis = eigenMetDagen(e, eigenDatum(now));   // bij aftellen: het aantal dagen van vandaag
   return { t: naam === EIGEN_ALGEMEEN ? eigenAlgemeenTekst(basis) : eigenTekst(basis), taal: "nl", id: "e:" + e.id, eigen: true, emoji: e.emoji || null };
 }
+const COMPLIMENT_USERS = ["Monitor", "Hans"];   // wie de berichten ziet; de verjaardagsbanner is voor iedere gebruiker
 let VERJAARDAGEN = { Hans: "12-28", Bram: "04-27", Wim: "05-30", Sercan: "01-28", Annies: "04-19", Marco: "04-30", Sam: "05-14", Bas: "10-25", Wouter: "08-08", Ted: "02-16" };   // vaste gegevens (MM-DD): er is geen plek om ze in te voeren, te wijzigen of te bekijken
 const VERJAARDAG_ID = "__verjaardag__";   // de sleutel voor de verjaardagsberichten: een eigen 'kandidaat' zonder collega, net als de algemene boodschap
 const VERJAARDAG_FELICITATIES = [
@@ -2977,11 +2954,6 @@ function berichtArt(){   // de tekening bij een algemene of persoonlijke boodsch
   const ster = (x, y, r)=>'<path d="M' + x + ' ' + (y - r) + ' L' + (x + r * 0.28) + ' ' + (y - r * 0.28) + ' L' + (x + r) + ' ' + y + ' L' + (x + r * 0.28) + ' ' + (y + r * 0.28) + ' L' + x + ' ' + (y + r) + ' L' + (x - r * 0.28) + ' ' + (y + r * 0.28) + ' L' + (x - r) + ' ' + y + ' L' + (x - r * 0.28) + ' ' + (y - r * 0.28) + ' Z" fill="#fff3b0" opacity="0.8"/>';
   return s + ster(260, 150, 9) + ster(420, 60, 7) + ster(700, 160, 8) + ster(790, 70, 10) + ster(220, 40, 6) + ster(880, 175, 6);
 }
-function berichtKandidaten(now){   // wie een lopende persoonlijke boodschap heeft, plus de algemene: voor iedere gebruiker hetzelfde; alleen als de boodschap voor iedereen aan staat en de planning geladen is
-  if(!currentIdentity || !BOODSCHAP.ready || !BOODSCHAP.enabled || !complimentReady()) return [];
-  const k = TEAM.filter(p=>complimentEigenActief(p, now).length > 0); if(complimentEigenActief(EIGEN_ALGEMEEN, now).length > 0) k.push(EIGEN_ALGEMEEN);
-  return k;
-}
 function kaartVul(node, tekst, naam){ node.textContent = ""; tekst.split("{naam}").forEach((d, i)=>{ if(i > 0){ const s = document.createElement("span"); s.className = "vjb-naam"; s.textContent = naam; node.appendChild(s); } node.appendChild(document.createTextNode(d)); }); }   // tekst met de naam geel; altijd als tekst, nooit als HTML
 function kaartKlaar(kaart, soort){   // de kaart in de stand 'feest' (verjaardag, met foto en confetti) of 'bericht' (algemeen of persoonlijk)
   if(kaart.dataset.art !== soort){ kaart.querySelector(".vjb-art").innerHTML = soort === "feest" ? verjaardagArt() : berichtArt(); kaart.dataset.art = soort; }
@@ -3015,10 +2987,10 @@ function complimentToon(el, n){   // het volgende bericht in beeld: een gewoon c
   el.classList.add("cmp-kaart"); kaart.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
   kaart.dataset.modus = "cyc"; delete kaart.dataset.sleutel; kaart.style.display = ""; kaart.classList.remove("vjb-cyc"); void kaart.offsetWidth; kaart.classList.add("vjb-cyc");
 }
-function verjaardagBanner(){   // de vaste banner: zolang er een verjaardag is en er geen boodschappen zijn om mee af te wisselen (bij iedere gebruiker, ook als de boodschap uit staat); anders draait de kaart mee met het blok. Hij kan niet gesloten worden
+function verjaardagBanner(){   // de vaste banner: zolang er een verjaardag is en er verder niets in de rotatie zit (een gewone gebruiker, of niemand op de campus); anders draait de banner mee met de andere berichten. Hij kan niet gesloten worden
   const el = document.getElementById("verjaardag-banner"); if(!el) return;
   const nu = new Date(), items = currentIdentity ? verjaardagItems(nu, VERJAARDAGEN) : [], wie = currentIdentity ? currentIdentity.user : "";
-  const vast = items.length > 0 && berichtKandidaten(nu).length === 0;
+  const vast = items.length > 0 && complimentAudience(nu).filter(n=>n !== VERJAARDAG_ID).length === 0;
   if(!vast){ if(el.dataset.modus === "vast"){ el.style.display = "none"; delete el.dataset.modus; delete el.dataset.sleutel; } return; }
   if(el.dataset.modus === "cyc") kaartCyclusUit();
   const sleutel = items.map(i=>i.id).join(",") + "|" + wie + "|" + eigenDatum(nu);
@@ -3382,11 +3354,10 @@ function complimentPresent(now){   // iedereen van het team die op dit moment op
   const data = getData(mondayOf(now)), dagdeel = now.getHours() < 12 ? "vm_kantoor" : "nm_kantoor";
   return TEAM.filter(p=>complimentPersoonAan(p, BOODSCHAP.personen)).filter(p=>{ const s = (data[p] || {})[dag] || []; return !s.includes("ziek") && (s.includes("kantoor") || s.includes(dagdeel)); });
 }
-function complimentAudience(now){   // wie er aan de beurt kan komen. Verjaardagsberichten (felicitatie, na een weekend de eerste werkdag erna, en de herinnering in de week ervoor) staan altijd in beeld, bij iedere gebruiker en ook als de boodschap uit staat. De rest voor iedere gebruiker, met de echte planning van GitHub en als de boodschap aan staat: wie op de campus is (Hans dus alleen als hij er echt is) en wie een lopende persoonlijke of algemene boodschap heeft
+function complimentAudience(now){   // wie er aan de beurt kan komen. Verjaardagsberichten (felicitatie, na een weekend de eerste werkdag erna, en de herinnering in de week ervoor) staan altijd in beeld, bij iedere gebruiker en ook als de boodschap uit staat. De rest alleen voor Monitor en Hans, met de echte planning van GitHub en als de boodschap aan staat: wie op de campus is (Hans dus alleen als hij er echt is) en wie een lopende persoonlijke of algemene boodschap heeft
   if(!currentIdentity) return [];
   const verj = verjaardagItems(now, VERJAARDAGEN).length > 0 ? [VERJAARDAG_ID] : [];
-  if(!BOODSCHAP.ready) return verj;
-  if(!BOODSCHAP.enabled || !complimentReady()) return verj;
+  if(!BOODSCHAP.ready || !COMPLIMENT_USERS.includes(currentIdentity.user) || !complimentReady()) return verj;   // een gewone gebruiker krijgt alleen de verjaardag
   const aanwezig = complimentPresent(now);
   const extra = TEAM.filter(p=>!aanwezig.includes(p) && complimentEigenActief(p, now).length > 0);   // wie er niet is, of wiens gewone complimenten uit staan (schakelaar per collega), maar een lopende persoonlijke boodschap heeft: alleen die komt in beeld
   if(complimentEigenActief(EIGEN_ALGEMEEN, now).length > 0) extra.push(EIGEN_ALGEMEEN);
@@ -3426,19 +3397,9 @@ function complimentSmiley(c, rnd){   // af en toe een smiley (anders ''), passen
   cmpSmileyRecent.push(e); cmpSmileyRecent = cmpSmileyRecent.slice(-3);
   return e;
 }
-let cmpOrder = [], cmpLast = null, cmpTurn = {}, vjbBeurtBanner = false;
-function verjaardagActief(now){ return !!currentIdentity && verjaardagItems(now, VERJAARDAGEN).length > 0; }   // zolang er een verjaardag is (de dag zelf of de week ervoor) staat de banner in plaats van het blok met de andere berichten
-function complimentNext(now, zonderVerjaardag){   // de volgende collega die aan de beurt is (iedereen die er is, om de beurt, niet twee keer achter elkaar dezelfde) met een nieuw compliment; op het scherm zonder het verjaardagsbericht, want dat staat als banner boven dit blok
-  if(zonderVerjaardag && verjaardagActief(now)){   // op het scherm: zolang er een verjaardag is wisselt de banner om en om af met de algemene en persoonlijke boodschappen (de gewone complimenten wachten); zijn die er niet, dan staat de banner vast
-    const kand = berichtKandidaten(now); if(!kand.length) return null;
-    vjbBeurtBanner = !vjbBeurtBanner;
-    if(vjbBeurtBanner){ const v = complimentVerjaardag(now); if(v) return v; }
-    cmpOrder = cmpOrder.filter(n=>kand.includes(n));
-    if(!cmpOrder.length){ cmpOrder = [...kand].sort(()=>Math.random() - 0.5); if(kand.length > 1 && cmpOrder[0] === cmpLast) cmpOrder.push(cmpOrder.shift()); }
-    const nm = cmpOrder.shift(); cmpLast = nm; const eg = complimentEigen(nm, now, true); if(!eg) return null;
-    return { naam: nm, compliment: eg, emoji: eg.emoji || complimentSmiley(eg) };
-  }
-  const aanwezig = complimentAudience(now).filter(n=>!zonderVerjaardag || n !== VERJAARDAG_ID); if(!aanwezig.length) return null;
+let cmpOrder = [], cmpLast = null, cmpTurn = {};
+function complimentNext(now){   // de volgende collega die aan de beurt is (iedereen die er is, om de beurt, niet twee keer achter elkaar dezelfde) met een nieuw compliment; de verjaardag doet mee als bericht (de banner), net als de persoonlijke en algemene boodschappen
+  const aanwezig = complimentAudience(now); if(!aanwezig.length) return null;
   cmpOrder = cmpOrder.filter(n=>aanwezig.includes(n));
   if(!cmpOrder.length){
     cmpOrder = [...aanwezig].sort(()=>Math.random() - 0.5);
@@ -3465,25 +3426,25 @@ function complimentRender(el, n){   // de tekst met de naam duidelijk gemarkeerd
 function complimentHide(el){ el.classList.remove("cmp-on", "cmp-kaart"); kaartCyclusUit(); el.style.display = "none"; el.dataset.on = ""; el.querySelector(".cmp-text").textContent = ""; el.dataset.naam = ""; el.dataset.taal = ""; el.title = ""; el.querySelector(".cmp-vertaling").textContent = ""; el.dataset.emoji = ""; el.querySelector(".cmp-emoji").textContent = ""; }
 function complimentReady(){ return firstLoadSettled && HEALTH.data === "ok"; }   // pas met de echte planning van GitHub: niet met het standaardrooster van vóór het laden, anders krijgt iemand een compliment die er helemaal niet is
 function complimentRestart(el){   // een nieuw compliment voor een andere collega, vanaf onzichtbaar
-  const n = complimentNext(new Date(), true); if(!n){ complimentHide(el); return; }
+  const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
   el.classList.remove("cmp-on"); complimentToon(el, n); void el.offsetWidth; el.classList.add("cmp-on");
 }
 function complimentSync(){   // elke paar seconden: wie er aan de beurt kan komen (zie complimentAudience); is dat er niemand, dan verdwijnt het blok
   try{ verjaardagBanner(); }catch(e){}   // de verjaardagsbanner volgt hetzelfde ritme
   const el = document.getElementById("compliment"); if(!el) return;
-  if(!currentIdentity){ if(el.dataset.on) complimentHide(el); return; }   // wie er aan de beurt kan komen (en dus wie wat ziet) bepaalt complimentAudience: voor iedere gebruiker hetzelfde
+  if(!currentIdentity){ if(el.dataset.on) complimentHide(el); return; }   // wie er aan de beurt kan komen (en dus wie wat ziet) bepaalt complimentAudience: de verjaardag voor iedere gebruiker, de rest alleen voor Monitor en Hans
   el.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
-  const nu = new Date(), kand = verjaardagActief(nu) ? berichtKandidaten(nu) : null;   // zolang er een verjaardag is: de banner, om en om met de algemene en persoonlijke boodschappen (als die er zijn)
-  const aanwezig = kand ? (kand.length ? [VERJAARDAG_ID, ...kand] : []) : complimentAudience(nu).filter(n=>n !== VERJAARDAG_ID);
+  let aanwezig = complimentAudience(new Date()); if(aanwezig.every(n=>n === VERJAARDAG_ID)) aanwezig = [];   // alleen de verjaardag: dan staat de banner vast en draait er niets mee
   if(!el.dataset.on){
-    const n = complimentNext(new Date(), true); if(!n) return;
+    if(!aanwezig.length) return;
+    const n = complimentNext(new Date()); if(!n) return;
     complimentToon(el, n); el.style.display = ""; el.dataset.on = "1"; el.classList.add("cmp-on");
   } else if(!aanwezig.length) complimentHide(el);
   else if(!aanwezig.includes(el.dataset.naam)) complimentRestart(el);   // de collega in beeld is intussen ziek, vrij of weg gezet: meteen iemand anders
 }
 function complimentIteration(){   // op het moment dat het compliment helemaal gedoofd is: het volgende
   const el = document.getElementById("compliment"); if(!el || !el.dataset.on) return;
-  const n = complimentNext(new Date(), true); if(!n){ complimentHide(el); return; }
+  const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
   complimentToon(el, n);
 }
 
@@ -3495,12 +3456,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   overlay.style.cssText = "position:fixed;inset:0;z-index:870;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 10px;";
   overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:540px;max-width:98vw;box-sizing:border-box;font-family:'Courier New',monospace;">
     <div style="font-size:14px;font-weight:700;color:#80cbc4;padding-right:40px;">💬 Boodschap</div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 18px;line-height:1.55;">Een vriendelijk compliment onder de legenda, voor iedereen die op dat moment op de campus is. Met de schakelaar hieronder zet je de boodschap voor iedereen aan of uit; verderop per collega. Alleen Monitor en Hans zien het.</div>
-    <div style="display:flex;align-items:center;gap:14px;">
-      <button id="msg-toggle" type="button" role="switch" aria-checked="true" aria-label="Boodschap aan of uit" style="position:relative;width:64px;height:32px;border-radius:16px;border:1px solid rgba(255,255,255,0.25);padding:0;cursor:pointer;flex-shrink:0;transition:background 0.2s;"><span id="msg-knob" style="position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform 0.2s;"></span></button>
-      <div id="msg-status" style="font-size:20px;font-weight:800;"></div>
-    </div>
-    <div id="msg-last" style="font-size:10px;color:#777;margin-top:14px;min-height:14px;"></div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 18px;line-height:1.55;">Een vriendelijk compliment onder de legenda, voor iedereen die op dat moment op de campus is. Zet de boodschap hieronder per collega aan of uit.</div>
     <div id="msg-msg" style="font-size:11px;min-height:16px;margin-top:10px;line-height:1.5;"></div>
     <div style="margin-top:22px;border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;">
       <div style="font-size:13px;font-weight:700;color:#80cbc4;">👥 Per collega</div>
@@ -3538,7 +3494,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
       <div id="msg-eigen-msg" style="font-size:11px;min-height:16px;margin-top:8px;line-height:1.5;"></div>
     </div></div>`;
   document.body.appendChild(overlay);
-  const q = s=>overlay.querySelector(s), sw = q("#msg-toggle"), knob = q("#msg-knob"), st = q("#msg-status"), last = q("#msg-last"), msg = q("#msg-msg");
+  const q = s=>overlay.querySelector(s), msg = q("#msg-msg");
   addWinX(overlay.firstElementChild, ()=>overlay.remove(), mag ? "msg-close" : "msg-view-close");   // alleen kijken sluit niet als bewerken uitgaat
   const setMsg = (t, kleur)=>{ msg.textContent = t || ""; msg.style.color = kleur === "ok" ? "#80cbc4" : (kleur === "fout" ? "#f48fb1" : "#999"); };
   const setMsgT = (t, kleur)=>{ const e = q("#msg-talen-msg"); e.textContent = t || ""; e.style.color = kleur === "ok" ? "#80cbc4" : (kleur === "fout" ? "#f48fb1" : "#999"); };
@@ -3719,29 +3675,12 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     if(b.dataset.actie === "wijzigen"){ q("#msg-eigen-tekst").value = e.t; q("#msg-eigen-jaarlijks").checked = !!e.jaarlijks; q("#msg-eigen-emoji").value = e.emoji || ""; q("#msg-eigen-van").value = e.jaarlijks ? (e.jaarlijks === "02-29" ? 2028 : new Date().getFullYear()) + "-" + e.jaarlijks : (e.van || ""); q("#msg-eigen-aftellen").checked = !!e.doel; q("#msg-eigen-eendag").checked = !e.jaarlijks && !e.doel && !!e.van && e.van === e.tot; q("#msg-eigen-tot").value = e.doel || e.tot || ""; q("#msg-eigen-form").dataset.edit = e.id; q("#msg-eigen-ok").textContent = "Wijziging opslaan"; q("#msg-eigen-annuleer").style.display = ""; jaarlijksStand(); tellerE(); setMsgE("", ""); q("#msg-eigen-tekst").focus(); }
     else if(b.dataset.actie === "verwijderen") bewaarE("verwijderen", e);
   };
-  const toon = ()=>{
-    const aan = BOODSCHAP.enabled;
-    sw.setAttribute("aria-checked", String(aan)); sw.style.background = aan ? "#2e7d6b" : "#3a3f4b"; knob.style.transform = aan ? "translateX(32px)" : "translateX(0)";
-    st.textContent = aan ? "Aan" : "Uit"; st.style.color = aan ? "#80cbc4" : "#f48fb1";
-    const d = BOODSCHAP.at ? new Date(BOODSCHAP.at) : null;
-    last.textContent = d ? "Laatst gewijzigd: " + d.toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + (BOODSCHAP.by ? " door " + BOODSCHAP.by : "") : "";
-    sw.disabled = !mag || !BOODSCHAP.ready; sw.style.cursor = sw.disabled ? "not-allowed" : "pointer"; sw.style.opacity = sw.disabled ? "0.5" : "1";
-  };
-  sw.disabled = true; setMsg("Laden...", ""); toonTalen(); toonEigen(); vandaagStand(); tellerE();
+  setMsg("Laden...", ""); toonTalen(); toonEigen(); vandaagStand(); tellerE();
   await settingsLoad();
   if(!document.body.contains(overlay)) return;
-  setMsg(!BOODSCHAP.ready ? "De instelling kon niet worden opgehaald" + (BOODSCHAP.error ? " (" + BOODSCHAP.error + ")" : "") + ". Probeer het zo opnieuw." : (mag ? "" : "Alleen " + MESSAGE_ADMIN + " kan de boodschap aan- en uitzetten."), !BOODSCHAP.ready ? "fout" : "");
-  toon(); toonTalen(); toonEigen();
-  if(!mag){ sw.title = "Alleen " + MESSAGE_ADMIN + " kan dit wijzigen."; setMsgT("Alleen " + MESSAGE_ADMIN + " kan de boodschap en de talen per collega wijzigen.", ""); }
-  sw.onclick = async ()=>{
-    if(!mag || sw.dataset.bezig) return; sw.dataset.bezig = "1"; sw.disabled = true;
-    const wil = !BOODSCHAP.enabled; setMsg("Opslaan...", "");
-    let r; try{ r = await settingsSetBoodschap(wil); }catch(e){ r = { error: "Opslaan mislukt (" + ((e && e.message) || e) + "). De stand is niet veranderd." }; }
-    delete sw.dataset.bezig;
-    if(!document.body.contains(overlay)) return;
-    if(r.error) setMsg(r.error, "fout"); else setMsg(r.changed ? (wil ? "De boodschap staat aan." : "De boodschap staat uit.") : "Dat stond al zo: een collega had het net gewijzigd.", "ok");
-    toon(); toonTalen(); toonEigen();
-  };
+  setMsg(!BOODSCHAP.ready ? "De instelling kon niet worden opgehaald" + (BOODSCHAP.error ? " (" + BOODSCHAP.error + ")" : "") + ". Probeer het zo opnieuw." : "", !BOODSCHAP.ready ? "fout" : "");
+  toonTalen(); toonEigen();
+  if(!mag) setMsgT("Alleen " + MESSAGE_ADMIN + " kan de boodschap en de talen per collega wijzigen.", "");
   toonTalen();   // meteen de rijen (nog vast) tonen, zodat het venster niet leeg is tijdens het laden
 }
 
@@ -5022,7 +4961,7 @@ setInterval(()=>{
 // ── Bewerken uit na 10 minuten zonder wijziging (ook als timers stilstonden); je blijft ingelogd ──
 setInterval(checkEditExpiry, 10000);
 document.getElementById("compliment").addEventListener("animationiteration", complimentIteration);
-setInterval(complimentSync, 3000); complimentSync();   // het compliment onder de legenda (voor iedere gebruiker)
+setInterval(complimentSync, 3000); complimentSync();   // het compliment onder de legenda (de verjaardagsbanner voor iedereen, de rest voor Monitor en Hans)
 setInterval(revalidateSession, 5 * 60 * 1000);   // een gereset wachtwoord beëindigt ook sessies op andere apparaten
 // Vangnet: niet ingelogd = nooit iets van de planning zichtbaar; ingelogd = nooit een zwart scherm
 setInterval(()=>{ if(currentIdentity) gateOff(); else gateOn(); }, 5000);
