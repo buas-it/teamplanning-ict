@@ -208,7 +208,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 92</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 93</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -2833,7 +2833,6 @@ function groupCoverage(dayData, group, day){   // dekking van een groep op een d
 }
 
 // ── Compliment (de boodschap): voor iedereen die op dat moment op de campus is (behalve wie is uitgezet: standaard Ted), onder de legenda, alleen voor Monitor en Hans; aan/uit, per collega en taal via Admin ▸ Boodschap ──
-const COMPLIMENT_USERS = ["Monitor", "Hans"];   // wie het compliment ziet
 const COMPLIMENT_NIET = ["Ted"];                 // standaard uit: Ted zit niet in die ruimte (per collega aan of uit te zetten in Admin ▸ Boodschap)
 const COMPLIMENT_TALEN = { Sercan: ["pl", "tr", "nl"], Bas: ["tb"] };   // Sercan is internationaal: zijn complimenten wisselen om de beurt tussen Pools, Turks en Nederlands; Bas krijgt zijn complimenten in het Tilburgs (tb); wil je dat het afwisselt met Nederlands, dan wordt dat ["tb", "nl"]
 const COMPLIMENT_LANG = { nl: "nl", tr: "tr", pl: "pl", tb: "nl-x-tilburgs" };   // de taalcode voor het lang-attribuut (het Tilburgs heeft geen eigen code)
@@ -2978,11 +2977,9 @@ function berichtArt(){   // de tekening bij een algemene of persoonlijke boodsch
   const ster = (x, y, r)=>'<path d="M' + x + ' ' + (y - r) + ' L' + (x + r * 0.28) + ' ' + (y - r * 0.28) + ' L' + (x + r) + ' ' + y + ' L' + (x + r * 0.28) + ' ' + (y + r * 0.28) + ' L' + x + ' ' + (y + r) + ' L' + (x - r * 0.28) + ' ' + (y + r * 0.28) + ' L' + (x - r) + ' ' + y + ' L' + (x - r * 0.28) + ' ' + (y - r * 0.28) + ' Z" fill="#fff3b0" opacity="0.8"/>';
   return s + ster(260, 150, 9) + ster(420, 60, 7) + ster(700, 160, 8) + ster(790, 70, 10) + ster(220, 40, 6) + ster(880, 175, 6);
 }
-function berichtKandidaten(now){   // wie een lopende boodschap heeft die deze gebruiker ziet: Monitor en Hans zien die van iedereen, een andere gebruiker alleen zijn eigen persoonlijke boodschappen; de algemene voor allemaal; alleen als de boodschap voor iedereen aan staat
-  if(!currentIdentity || !BOODSCHAP.ready || !BOODSCHAP.enabled) return [];
-  const wie = currentIdentity.user, alles = COMPLIMENT_USERS.includes(wie); if(alles && !complimentReady()) return [];
-  const k = alles ? TEAM.filter(p=>complimentEigenActief(p, now).length > 0) : (TEAM.includes(wie) && complimentEigenActief(wie, now).length > 0 ? [wie] : []);
-  if(complimentEigenActief(EIGEN_ALGEMEEN, now).length > 0) k.push(EIGEN_ALGEMEEN);
+function berichtKandidaten(now){   // wie een lopende persoonlijke boodschap heeft, plus de algemene: voor iedere gebruiker hetzelfde; alleen als de boodschap voor iedereen aan staat en de planning geladen is
+  if(!currentIdentity || !BOODSCHAP.ready || !BOODSCHAP.enabled || !complimentReady()) return [];
+  const k = TEAM.filter(p=>complimentEigenActief(p, now).length > 0); if(complimentEigenActief(EIGEN_ALGEMEEN, now).length > 0) k.push(EIGEN_ALGEMEEN);
   return k;
 }
 function kaartVul(node, tekst, naam){ node.textContent = ""; tekst.split("{naam}").forEach((d, i)=>{ if(i > 0){ const s = document.createElement("span"); s.className = "vjb-naam"; s.textContent = naam; node.appendChild(s); } node.appendChild(document.createTextNode(d)); }); }   // tekst met de naam geel; altijd als tekst, nooit als HTML
@@ -3385,11 +3382,10 @@ function complimentPresent(now){   // iedereen van het team die op dit moment op
   const data = getData(mondayOf(now)), dagdeel = now.getHours() < 12 ? "vm_kantoor" : "nm_kantoor";
   return TEAM.filter(p=>complimentPersoonAan(p, BOODSCHAP.personen)).filter(p=>{ const s = (data[p] || {})[dag] || []; return !s.includes("ziek") && (s.includes("kantoor") || s.includes(dagdeel)); });
 }
-function complimentAudience(now){   // wie er aan de beurt kan komen. Verjaardagsberichten (felicitatie, na een weekend de eerste werkdag erna, en de herinnering in de week ervoor) staan altijd in beeld, bij iedere gebruiker en ook als de boodschap uit staat. De rest alleen voor Monitor en Hans, met de echte planning van GitHub en als de boodschap aan staat: wie op de campus is (Hans dus alleen als hij er echt is) en wie een lopende persoonlijke of algemene boodschap heeft
+function complimentAudience(now){   // wie er aan de beurt kan komen. Verjaardagsberichten (felicitatie, na een weekend de eerste werkdag erna, en de herinnering in de week ervoor) staan altijd in beeld, bij iedere gebruiker en ook als de boodschap uit staat. De rest voor iedere gebruiker, met de echte planning van GitHub en als de boodschap aan staat: wie op de campus is (Hans dus alleen als hij er echt is) en wie een lopende persoonlijke of algemene boodschap heeft
   if(!currentIdentity) return [];
   const verj = verjaardagItems(now, VERJAARDAGEN).length > 0 ? [VERJAARDAG_ID] : [];
   if(!BOODSCHAP.ready) return verj;
-  if(!COMPLIMENT_USERS.includes(currentIdentity.user)) return verj.concat(berichtKandidaten(now));   // een andere gebruiker: de verjaardag en zijn eigen boodschappen
   if(!BOODSCHAP.enabled || !complimentReady()) return verj;
   const aanwezig = complimentPresent(now);
   const extra = TEAM.filter(p=>!aanwezig.includes(p) && complimentEigenActief(p, now).length > 0);   // wie er niet is, of wiens gewone complimenten uit staan (schakelaar per collega), maar een lopende persoonlijke boodschap heeft: alleen die komt in beeld
@@ -3450,9 +3446,7 @@ function complimentNext(now, zonderVerjaardag){   // de volgende collega die aan
   }
   const naam = cmpOrder.shift(); cmpLast = naam;
   if(naam === VERJAARDAG_ID) return complimentVerjaardag(now);   // een verjaardagsbericht (felicitatie of herinnering)
-  const alleenEigen = !COMPLIMENT_USERS.includes(currentIdentity.user);   // een gewone gebruiker krijgt geen gewone complimenten, alleen zijn eigen boodschappen
-  const eigen = complimentEigen(naam, now, alleenEigen || !complimentPresent(now).includes(naam));
-  if(!eigen && alleenEigen) return null;   // een persoonlijke boodschap als er een loopt: aanwezig om en om met de gewone complimenten; niet aanwezig altijd (een afwezige krijgt geen gewoon compliment)
+  const eigen = complimentEigen(naam, now, !complimentPresent(now).includes(naam));   // een persoonlijke boodschap als er een loopt: aanwezig om en om met de gewone complimenten; niet aanwezig altijd (een afwezige krijgt geen gewoon compliment)
   if(eigen) return { naam, compliment: eigen, emoji: eigen.emoji || complimentSmiley(eigen) };   // een gekozen emoji staat er altijd achter; anders af en toe een passende smiley
   const taal = complimentTaal(naam), sp = complimentSpeciaal(naam, now), slot = (cmpTurn[naam] = (cmpTurn[naam] || 0) + 1) % 4;
   const kies = (slot === 0 || slot === 2) ? sp.eind : (slot === 1 ? sp.collectief : sp.persoonlijk);   // per vier beurten: tweemaal einde werktijd (als het zover is), eenmaal een collectief en eenmaal een persoonlijk vooruitzicht (als die er zijn), anders een gewoon compliment
@@ -3477,7 +3471,7 @@ function complimentRestart(el){   // een nieuw compliment voor een andere colleg
 function complimentSync(){   // elke paar seconden: wie er aan de beurt kan komen (zie complimentAudience); is dat er niemand, dan verdwijnt het blok
   try{ verjaardagBanner(); }catch(e){}   // de verjaardagsbanner volgt hetzelfde ritme
   const el = document.getElementById("compliment"); if(!el) return;
-  if(!currentIdentity){ if(el.dataset.on) complimentHide(el); return; }   // wie er aan de beurt kan komen (en dus wie wat ziet) bepaalt complimentAudience: verjaardagen zijn voor iedereen, de rest voor Monitor en Hans
+  if(!currentIdentity){ if(el.dataset.on) complimentHide(el); return; }   // wie er aan de beurt kan komen (en dus wie wat ziet) bepaalt complimentAudience: voor iedere gebruiker hetzelfde
   el.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
   const nu = new Date(), kand = verjaardagActief(nu) ? berichtKandidaten(nu) : null;   // zolang er een verjaardag is: de banner, om en om met de algemene en persoonlijke boodschappen (als die er zijn)
   const aanwezig = kand ? (kand.length ? [VERJAARDAG_ID, ...kand] : []) : complimentAudience(nu).filter(n=>n !== VERJAARDAG_ID);
@@ -5028,7 +5022,7 @@ setInterval(()=>{
 // ── Bewerken uit na 10 minuten zonder wijziging (ook als timers stilstonden); je blijft ingelogd ──
 setInterval(checkEditExpiry, 10000);
 document.getElementById("compliment").addEventListener("animationiteration", complimentIteration);
-setInterval(complimentSync, 3000); complimentSync();   // het compliment onder de legenda (alleen Monitor en Hans)
+setInterval(complimentSync, 3000); complimentSync();   // het compliment onder de legenda (voor iedere gebruiker)
 setInterval(revalidateSession, 5 * 60 * 1000);   // een gereset wachtwoord beëindigt ook sessies op andere apparaten
 // Vangnet: niet ingelogd = nooit iets van de planning zichtbaar; ingelogd = nooit een zwart scherm
 setInterval(()=>{ if(currentIdentity) gateOff(); else gateOn(); }, 5000);
