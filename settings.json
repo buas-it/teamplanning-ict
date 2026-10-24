@@ -20,7 +20,21 @@
   "by": "Hans",
   "at": "2026-10-22T15:37:23.433Z"
  },
- "persoonlijk": {},
+ "persoonlijk": {
+  "Hans": [
+   {
+    "id": "ywazypf9",
+    "t": "Goedemorgen",
+    "van": null,
+    "tot": null,
+    "jaarlijks": null,
+    "doel": null,
+    "emoji": null,
+    "by": "Hans",
+    "at": "2026-10-24T15:28:19.823Z"
+   }
+  ]
+ },
  "verjaardagen": {
   "Hans": "12-28",
   "Bram": "04-27",
