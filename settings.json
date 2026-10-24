@@ -20,5 +20,17 @@
   "by": "Hans",
   "at": "2026-10-22T15:37:23.433Z"
  },
- "persoonlijk": {}
+ "persoonlijk": {},
+ "verjaardagen": {
+  "Hans": "12-28",
+  "Bram": "04-27",
+  "Wim": "05-30",
+  "Sercan": "01-28",
+  "Annies": "04-19",
+  "Marco": "04-30",
+  "Sam": "05-14",
+  "Bas": "10-25",
+  "Wouter": "08-08",
+  "Ted": "02-16"
+ }
 }
