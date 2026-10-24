@@ -140,7 +140,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 #who-menu button.c-maand { color:#80cbc4; } #who-menu button.c-periode { color:#ce93d8; } #who-menu button.c-geenbeheer { color:#f48fb1; } #who-menu button.c-template { color:#60b0ff; } #who-menu button.c-admin { color:#ffcc80; } #who-menu button.c-status { color:#a5d6a7; }
 #who-btn .hdot { display:none; width:8px; height:8px; border-radius:50%; background:#e53935; margin-left:3px; flex-shrink:0; }   /* alleen bij een echte storing */
 /* ── de verjaardagsbanner: feestelijke kaart boven het rooster, met slingers, ballonnen, cadeaus en een taart (alles als tekening, geen plaatjes van buiten) ── */
-.vjb { position:relative; max-width:min(1100px, 96%); margin:4px auto 14px; border-radius:18px; overflow:hidden; background:radial-gradient(120% 150% at 50% 0%, #4b3a7a 0%, #24366b 55%, #5a3a1e 125%); box-shadow:0 8px 28px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.12); min-height:150px; aspect-ratio:11 / 2; display:flex; align-items:center; justify-content:center; text-align:center; isolation:isolate; }
+.vjb { position:relative; max-width:min(1100px, 96%); margin:16px auto 4px; border-radius:18px; overflow:hidden; background:radial-gradient(120% 150% at 50% 0%, #4b3a7a 0%, #24366b 55%, #5a3a1e 125%); box-shadow:0 8px 28px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.12); min-height:150px; aspect-ratio:11 / 2; display:flex; align-items:center; justify-content:center; text-align:center; isolation:isolate; }
 .vjb .vjb-art { position:absolute; inset:0; width:100%; height:100%; z-index:0; }
 .vjb .vjb-confetti { position:absolute; inset:0; z-index:1; pointer-events:none; overflow:hidden; }
 .vjb .vjb-confetti span { position:absolute; top:-14px; width:7px; height:12px; border-radius:2px; opacity:0.9; animation:vjbVal linear infinite; }
@@ -154,7 +154,13 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 .vjb .vjb-vlam { transform-box:fill-box; transform-origin:50% 100%; animation:vjbVlam 1.1s ease-in-out infinite alternate; }
 @keyframes vjbVal { to { transform:translateY(200px) rotate(540deg); opacity:0.2; } }
 @keyframes vjbVlam { from { transform:scale(1, 1); } to { transform:scale(0.85, 1.18); } }
-@media (prefers-reduced-motion: reduce){ .vjb .vjb-confetti span, .vjb .vjb-vlam { animation:none; } }
+.vjb .vjb-foto { position:absolute; top:0; right:0; bottom:0; width:58%; z-index:0; height:100%; object-fit:cover; object-position:50% 60%; opacity:0; transition:opacity 0.8s; -webkit-mask-image:linear-gradient(to right, transparent 0, #000 36%); mask-image:linear-gradient(to right, transparent 0, #000 36%); }
+.vjb.vjb-met-foto .vjb-foto { opacity:1; }
+.vjb.vjb-met-foto { justify-content:flex-start; }
+.vjb.vjb-met-foto .vjb-art { opacity:0.55; }   /* met de foto erbij is de tekening een zachte achtergrond links */
+.vjb.vjb-met-foto .vjb-tekst { margin-left:3.5%; max-width:48%; }
+@media (max-width:760px){ .vjb .vjb-foto { width:100%; -webkit-mask-image:none; mask-image:none; } .vjb.vjb-met-foto .vjb-foto { opacity:0.38; } .vjb.vjb-met-foto { justify-content:center; } .vjb.vjb-met-foto .vjb-tekst { margin-left:0; max-width:92%; } }
+@media (prefers-reduced-motion: reduce){ .vjb .vjb-confetti span, .vjb .vjb-vlam { animation:none; } .vjb .vjb-foto { transition:none; } }
 @media (max-width:520px){ .vjb .vjb-tekst { max-width:92%; } }
 </style>
 </head>
@@ -184,13 +190,6 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
   </div>
 </div>
 
-<div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
-  <svg class="vjb-art" viewBox="0 0 1100 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"></svg>
-  <div class="vjb-confetti" aria-hidden="true"></div>
-  <div class="vjb-tekst"><div class="vjb-hoera">Hoera!</div><div class="vjb-titel"></div><div class="vjb-sub"></div><div class="vjb-meer"></div></div>
-  <button class="vjb-weg" id="verjaardag-weg" type="button" aria-label="Verberg deze banner voor vandaag" title="Verberg voor vandaag">×</button>
-</div>
-
 <div class="scroll-wrap">
   <div class="grid-layout" id="main-grid"><div class="name-col"><div class="name-spacer"></div></div><div class="divider"></div></div>
   <div id="health-bar" style="max-width:1100px;margin:10px auto 0;display:none;align-items:center;gap:12px;padding:8px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;font-family:'Courier New',monospace;font-size:10px;">
@@ -201,9 +200,16 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 86</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 88</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
+<div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
+  <svg class="vjb-art" viewBox="0 0 1100 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"></svg>
+  <img class="vjb-foto" alt="" aria-hidden="true" decoding="async">
+  <div class="vjb-confetti" aria-hidden="true"></div>
+  <div class="vjb-tekst"><div class="vjb-hoera">Hoera!</div><div class="vjb-titel"></div><div class="vjb-sub"></div><div class="vjb-meer"></div></div>
+  <button class="vjb-weg" id="verjaardag-weg" type="button" aria-label="Verberg deze banner voor vandaag" title="Verberg voor vandaag">×</button>
+</div>
   <div class="compliment" id="compliment" style="display:none;"><span class="cmp-inner"><span class="cmp-spark" aria-hidden="true">✨</span><span class="cmp-text"></span><span class="cmp-emoji" aria-hidden="true"></span><span class="cmp-vertaling" lang="nl"></span></span></div>
 </div>
 
@@ -2965,6 +2971,7 @@ function complimentVerjaardag(now){   // het volgende verjaardagsbericht, om de 
   return { naam: VERJAARDAG_ID, toonNaam: e.toonNaam, compliment: { t: e.t, taal: "nl", id: "v:" + e.id, eigen: true, emoji: e.emoji }, emoji: e.emoji };
 }
 const VJB_PALET = ["#ffcc66", "#7ec8ff", "#ff8fa3", "#a5e6a1", "#d7a8ff"];
+const VJB_FOTO = "verjaardag-feest.jpg?v=1";   // de feestfoto (ongeveer 100 KB), pas opgehaald op een dag met een verjaardag; lukt dat niet, dan blijft de tekening staan
 function verjaardagArt(){   // de tekening: slingers, ballonnen links en rechts, cadeaus en een taart met kaarsen (vaste tekening, geen invoer van buiten)
   let s = '<path d="M0 12 Q275 40 550 12 Q825 -14 1100 12" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.6"/>';
   for(let i = 0; i < 22; i++){ const x = 25 + i * 50, y = 22 - 12 * Math.cos(x / 1100 * Math.PI * 4); s += '<path d="M' + (x - 13) + ' ' + y.toFixed(1) + ' L' + (x + 13) + ' ' + y.toFixed(1) + ' L' + x + ' ' + (y + 28).toFixed(1) + ' Z" fill="' + VJB_PALET[i % 5] + '" opacity="0.92"/>'; }
@@ -3001,6 +3008,7 @@ function verjaardagBanner(){   // de banner boven het rooster: bij iedere gebrui
     const cf = el.querySelector(".vjb-confetti"); for(let i = 0; i < 22; i++){ const s = document.createElement("span"); s.style.left = (3 + (i * 4.4) % 94) + "%"; s.style.background = VJB_PALET[i % 5]; s.style.animationDuration = (5 + (i * 7) % 5) + "s"; s.style.animationDelay = "-" + ((i * 13) % 9) + "s"; cf.appendChild(s); }
     el.dataset.getekend = "1";
   }
+  if(!el.dataset.foto){ el.dataset.foto = "1"; const im = el.querySelector(".vjb-foto"); im.onload = ()=>{ el.classList.add("vjb-met-foto"); }; im.onerror = ()=>{ im.removeAttribute("src"); }; im.src = VJB_FOTO; }   // de foto wordt één keer geladen en komt er als hij binnen is, rechts in de banner; zo niet, dan blijft het bij de tekening
   const t = verjaardagBannerTekst(items[0], wie), vul = (node, tekst, naam)=>{ node.textContent = ""; tekst.split("{naam}").forEach((d, i)=>{ if(i > 0){ const s = document.createElement("span"); s.className = "vjb-naam"; s.textContent = naam; node.appendChild(s); } node.appendChild(document.createTextNode(d)); }); };
   vul(el.querySelector(".vjb-titel"), t.titel, items[0].toonNaam); el.querySelector(".vjb-sub").textContent = t.sub;
   el.querySelector(".vjb-meer").textContent = items.length > 1 ? "Ook: " + items.slice(1, 4).map(i=>verjaardagBannerTekst(i, wie).kort.replace("{naam}", i.toonNaam)).join(" · ") : "";
@@ -3408,8 +3416,8 @@ function complimentSmiley(c, rnd){   // af en toe een smiley (anders ''), passen
   return e;
 }
 let cmpOrder = [], cmpLast = null, cmpTurn = {};
-function complimentNext(now){   // de volgende collega die aan de beurt is (iedereen die er is, om de beurt, niet twee keer achter elkaar dezelfde) met een nieuw compliment
-  const aanwezig = complimentAudience(now); if(!aanwezig.length) return null;
+function complimentNext(now, zonderVerjaardag){   // de volgende collega die aan de beurt is (iedereen die er is, om de beurt, niet twee keer achter elkaar dezelfde) met een nieuw compliment; op het scherm zonder het verjaardagsbericht, want dat staat als banner boven dit blok
+  const aanwezig = complimentAudience(now).filter(n=>!zonderVerjaardag || n !== VERJAARDAG_ID); if(!aanwezig.length) return null;
   cmpOrder = cmpOrder.filter(n=>aanwezig.includes(n));
   if(!cmpOrder.length){
     cmpOrder = [...aanwezig].sort(()=>Math.random() - 0.5);
@@ -3436,7 +3444,7 @@ function complimentRender(el, n){   // de tekst met de naam duidelijk gemarkeerd
 function complimentHide(el){ el.classList.remove("cmp-on"); el.style.display = "none"; el.dataset.on = ""; el.querySelector(".cmp-text").textContent = ""; el.dataset.naam = ""; el.dataset.taal = ""; el.title = ""; el.querySelector(".cmp-vertaling").textContent = ""; el.dataset.emoji = ""; el.querySelector(".cmp-emoji").textContent = ""; }
 function complimentReady(){ return firstLoadSettled && HEALTH.data === "ok"; }   // pas met de echte planning van GitHub: niet met het standaardrooster van vóór het laden, anders krijgt iemand een compliment die er helemaal niet is
 function complimentRestart(el){   // een nieuw compliment voor een andere collega, vanaf onzichtbaar
-  const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
+  const n = complimentNext(new Date(), true); if(!n){ complimentHide(el); return; }
   el.classList.remove("cmp-on"); complimentRender(el, n); void el.offsetWidth; el.classList.add("cmp-on");
 }
 function complimentSync(){   // elke paar seconden: wie er aan de beurt kan komen (zie complimentAudience); is dat er niemand, dan verdwijnt het blok
@@ -3444,16 +3452,16 @@ function complimentSync(){   // elke paar seconden: wie er aan de beurt kan kome
   const el = document.getElementById("compliment"); if(!el) return;
   if(!currentIdentity){ if(el.dataset.on) complimentHide(el); return; }   // wie er aan de beurt kan komen (en dus wie wat ziet) bepaalt complimentAudience: verjaardagen zijn voor iedereen, de rest voor Monitor en Hans
   el.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
-  const aanwezig = complimentAudience(new Date());
+  const aanwezig = complimentAudience(new Date()).filter(n=>n !== VERJAARDAG_ID);   // het verjaardagsbericht is de banner erboven
   if(!el.dataset.on){
-    const n = complimentNext(new Date()); if(!n) return;
+    const n = complimentNext(new Date(), true); if(!n) return;
     complimentRender(el, n); el.style.display = ""; el.dataset.on = "1"; el.classList.add("cmp-on");
   } else if(!aanwezig.length) complimentHide(el);
   else if(!aanwezig.includes(el.dataset.naam)) complimentRestart(el);   // de collega in beeld is intussen ziek, vrij of weg gezet: meteen iemand anders
 }
 function complimentIteration(){   // op het moment dat het compliment helemaal gedoofd is: het volgende
   const el = document.getElementById("compliment"); if(!el || !el.dataset.on) return;
-  const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
+  const n = complimentNext(new Date(), true); if(!n){ complimentHide(el); return; }
   complimentRender(el, n);
 }
 
