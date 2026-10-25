@@ -224,7 +224,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 105</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 106</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -241,7 +241,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
   <div style="position:relative;max-width:600px;margin:40px auto 40px;background:#111827;border:1px solid rgba(0,150,255,0.35);border-radius:16px;padding:24px 20px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-right:40px;">
       <div>
-        <span id="tpl-titel" style="font-size:18px;font-weight:800;color:#60b0ff;letter-spacing:1px;">★ Standaard week</span>
+        <span id="tpl-titel" style="font-size:18px;font-weight:800;color:#60b0ff;letter-spacing:1px;">★ Werkweek</span>
         <div style="font-size:10px;color:#555;letter-spacing:2px;text-transform:uppercase;margin-top:3px;">Wijzigingen worden direct doorgevoerd in alle komende weken</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -1648,8 +1648,8 @@ async function showUsersModal(){   // Admin ▸ Accounts (ICT-Systeembeheer en I
     try{ const c = await groupsFetch(); applyGroups(c.groups); groupsSha = c.sha; groupsReady = true; groupsError = null; gcur = c; }catch(e){ gcur = null; }   // lukt het ophalen niet, dan blijft de laatst bekende indeling gelden (en is er niets te wijzigen)
     const me = currentIdentity && currentIdentity.user, canReset = canResetPasswords(), editable = !!(beheer && gcur && me && gcur.groups[GROUP_ADMIN].includes(me));
     hint.textContent = beheer
-      ? "Alle accounts met hun groep, eigen wachtwoord en standaardbezetting. Vink 'Eigen wachtwoord' uit om het te resetten: die persoon kiest dan opnieuw een eigen wachtwoord, met het startwachtwoord." + (canReset ? "" : (groupsReady ? " Alleen leden van " + GROUP_ADMIN + " kunnen een reset doen." : " De groepen zijn nog niet opgehaald, dus resetten kan nu niet."))
-      : "Je eigen account: je groep, je wachtwoord en je eigen standaardbezetting.";
+      ? "Alle accounts met hun groep, eigen wachtwoord en werkweek. Vink 'Eigen wachtwoord' uit om het te resetten: die persoon kiest dan opnieuw een eigen wachtwoord, met het startwachtwoord." + (canReset ? "" : (groupsReady ? " Alleen leden van " + GROUP_ADMIN + " kunnen een reset doen." : " De groepen zijn nog niet opgehaald, dus resetten kan nu niet."))
+      : "Je eigen account: je groep, je wachtwoord en je eigen werkweek.";
     list.innerHTML = ""; acties.innerHTML = "";
     const kop = document.createElement("div"); kop.className = "usr-kop"; kop.style.cssText = "padding:4px 4px 6px;border-bottom:1px solid rgba(255,255,255,0.15);font-size:10px;font-weight:700;color:#999;";
     ["Account"].concat(GROUP_NAMES.map(g=>g.replace("ICT-", "")), ["Eigen wachtwoord", ""]).forEach(t=>{ const c = document.createElement("div"); c.textContent = t; kop.appendChild(c); }); list.appendChild(kop);
@@ -1681,7 +1681,7 @@ async function showUsersModal(){   // Admin ▸ Accounts (ICT-Systeembeheer en I
       row.appendChild(pwCel);
       const actie = document.createElement("span"); actie.className = "usr-acties-rij"; actie.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;";
       if(TEAM.includes(name) && canEditTemplate(name)){   // je eigen standaardbezetting, of die van iedereen als je in ICT-Systeembeheer zit
-        const sb = document.createElement("button"); sb.type = "button"; sb.textContent = "Standaard"; sb.className = "usr-standaard"; sb.dataset.naam = name; sb.title = "Standaardbezetting van " + name; sb.style.cssText = "background:rgba(96,176,255,0.1);border:1px solid rgba(96,176,255,0.35);color:#60b0ff;border-radius:8px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:inherit;";
+        const sb = document.createElement("button"); sb.type = "button"; sb.textContent = "Werkweek"; sb.className = "usr-standaard"; sb.dataset.naam = name; sb.title = "Werkweek van " + name; sb.style.cssText = "background:rgba(96,176,255,0.1);border:1px solid rgba(96,176,255,0.35);color:#60b0ff;border-radius:8px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:inherit;";
         sb.onclick = ()=>openStandaard(name); actie.appendChild(sb);
       }
       if(mij && rec){   // je eigen wachtwoord wijzig je met je huidige wachtwoord
@@ -1691,7 +1691,7 @@ async function showUsersModal(){   // Admin ▸ Accounts (ICT-Systeembeheer en I
       list.appendChild(row);
     });
     if(beheer && canEditGroups()){   // alle standaardweken: namen, volgorde, verbergen en verwijderen horen bij ICT-Systeembeheer
-      const alle = document.createElement("button"); alle.type = "button"; alle.id = "usr-alle-standaard"; alle.textContent = "Alle standaardweken";
+      const alle = document.createElement("button"); alle.type = "button"; alle.id = "usr-alle-standaard"; alle.textContent = "Alle werkweken";
       alle.style.cssText = "background:rgba(96,176,255,0.12);border:1px solid rgba(96,176,255,0.4);color:#60b0ff;" + BTN; alle.onclick = ()=>openStandaard(null); acties.appendChild(alle);
     }
     if(editable){
@@ -2489,7 +2489,7 @@ async function showPopup(cellWrap,monday,person,day,isTemplate){
   closePopup();
   const popup=document.createElement("div"); popup.className="popup";
   const title=document.createElement("div"); title.className="popup-title";
-  title.textContent=(isTemplate?"★ Standaard · ":"")+person+" · "+DAY_LABELS[day];
+  title.textContent=(isTemplate?"★ Werkweek · ":"")+person+" · "+DAY_LABELS[day];
   popup.appendChild(title);
   addWinX(popup, closePopup, "popup-close", { small:true, keepPosition:true });   // alleen een kruis rechtsboven in het venster
   function renderItems(){
@@ -2740,7 +2740,7 @@ function removePerson(name){
 
 function buildTemplateGrid(){
   const alleen = tplFilter && TEAM.includes(tplFilter) ? tplFilter : null, KOL = alleen ? "130px repeat(5,1fr)" : "130px repeat(5,1fr) 64px 24px 28px";   // met één persoon: alleen de dagen, zonder verbergen, volgorde en verwijderen
-  const titel = document.getElementById("tpl-titel"); if(titel) titel.textContent = alleen ? "★ Standaard bezetting van " + alleen : "★ Standaard week";
+  const titel = document.getElementById("tpl-titel"); if(titel) titel.textContent = alleen ? "★ Werkweek van " + alleen : "★ Alle werkweken";
   const container=document.getElementById("tpl-grid"); container.innerHTML="";
   // Toevoegen-rij bovenaan — altijd zichtbaar
   // (addRow wordt hieronder aangemaakt en dan direct toegevoegd)
