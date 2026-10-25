@@ -1,14 +1,9 @@
 {
  "v": 1,
- "talen": {
-  "Wouter": [
-   "nl",
-   "tb"
-  ]
- },
+ "talen": {},
  "talenWijziging": {
   "by": "Hans",
-  "at": "2026-10-22T14:02:10.081Z"
+  "at": "2026-10-25T09:15:00.338Z"
  },
  "personen": {
   "Wim": false,
