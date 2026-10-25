@@ -25,19 +25,5 @@
   "by": "Hans",
   "at": "2026-10-25T03:49:00.456Z"
  },
- "persoonlijk": {
-  "Hans": [
-   {
-    "id": "ywazypf9",
-    "t": "Goedemorgen",
-    "van": null,
-    "tot": null,
-    "jaarlijks": null,
-    "doel": null,
-    "emoji": null,
-    "by": "Hans",
-    "at": "2026-10-24T15:28:19.823Z"
-   }
-  ]
- }
+ "persoonlijk": {}
 }
