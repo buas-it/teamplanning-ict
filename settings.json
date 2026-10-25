@@ -10,10 +10,12 @@
   "by": "Hans",
   "at": "2026-10-22T14:02:10.081Z"
  },
- "personen": {},
+ "personen": {
+  "Hans": false
+ },
  "personenWijziging": {
   "by": "Hans",
-  "at": "2026-10-22T15:37:23.433Z"
+  "at": "2026-10-25T03:46:19.282Z"
  },
  "persoonlijk": {
   "Hans": [
