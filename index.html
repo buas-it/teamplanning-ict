@@ -172,6 +172,8 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 .compliment.cmp-kaart { visibility:hidden; position:absolute; left:0; right:0; margin-left:auto; margin-right:auto; width:min(940px, 94%); }   /* de kaart staat in beeld: het tekstblok blijft onzichtbaar meedraaien als klok */
 .msg-tl-tabel th .tl-kort { display:none; }
 @media (max-width:520px){ .msg-tl-tabel th .tl-vol { display:none; } .msg-tl-tabel th .tl-kort { display:inline; } }
+.usr-rij, .usr-kop { display:grid; grid-template-columns:104px 170px 1fr auto; gap:10px; }
+@media (max-width:560px){ .usr-kop { display:none; } .usr-rij { grid-template-columns:1fr auto; row-gap:2px; } .usr-rij > :nth-child(1){ order:1; } .usr-rij > :nth-child(4){ order:2; justify-self:end; } .usr-rij > :nth-child(2){ order:3; grid-column:1 / -1; } .usr-rij > :nth-child(3){ order:4; grid-column:1 / -1; } }
 </style>
 </head>
 <body>
@@ -210,7 +212,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 101</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 102</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -1161,7 +1163,7 @@ function openWhoMenu(){
     const kop = t => { const d = document.createElement("div"); d.className = "hd"; d.textContent = t; d.setAttribute("role", "presentation"); m.appendChild(d); };   // een kopje in het menu (geen knop)
     sep(); kop("Admin");
     item("menu-audit", "📜 Audit", "c-admin", cmd("btn-admin"));
-    item("menu-wachtwoorden", "🔑 Wachtwoorden", "c-admin", ()=>showUsersModal());
+    item("menu-accounts", "👤 Accounts", "c-admin", ()=>showUsersModal());
     item("menu-groepen", "👥 Groepen", "c-admin", ()=>showGroupsModal());
     item("menu-status", "📊 Status", "c-status", ()=>showStatusWindow());
     item("menu-stats", "📈 Statistics", "c-status", ()=>showStatsWindow());
@@ -1176,7 +1178,7 @@ function openWhoMenu(){
     bkTab.onclick = ()=>{ const open = bkTab.getAttribute("aria-expanded") !== "true"; bkTab.setAttribute("aria-expanded", String(open)); bkTab.textContent = "🗄 Backup/Restore " + (open ? "▾" : "▸"); bkSubs.forEach(x=>{ x.hidden = !open; }); };
     if(!canRestore()){ const t = m.querySelector("#menu-backup-terugzetten"); t.setAttribute("aria-disabled", "true"); t.title = "Een backup terugzetten mag alleen " + RESTORE_GROUP; }
     if(!editUnlocked){   // Admin werkt alleen als bewerken aan staat: een klik op een onderdeel geeft eerst de vraag om bewerken aan te zetten (bewuste tussenstap)
-      ["menu-wachtwoorden", "menu-groepen", "menu-boodschap", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{   // Audit, Status en Statistics zijn alleen kijken: zonder vraag
+      ["menu-accounts", "menu-groepen", "menu-boodschap", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{   // Audit, Status en Statistics zijn alleen kijken: zonder vraag
         const x = m.querySelector("#" + id); if(!x) return;
         if(id === "menu-boodschap" && !canToggleMessage()) return;   // ICT-Management kijkt alleen mee: geen vraag
         if(id === "menu-backup-terugzetten" && !canRestore()) return;   // terugzetten mag deze gebruiker niet: blijft uitgeschakeld met uitleg
@@ -1560,15 +1562,15 @@ async function showChangePassword(){
 }
 
 // Beheerder: wie heeft een eigen wachtwoord, en resetten
-async function showUsersModal(){
+async function showUsersModal(){   // Admin ▸ Accounts: alle accounts met hun groep en wachtwoord; hier komen straks ook de andere gebruikersinstellingen
   if(!await ensureAdmin()) return;
   const old = document.getElementById("usr-overlay"); if(old) old.remove();
   const overlay = document.createElement("div");
   overlay.className = "tp-overlay"; overlay.id = "usr-overlay";
   overlay.style.cssText = "position:fixed;inset:0;z-index:870;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
-  overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:560px;max-width:98vw;font-family:'Courier New',monospace;">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;padding-right:40px;"><div style="font-size:14px;font-weight:700;color:#80cbc4;">🔑 Wachtwoorden</div></div>
-    <div id="usr-hint" style="font-size:10px;color:#777;margin-bottom:12px;">Wie een eigen wachtwoord heeft gekozen. Na een reset kiest die persoon opnieuw een eigen wachtwoord, met het startwachtwoord.</div>
+  overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:680px;max-width:98vw;font-family:'Courier New',monospace;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;padding-right:40px;"><div style="font-size:14px;font-weight:700;color:#80cbc4;">👤 Accounts</div></div>
+    <div id="usr-hint" style="font-size:10px;color:#777;margin-bottom:12px;">Alle accounts met hun groep en wachtwoord. Na een reset kiest die persoon opnieuw een eigen wachtwoord, met het startwachtwoord.</div>
     <div id="usr-list" style="font-size:12px;color:rgba(255,255,255,0.75);">Laden...</div></div>`;
   document.body.appendChild(overlay);
   addWinX(overlay.firstElementChild, ()=>overlay.remove(), "usr-close");
@@ -1580,22 +1582,31 @@ async function showUsersModal(){
     const canReset = canResetPasswords();
     hint.textContent = baseHint + (canReset ? "" : (groupsReady ? " Alleen leden van " + GROUP_ADMIN + " kunnen een reset doen." : " De groepen zijn nog niet opgehaald, dus resetten kan nu niet."));
     list.innerHTML = "";
+    const kop = document.createElement("div"); kop.className = "usr-kop"; kop.style.cssText = "padding:4px 4px 6px;border-bottom:1px solid rgba(255,255,255,0.15);font-size:10px;font-weight:700;color:#999;";
+    ["Account", "Groep", "Wachtwoord", ""].forEach(t=>{ const c = document.createElement("div"); c.textContent = t; kop.appendChild(c); }); list.appendChild(kop);
     const names = loginNames().concat(Object.keys(reg.users).filter(n=>!loginNames().includes(n)));
     names.forEach(name=>{
       const rec = reg.users[name];
-      const row = document.createElement("div"); row.dataset.user = name;
-      row.style.cssText = "display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.06);";
+      const row = document.createElement("div"); row.dataset.user = name; row.className = "usr-rij";
+      row.style.cssText = "align-items:center;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.06);";
       const mij = !!(currentIdentity && currentIdentity.user === name);
-      const nm = document.createElement("span"); nm.style.cssText = "min-width:90px;color:#fff;"; nm.textContent = name + (TEAM.includes(name) ? "" : (EXTRA_LOGINS.includes(name) ? " (geen teamlid)" : " (niet in team)")) + (mij ? " (jij)" : "");
-      if(mij) nm.title = "Je eigen wachtwoord wijzig je via 'wachtwoord wijzigen' (met je huidige wachtwoord); resetten kan hier niet, zodat je jezelf niet buitensluit.";
-      const st = document.createElement("span"); st.style.cssText = "flex:1;color:" + (rec ? "#80cbc4" : "rgba(255,255,255,0.4)") + ";";
+      const nm = document.createElement("span"); nm.style.cssText = "color:#fff;"; nm.textContent = name + (TEAM.includes(name) ? "" : (EXTRA_LOGINS.includes(name) ? " (geen teamlid)" : " (niet in team)")) + (mij ? " (jij)" : "");
+      if(mij) nm.title = "Je eigen wachtwoord wijzig je met de knop 'Wijzigen' (met je huidige wachtwoord); resetten kan hier niet, zodat je jezelf niet buitensluit.";
+      const gr = document.createElement("span"); gr.className = "usr-groep"; gr.style.cssText = "font-size:11px;color:rgba(255,255,255,0.6);";
+      gr.textContent = groupsReady ? (GROUP_NAMES.filter(g=>inGroup(name, g)).join(", ") || "—") : "…";
+      const st = document.createElement("span"); st.style.cssText = "color:" + (rec ? "#80cbc4" : "rgba(255,255,255,0.4)") + ";";
       st.textContent = rec ? "eigen wachtwoord sinds " + fmt(rec.set) : "nog niet ingesteld (startwachtwoord)";
-      row.append(nm, st);
-      if(rec && canReset && !mij){   // je eigen wachtwoord reset je niet (dan moet je met het startwachtwoord opnieuw beginnen): wijzigen kan via 'wachtwoord wijzigen'
+      const actie = document.createElement("span"); actie.style.cssText = "justify-self:end;";
+      row.append(nm, gr, st, actie);
+      const knopStijl = "background:rgba(128,203,196,0.1);border:1px solid rgba(128,203,196,0.35);color:#80cbc4;border-radius:8px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:inherit;";
+      if(mij && rec){   // je eigen wachtwoord wijzig je met je huidige wachtwoord (resetten kan niet: dan sluit je jezelf buiten)
+        const w = document.createElement("button"); w.textContent = "Wijzigen"; w.className = "usr-wijzig"; w.style.cssText = knopStijl; w.onclick = ()=>showChangePassword(); actie.appendChild(w);
+      }
+      if(rec && canReset && !mij){   // je eigen wachtwoord reset je niet (dan moet je met het startwachtwoord opnieuw beginnen): wijzigen kan met 'Wijzigen'
         const b = document.createElement("button"); b.textContent = "Reset";
         b.style.cssText = "background:rgba(244,143,177,0.1);border:1px solid rgba(244,143,177,0.35);color:#f48fb1;border-radius:8px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:inherit;";
         b.onclick = async ()=>{
-          if(currentIdentity && currentIdentity.user === name){ alert("Je eigen wachtwoord kun je hier niet resetten. Gebruik 'wachtwoord wijzigen'."); return; }   // niet jezelf buitensluiten
+          if(currentIdentity && currentIdentity.user === name){ alert("Je eigen wachtwoord kun je hier niet resetten. Gebruik 'Wijzigen'."); return; }   // niet jezelf buitensluiten
           // de rechten worden op het moment van resetten nog eens gecontroleerd op de nieuwste indeling (niet op wat dit venster al wist)
           try{ await groupsRefresh(); }catch(e){ alert("De groepen konden niet worden opgehaald, dus resetten kan nu niet."); return; }
           if(!canResetPasswords()){ alert("Alleen leden van " + GROUP_ADMIN + " kunnen wachtwoorden resetten."); try{ showLockIndicator(); }catch(e){} renderList(); return; }
@@ -1606,7 +1617,7 @@ async function showUsersModal(){
           }catch(e){ alert("Reset mislukt: " + e.message); }
           renderList();
         };
-        row.appendChild(b);
+        actie.appendChild(b);
       }
       list.appendChild(row);
     });
