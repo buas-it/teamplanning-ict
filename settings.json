@@ -12,11 +12,12 @@
  },
  "personen": {
   "Wim": false,
-  "Wouter": false
+  "Wouter": false,
+  "Annies": false
  },
  "personenWijziging": {
   "by": "Hans",
-  "at": "2026-10-25T03:48:36.188Z"
+  "at": "2026-10-25T03:48:39.162Z"
  },
  "persoonlijk": {
   "Hans": [
