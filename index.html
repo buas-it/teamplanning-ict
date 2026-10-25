@@ -210,7 +210,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 97</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 99</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -362,7 +362,7 @@ const RESTORE_GROUP = "ICT-Systeembeheer";   // alleen deze groep mag een backup
 const GROUP_ADMIN = "ICT-Systeembeheer";     // alleen deze groep mag de groepen aanpassen
 const SETTINGS_PATH = "settings.json";       // gedeelde instellingen op de data-branch (de boodschap aan of uit, en de taal of talen per collega)
 const MESSAGE_ADMIN = "ICT-Systeembeheer";   // alleen deze groep mag de boodschap aan- en uitzetten
-let BOODSCHAP = { enabled: true, ready: false, by: null, at: null, talen: {}, talenBy: null, talenAt: null, personen: {}, personenBy: null, personenAt: null, persoonlijk: {}, monitor: {}, sha: null, error: null };   // ready: de instelling is minstens één keer opgehaald; zolang dat niet zo is, geen boodschap
+let BOODSCHAP = { enabled: true, ready: false, by: null, at: null, talen: {}, talenBy: null, talenAt: null, personen: {}, personenBy: null, personenAt: null, persoonlijk: {}, monitor: {}, campus: {}, sha: null, error: null };   // ready: de instelling is minstens één keer opgehaald; zolang dat niet zo is, geen boodschap
 function canToggleMessage(){ return !!(currentIdentity && inGroup(currentIdentity.user, MESSAGE_ADMIN)); }
 let groupsReady = false, groupsError = null, groupsSha = null;   // groupsReady: de indeling is opgehaald (of er is nog geen bestand: standaard). Zolang dat niet zo is, geldt niemand als lid: bij twijfel geen rechten
 function groupOf(user){ return GROUP_NAMES.find(g=>GROUPS[g].includes(user)) || null; }
@@ -478,19 +478,20 @@ function settingsParseMonitor(p){   // {naam: true/false}: alleen echte keuzes (
   Object.keys(p).forEach(n=>{ if(typeof p[n] === "boolean") uit[n] = p[n]; });
   return uit;
 }
+function campusNodig(naam, campus){ return !(campus && campus[naam] === false); }   // standaard komt het compliment voor een collega alleen als hij of zij op de campus is; een eigen keuze 'niet nodig' (false) haalt die eis weg
 const MONITOR_STANDAARD = ["Monitor", "Hans"];   // wie standaard de monitorfunctie heeft: alle berichten zien, ongeacht eigen status of aanwezigheid
 function monitorAan(naam, monitor){ return monitor && Object.prototype.hasOwnProperty.call(monitor, naam) ? !!monitor[naam] : MONITOR_STANDAARD.includes(naam); }   // een eigen keuze (Admin ▸ Boodschap) gaat voor; anders de standaard
 function settingsParseWijz(w){ return { by: w && typeof w.by === "string" ? w.by : null, at: w && typeof w.at === "string" ? w.at : null }; }
 async function settingsFetch(){   // {boodschap:{enabled,by,at}, talen:{naam:[codes]}, talenWijz:{by,at}, raw, sha}; 404 = nog nooit ingesteld: aan; gooit bij een storing of een ongeldig bestand
   const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
-  if(r.status === 404) return { boodschap: { enabled: true, by: null, at: null }, talen: {}, talenWijz: { by: null, at: null }, personen: {}, personenWijz: { by: null, at: null }, persoonlijk: {}, monitor: {}, raw: { v: 1 }, sha: null };
+  if(r.status === 404) return { boodschap: { enabled: true, by: null, at: null }, talen: {}, talenWijz: { by: null, at: null }, personen: {}, personenWijz: { by: null, at: null }, persoonlijk: {}, monitor: {}, campus: {}, raw: { v: 1 }, sha: null };
   if(!r.ok) throw new Error("HTTP " + r.status);
   const d = await r.json(), raw = JSON.parse(auditDecode(d.content));
   if(!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("ongeldig bestand");
   const boodschap = { enabled: true, by: null, at: null };   // de boodschap staat altijd aan: een eventuele oude stand in het bestand telt niet meer
-  return { boodschap, talen: settingsParseTalen(raw.talen), talenWijz: settingsParseWijz(raw.talenWijziging), personen: settingsParsePersonen(raw.personen), personenWijz: settingsParseWijz(raw.personenWijziging), persoonlijk: settingsParsePersoonlijk(raw.persoonlijk), monitor: settingsParseMonitor(raw.monitor), raw, sha: d.sha };
+  return { boodschap, talen: settingsParseTalen(raw.talen), talenWijz: settingsParseWijz(raw.talenWijziging), personen: settingsParsePersonen(raw.personen), personenWijz: settingsParseWijz(raw.personenWijziging), persoonlijk: settingsParsePersoonlijk(raw.persoonlijk), monitor: settingsParseMonitor(raw.monitor), campus: settingsParseMonitor(raw.campus), raw, sha: d.sha };
 }
-function applySettings(cur){ const w = cur.talenWijz || { by: null, at: null }, pw = cur.personenWijz || { by: null, at: null }; BOODSCHAP = { enabled: true, ready: true, by: null, at: null, talen: cur.talen || {}, talenBy: w.by, talenAt: w.at, personen: cur.personen || {}, personenBy: pw.by, personenAt: pw.at, persoonlijk: cur.persoonlijk || {}, monitor: cur.monitor || {}, sha: cur.sha || null, error: null }; }
+function applySettings(cur){ const w = cur.talenWijz || { by: null, at: null }, pw = cur.personenWijz || { by: null, at: null }; BOODSCHAP = { enabled: true, ready: true, by: null, at: null, talen: cur.talen || {}, talenBy: w.by, talenAt: w.at, personen: cur.personen || {}, personenBy: pw.by, personenAt: pw.at, persoonlijk: cur.persoonlijk || {}, monitor: cur.monitor || {}, campus: cur.campus || {}, sha: cur.sha || null, error: null }; }
 async function settingsLoad(){   // haalt de instellingen op; bij een storing blijft de eerder opgehaalde stand gelden
   try{ applySettings(await settingsFetch()); }
   catch(e){ BOODSCHAP.error = (e && e.message) || String(e); }
@@ -517,7 +518,7 @@ async function settingsSetTalen(naam, lijst){   // de talen van één collega in
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
-      applySettings({ boodschap: cur.boodschap, talen: settingsParseTalen(talen), talenWijz: raw.talenWijziging, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: cur.monitor, sha });
+      applySettings({ boodschap: cur.boodschap, talen: settingsParseTalen(talen), talenWijz: raw.talenWijziging, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: cur.monitor, campus: cur.campus, sha });
       auditEvent("boodschap taal: " + naam + ": " + complimentTalenTekst(oud) + " → " + tekst);   // pas na een geslaagde opslag in het logboek
       touchEditTimer(); try{ complimentSync(); }catch(e){}
       return { ok: true, changed: true, tekst };
@@ -543,7 +544,7 @@ async function settingsSetPersoon(naam, aan){   // de boodschap voor één colle
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
-      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: settingsParsePersonen(personen), personenWijz: raw.personenWijziging, persoonlijk: cur.persoonlijk, monitor: cur.monitor, sha });
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: settingsParsePersonen(personen), personenWijz: raw.personenWijziging, persoonlijk: cur.persoonlijk, monitor: cur.monitor, campus: cur.campus, sha });
       auditEvent("boodschap collega: " + naam + ": " + (oud ? "aan" : "uit") + " → " + (aan ? "aan" : "uit"));   // pas na een geslaagde opslag in het logboek
       touchEditTimer(); try{ complimentSync(); }catch(e){}
       return { ok: true, changed: true, aan };
@@ -569,10 +570,36 @@ async function settingsSetMonitor(naam, aan){   // de monitorfunctie van één g
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
-      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: settingsParseMonitor(mon), sha });
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: settingsParseMonitor(mon), campus: cur.campus, sha });
       auditEvent("boodschap monitorfunctie: " + naam + ": " + (oud ? "aan" : "uit") + " → " + (aan ? "aan" : "uit"));   // pas na een geslaagde opslag in het logboek
       touchEditTimer(); try{ complimentSync(); }catch(e){}
       return { ok: true, changed: true, aan };
+    }
+    if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
+  }
+  throw new Error("conflict");
+}
+async function settingsSetCampus(naam, nodig){   // voor één collega instellen of het compliment alleen komt als hij of zij op de campus is (standaard wel); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand, schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
+  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan dit wijzigen." };
+  if(!editUnlocked) return { error: "Bewerken staat uit." };
+  if(!TEAM.includes(naam)) return { error: "Onbekende collega." };
+  const me = currentIdentity.user;
+  for(let i = 0; i < 4; i++){
+    const cur = await settingsFetch(), oud = campusNodig(naam, cur.campus);
+    if(oud === nodig){ applySettings(cur); try{ complimentSync(); }catch(e){} return { ok: true, changed: false, nodig }; }   // een collega had het al zo gezet: niets schrijven en niets in het logboek
+    const raw = cur.raw; raw.v = 1;
+    const camp = raw.campus && typeof raw.campus === "object" && !Array.isArray(raw.campus) ? raw.campus : {};
+    if(nodig) delete camp[naam]; else camp[naam] = false;   // gelijk aan de standaard (wel nodig): geen eigen regel
+    raw.campus = camp;
+    const body = { message: "Compliment voor " + naam + (nodig ? ": weer alleen als aanwezig op de campus" : ": ook als niet aanwezig op de campus") + " (door " + me + ")", content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
+    if(cur.sha) body.sha = cur.sha;
+    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
+    if(r.ok){
+      let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: cur.monitor, campus: settingsParseMonitor(camp), sha });
+      auditEvent("boodschap campus: " + naam + ": " + (oud ? "alleen op de campus" : "ook niet op de campus") + " → " + (nodig ? "alleen op de campus" : "ook niet op de campus"));   // pas na een geslaagde opslag in het logboek
+      touchEditTimer(); try{ complimentSync(); }catch(e){}
+      return { ok: true, changed: true, nodig };
     }
     if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
   }
@@ -611,7 +638,7 @@ async function settingsSetEigen(naam, actie, e){   // een persoonlijke boodschap
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(x){}
-      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: settingsParsePersoonlijk(alle), monitor: cur.monitor, sha });
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: settingsParsePersoonlijk(alle), monitor: cur.monitor, campus: cur.campus, sha });
       auditEvent(naam === EIGEN_ALGEMEEN ? "boodschap algemeen: " + werkwoord + " (" + kort(tekst) + ")" : "boodschap persoonlijk: " + naam + ": " + werkwoord + " (" + kort(tekst) + ")");   // pas na een geslaagde opslag in het logboek
       touchEditTimer(); try{ complimentSync(); }catch(x){}
       return { ok: true, changed: true };
@@ -3393,10 +3420,10 @@ function complimentTaal(naam){   // in welke taal deze collega nu het compliment
   try{ localStorage.setItem(sleutel, String(i)); }catch(e){}
   return rij[i];
 }
-function complimentPresent(now){   // iedereen van het team die op dit moment op de campus is (voor 12 uur telt de ochtend, daarna de middag), behalve wie voor de boodschap is uitgezet (standaard Ted); thuis, ziek (ook ziek thuis), vrij en extern niet; in het weekend niemand
-  const dag = DAYS[(now.getDay() || 7) - 1]; if(!dag) return [];
-  const data = getData(mondayOf(now)), dagdeel = now.getHours() < 12 ? "vm_kantoor" : "nm_kantoor";
-  return TEAM.filter(p=>!HIDDEN.has(p) && complimentPersoonAan(p, BOODSCHAP.personen)).filter(p=>{ const s = (data[p] || {})[dag] || []; return !s.includes("ziek") && (s.includes("kantoor") || s.includes(dagdeel)); });
+function complimentPresent(now){   // iedereen van het team die op dit moment op de campus is (voor 12 uur telt de ochtend, daarna de middag), behalve wie voor de boodschap is uitgezet (standaard Ted); wie 'Op campus' heeft uitgevinkt (Admin ▸ Boodschap) doet op elke werkdag mee, ongeacht planning en status; thuis, ziek (ook ziek thuis), vrij en extern niet; in het weekend niemand, behalve wie 'Op campus' heeft uitgevinkt
+  const dag = DAYS[(now.getDay() || 7) - 1];   // in het weekend (geen dag) doet alleen mee wie 'Op campus' heeft uitgevinkt
+  const data = dag ? getData(mondayOf(now)) : {}, dagdeel = now.getHours() < 12 ? "vm_kantoor" : "nm_kantoor";
+  return TEAM.filter(p=>!HIDDEN.has(p) && complimentPersoonAan(p, BOODSCHAP.personen)).filter(p=>{ if(!campusNodig(p, BOODSCHAP.campus)) return true; if(!dag) return false; const s = (data[p] || {})[dag] || []; return !s.includes("ziek") && (s.includes("kantoor") || s.includes(dagdeel)); });
 }
 function complimentAanwezigVoorMij(now){   // wie er aan de beurt is voor een gewoon compliment: wie op de campus is, en voor wie de monitorfunctie heeft ook de gebruiker zelf (op een werkdag), ongeacht zijn status of aanwezigheid: zo kan hij controleren of het werkt
   const aanwezig = complimentPresent(now), ik = currentIdentity ? currentIdentity.user : null;
@@ -3549,18 +3576,19 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     wrap.textContent = "";
     const tabel = document.createElement("table"), kop = document.createElement("thead"), kr = document.createElement("tr"), lijf = document.createElement("tbody");
     tabel.className = "msg-tl-tabel"; tabel.style.cssText = "width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;";
-    [["Collega", "Collega"], ["Boodschap", "Aan"]].concat(beschikbaar.map(c=>[complimentTaalNaam(c), c.toUpperCase()]), [["Monitor", "Mon"], ["", ""]]).forEach((t, i)=>{ const th = document.createElement("th"), vol = document.createElement("span"), kort = document.createElement("span"); th.scope = "col"; vol.className = "tl-vol"; vol.textContent = t[0]; kort.className = "tl-kort"; kort.textContent = t[1]; th.title = t[0]; th.appendChild(vol); th.appendChild(kort);
+    [["Collega", "Collega"], ["Boodschap", "Aan"], ["Op campus", "Cam"]].concat(beschikbaar.map(c=>[complimentTaalNaam(c), c.toUpperCase()]), [["Monitor", "Mon"], ["", ""]]).forEach((t, i)=>{ const th = document.createElement("th"), vol = document.createElement("span"), kort = document.createElement("span"); th.scope = "col"; vol.className = "tl-vol"; vol.textContent = t[0]; kort.className = "tl-kort"; kort.textContent = t[1]; th.title = t[0]; th.appendChild(vol); th.appendChild(kort);
       th.style.cssText = "text-align:" + (i === 0 ? "left" : "center") + ";color:#999;font-weight:700;font-size:10px;padding:4px 2px 6px;white-space:nowrap;" + (i === 0 ? "width:76px;" : (t[0] === "" ? "width:34px;" : "")); kr.appendChild(th); });
     kop.appendChild(kr); tabel.appendChild(kop);
     const leeg = ()=>{ const td = document.createElement("td"); td.style.cssText = "padding:4px;"; return td; };
     const vink = (naam, soort, code, aan, label, dim)=>{ const td = document.createElement("td"), c = document.createElement("input"); td.style.cssText = "text-align:center;padding:4px;"; c.type = "checkbox"; c.checked = aan; c.disabled = vast; c.dataset.naam = naam;
-      if(soort === "aan") c.dataset.aan = "1"; else if(soort === "taal") c.dataset.taal = code; else c.dataset.monitor = "1";
+      if(soort === "aan") c.dataset.aan = "1"; else if(soort === "campus") c.dataset.campus = "1"; else if(soort === "taal") c.dataset.taal = code; else c.dataset.monitor = "1";
       c.setAttribute("aria-label", label); c.title = !mag ? "Alleen " + MESSAGE_ADMIN + " kan dit wijzigen." : ""; c.style.cssText = "width:16px;height:16px;accent-color:#80cbc4;cursor:" + (vast ? "not-allowed" : "pointer") + ";opacity:" + (vast ? "0.55" : (dim ? "0.5" : "1")) + ";"; td.appendChild(c); return td; };
     TEAM.forEach(naam=>{
       const aan = complimentTalenVoor(naam, BOODSCHAP.talen), actief = complimentPersoonAan(naam, BOODSCHAP.personen), tr = document.createElement("tr"), nm = document.createElement("th");
       tr.className = "msg-tl-rij"; tr.dataset.naam = naam; tr.dataset.actief = String(actief); tr.style.cssText = "border-top:1px solid rgba(255,255,255,0.06);";
       nm.scope = "row"; nm.textContent = naam; nm.style.cssText = "text-align:left;font-size:12px;font-weight:700;padding:4px 6px 4px 0;color:" + (actief ? "#fff" : "#888") + (HIDDEN.has(naam) ? ";font-style:italic;opacity:0.7" : "") + ";"; tr.appendChild(nm);
       tr.appendChild(vink(naam, "aan", null, actief, "Boodschap voor " + naam, false));
+      tr.appendChild(vink(naam, "campus", null, campusNodig(naam, BOODSCHAP.campus), "Alleen op de campus voor " + naam, !actief));
       beschikbaar.forEach(code=>tr.appendChild(vink(naam, "taal", code, aan.includes(code), complimentTaalNaam(code) + " voor " + naam, !actief)));
       tr.appendChild(vink(naam, "monitor", null, monitorAan(naam, BOODSCHAP.monitor), "Monitorfunctie voor " + naam, false));
       const rt = document.createElement("td"); rt.style.cssText = "text-align:center;padding:4px;";
@@ -3569,7 +3597,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
       tr.appendChild(rt); lijf.appendChild(tr);
     });
     { const tr = document.createElement("tr"), nm = document.createElement("th"); tr.className = "msg-tl-monitor"; tr.dataset.naam = "Monitor"; tr.style.cssText = "border-top:1px solid rgba(255,255,255,0.12);";
-      nm.scope = "row"; nm.textContent = "Monitor"; nm.style.cssText = "text-align:left;font-size:12px;font-weight:700;padding:4px 6px 4px 0;color:#fff;"; tr.appendChild(nm); tr.appendChild(leeg()); beschikbaar.forEach(()=>tr.appendChild(leeg()));
+      nm.scope = "row"; nm.textContent = "Monitor"; nm.style.cssText = "text-align:left;font-size:12px;font-weight:700;padding:4px 6px 4px 0;color:#fff;"; tr.appendChild(nm); tr.appendChild(leeg()); tr.appendChild(leeg()); beschikbaar.forEach(()=>tr.appendChild(leeg()));
       tr.appendChild(vink("Monitor", "monitor", null, monitorAan("Monitor", BOODSCHAP.monitor), "Monitorfunctie voor de Monitor", false)); tr.appendChild(leeg()); lijf.appendChild(tr); }
     tabel.appendChild(lijf); wrap.appendChild(tabel);
     const laatste = [[BOODSCHAP.talenAt, BOODSCHAP.talenBy], [BOODSCHAP.personenAt, BOODSCHAP.personenBy]].filter(x=>x[0] && !isNaN(Date.parse(x[0]))).sort((a, b)=>Date.parse(b[0]) - Date.parse(a[0]))[0], d = laatste ? new Date(laatste[0]) : null;
@@ -3581,6 +3609,9 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     if(b.dataset.aan){   // de boodschap voor deze collega aan of uit
       const wil = b.checked; taak = ()=>settingsSetPersoon(naam, wil); fout = "De boodschap is niet veranderd.";
       ok = r=>r.changed ? "De boodschap voor " + naam + " staat " + (wil ? "aan" : "uit") + "." : "Dat stond al zo: een collega had het net gewijzigd.";
+    } else if(b.dataset.campus){   // moet deze collega op de campus zijn voor een compliment?
+      const wil = b.checked; taak = ()=>settingsSetCampus(naam, wil); fout = "De instelling is niet veranderd.";
+      ok = r=>r.changed ? "Compliment voor " + naam + (wil ? ": alleen als aanwezig op de campus." : ": ook als niet aanwezig op de campus.") : "Dat stond al zo: een collega had het net gewijzigd.";
     } else if(b.dataset.monitor){   // de monitorfunctie van deze gebruiker aan of uit
       const wil = b.checked; taak = ()=>settingsSetMonitor(naam, wil); fout = "De monitorfunctie is niet veranderd.";
       ok = r=>r.changed ? "Monitorfunctie voor " + naam + " staat " + (wil ? "aan" : "uit") + "." : "Dat stond al zo: een collega had het net gewijzigd.";
