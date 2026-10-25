@@ -224,7 +224,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 106</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 107</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -383,6 +383,13 @@ function groupOf(user){ return GROUP_NAMES.find(g=>GROUPS[g].includes(user)) || 
 function inGroup(user, g){ return !!(groupsReady && user && GROUPS[g] && GROUPS[g].includes(user)); }
 function canRestore(){ return !!(currentIdentity && inGroup(currentIdentity.user, RESTORE_GROUP)); }
 let tplFilter = null;   // null: alle standaardweken (alleen ICT-Systeembeheer); een naam: alleen de standaardbezetting van die persoon
+function canEditUser(naam){ return !!(currentIdentity && naam && (naam === currentIdentity.user || inGroup(currentIdentity.user, GROUP_ADMIN))); }   // je eigen gegevens mag je wijzigen; die van iedereen alleen als je lid bent van ICT-Systeembeheer
+function zetVerborgen(naam, aan){   // een collega verbergen of weer tonen (blijft bestaan maar staat nergens in beeld): alleen ICT-Systeembeheer
+  if(!canEditGroups() || !TEAM.includes(naam)) return false;
+  if(aan) HIDDEN.add(naam); else HIDDEN.delete(naam);
+  saveState(); try{ renderAndSync(); }catch(e){}
+  return true;
+}
 function canEditTemplate(person){ return !!(currentIdentity && person && (person === currentIdentity.user || inGroup(currentIdentity.user, GROUP_ADMIN))); }   // je eigen standaardbezetting mag je aanpassen; die van iedereen alleen als je lid bent van ICT-Systeembeheer
 function canEditGroups(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }
 // ── Niet jezelf buitensluiten ──
@@ -405,7 +412,7 @@ function canSeeAdmin(){   // Admin (logboek, wachtwoorden, groepen): alleen team
   return !!(me && groupsReady && TEAM.includes(me) && ADMIN_VIEW_GROUPS.some(g=>inGroup(me, g)));
 }
 function closeAdminWindows(all){   // Admin-vensters dicht: bij verloren rechten allemaal; als bewerken uitgaat alleen de vensters waarmee je iets wijzigt (Audit, Status en het backup-overzicht zijn alleen kijken en blijven open)
-  (all ? ["au-close", "status-close", "stat-close", "bc-close", "usr-close", "restore-close", "backup-close", "msg-close", "msg-view-close"] : ["usr-close", "restore-close", "backup-close", "msg-close"]).forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o) o.remove(); });
+  (all ? ["au-close", "status-close", "stat-close", "bc-close", "usr-close", "restore-close", "backup-close", "msg-close", "msg-view-close"] : ["usr-close", "restore-close", "backup-close", "msg-close"]).forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o && !(id === "usr-close" && o.dataset.eigen === "1")) o.remove(); });   // het venster 'Mijn account' (voor wie geen Admin heeft) blijft staan: dat is geen Admin-venster
 }
 function canResetPasswords(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }   // wachtwoorden van anderen resetten: alleen leden van ICT-Systeembeheer (je eigen wachtwoord wijzigen kan iedereen)
 function denyRestore(){ adminNotice(groupsReady ? "Een backup terugzetten mag alleen " + RESTORE_GROUP + "." : "De groepen konden niet worden opgehaald, dus terugzetten kan nu niet. Probeer het zo opnieuw.", "♻ Backup terugzetten"); }
@@ -515,7 +522,7 @@ async function settingsLoad(){   // haalt de instellingen op; bij een storing bl
   return BOODSCHAP.ready;
 }
 async function settingsSetTalen(naam, lijst){   // de talen van één collega instellen (lijst = null: terug naar de standaard); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand (een collega kan intussen iets anders hebben gewijzigd: dat blijft staan), schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
-  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de talen wijzigen." };
+  if(!canEditUser(naam)) return { error: "Alleen " + MESSAGE_ADMIN + " kan de talen wijzigen." };
   if(!editUnlocked) return { error: "Bewerken staat uit." };
   if(!TEAM.includes(naam)) return { error: "Onbekende collega." };
   const nieuw = lijst === null ? null : complimentTalenSorteer(lijst);
@@ -544,7 +551,7 @@ async function settingsSetTalen(naam, lijst){   // de talen van één collega in
   throw new Error("conflict");
 }
 async function settingsSetPersoon(naam, aan){   // de boodschap voor één collega aan- of uitzetten (los van de schakelaar voor iedereen); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand (wat een collega intussen anders wijzigde blijft staan), schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
-  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de boodschap per collega aan- of uitzetten." };
+  if(!canEditUser(naam)) return { error: "Alleen " + MESSAGE_ADMIN + " kan de boodschap per collega aan- of uitzetten." };
   if(!editUnlocked) return { error: "Bewerken staat uit." };
   if(!TEAM.includes(naam)) return { error: "Onbekende collega." };
   const me = currentIdentity.user;
@@ -570,7 +577,7 @@ async function settingsSetPersoon(naam, aan){   // de boodschap voor één colle
   throw new Error("conflict");
 }
 async function settingsSetMonitor(naam, aan){   // de monitorfunctie van één gebruiker aan- of uitzetten (de Monitor zelf telt ook mee); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand, schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
-  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de monitorfunctie aan- of uitzetten." };
+  if(!canEditUser(naam)) return { error: "Alleen " + MESSAGE_ADMIN + " kan de monitorfunctie aan- of uitzetten." };
   if(!editUnlocked) return { error: "Bewerken staat uit." };
   if(!TEAM.includes(naam) && naam !== "Monitor") return { error: "Onbekende gebruiker." };
   const me = currentIdentity.user;
@@ -596,7 +603,7 @@ async function settingsSetMonitor(naam, aan){   // de monitorfunctie van één g
   throw new Error("conflict");
 }
 async function settingsSetCampus(naam, nodig){   // voor één collega instellen of het compliment alleen komt als hij of zij op de campus is (standaard wel); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand, schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
-  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan dit wijzigen." };
+  if(!canEditUser(naam)) return { error: "Alleen " + MESSAGE_ADMIN + " kan dit wijzigen." };
   if(!editUnlocked) return { error: "Bewerken staat uit." };
   if(!TEAM.includes(naam)) return { error: "Onbekende collega." };
   const me = currentIdentity.user;
@@ -1175,11 +1182,18 @@ function openWhoMenu(){
   if(!canSeeAdmin()) item("menu-accounts", "👤 Mijn account", "", ()=>showUsersModal());   // wie geen Admin heeft: het eigen account (groep, wachtwoord en standaardbezetting); bij Admin staat het als Accounts
   if(canSeeAdmin()){   // Admin: alleen ICT-Systeembeheer en ICT-Management
     const kop = t => { const d = document.createElement("div"); d.className = "hd"; d.textContent = t; d.setAttribute("role", "presentation"); m.appendChild(d); };   // een kopje in het menu (geen knop)
+    // Info: een map onder de ingelogde gebruiker die uitklapt naar Audit, Status en Statistics (alleen kijken); klappen blijft het menu openhouden
+    sep();
+    const infoTab = document.createElement("button"); infoTab.type = "button"; infoTab.id = "menu-info"; infoTab.className = "c-status";
+    infoTab.setAttribute("role", "menuitem"); infoTab.setAttribute("aria-haspopup", "true"); infoTab.setAttribute("aria-expanded", "false"); infoTab.textContent = "ℹ️ Info ▸";
+    m.appendChild(infoTab);
+    item("menu-audit", "📜 Audit", "c-admin sub", cmd("btn-admin"));
+    item("menu-status", "📊 Status", "c-status sub", ()=>showStatusWindow());
+    item("menu-stats", "📈 Statistics", "c-status sub", ()=>showStatsWindow());
+    const infoSubs = ["#menu-audit", "#menu-status", "#menu-stats"].map(s=>m.querySelector(s)); infoSubs.forEach(x=>{ x.hidden = true; });
+    infoTab.onclick = ()=>{ const open = infoTab.getAttribute("aria-expanded") !== "true"; infoTab.setAttribute("aria-expanded", String(open)); infoTab.textContent = "ℹ️ Info " + (open ? "▾" : "▸"); infoSubs.forEach(x=>{ x.hidden = !open; }); };
     sep(); kop("Admin");
-    item("menu-audit", "📜 Audit", "c-admin", cmd("btn-admin"));
     item("menu-accounts", "👤 Accounts", "c-admin", ()=>showUsersModal());
-    item("menu-status", "📊 Status", "c-status", ()=>showStatusWindow());
-    item("menu-stats", "📈 Statistics", "c-status", ()=>showStatsWindow());
     item("menu-boodschap", "💬 Boodschap", "c-admin", ()=>showBoodschapModal());
     // Backup/Restore: een tabblad onder Admin dat uitklapt naar Backup en Restore (klappen blijft het menu openhouden)
     const bkTab = document.createElement("button"); bkTab.type = "button"; bkTab.id = "menu-backuprestore"; bkTab.className = "c-admin";
@@ -1596,7 +1610,7 @@ async function showUsersModal(){   // Admin ▸ Accounts (ICT-Systeembeheer en I
   if(beheer){ if(!await ensureAdmin()) return; } else if(!await requireLogin()) return;
   const old = document.getElementById("usr-overlay"); if(old) old.remove();
   const overlay = document.createElement("div");
-  overlay.className = "tp-overlay"; overlay.id = "usr-overlay";
+  overlay.className = "tp-overlay"; overlay.id = "usr-overlay"; if(!beheer) overlay.dataset.eigen = "1";   // alleen het eigen account (iedere gebruiker): hoort niet bij Admin
   overlay.style.cssText = "position:fixed;inset:0;z-index:870;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
   const BTN = "border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;";
   overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:780px;max-width:98vw;font-family:'Courier New',monospace;">
@@ -1643,7 +1657,86 @@ async function showUsersModal(){   // Admin ▸ Accounts (ICT-Systeembeheer en I
       auditEvent("wachtwoord gereset: " + name); return true;
     }catch(e){ alert("Reset mislukt: " + e.message); return false; }
   };
+  async function renderAccount(name, melding){   // de pagina van één werknemer: groep, wachtwoord, werkweek, boodschap-instellingen en zichtbaarheid; ICT-Systeembeheer wijzigt van iedereen, iedere andere gebruiker alleen zijn eigen gegevens
+    let reg; try{ reg = await usersLoad(); }catch(e){ list.textContent = "Laden mislukt: " + e.message; return; }
+    try{ const c = await groupsFetch(); applyGroups(c.groups); groupsSha = c.sha; groupsReady = true; groupsError = null; gcur = c; }catch(e){ gcur = null; }
+    try{ applySettings(await settingsFetch()); }catch(e){}   // de nieuwste boodschap-instellingen
+    const me = currentIdentity && currentIdentity.user, mij = me === name, isTeam = TEAM.includes(name), isLogin = loginNames().includes(name), rec = reg.users[name];
+    const adminNu = !!(gcur && me && gcur.groups[GROUP_ADMIN].includes(me)), mag = canEditUser(name);   // adminNu: ICT-Systeembeheer volgens de nieuwste indeling
+    q("#usr-titel").textContent = (!beheer && mij) ? "👤 Mijn account" : "👤 Account van " + name + (mij ? " (jij)" : "");
+    hint.textContent = adminNu ? "Als lid van " + GROUP_ADMIN + " kun je alle gegevens van " + (mij ? "jezelf" : name) + " wijzigen." : (mij ? "Je kunt je eigen gegevens wijzigen. De groep en de zichtbaarheid wijzigt alleen een lid van " + GROUP_ADMIN + "." : "Je kunt alleen kijken: alleen " + GROUP_ADMIN + " wijzigt de gegevens van anderen.");
+    list.innerHTML = ""; acties.innerHTML = ""; setMsg("");
+    if(beheer){ const t = document.createElement("button"); t.type = "button"; t.id = "usr-terug"; t.textContent = "← Alle accounts"; t.style.cssText = "background:transparent;border:1px solid rgba(255,255,255,0.18);color:#bbb;border-radius:8px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:inherit;margin-bottom:6px;"; t.onclick = ()=>renderList(); list.appendChild(t); }
+    const sec = (id, titel)=>{ const d = document.createElement("div"); d.id = id; d.className = "usr-sec"; d.style.cssText = "padding:12px 4px;border-bottom:1px solid rgba(255,255,255,0.08);"; const k = document.createElement("div"); k.style.cssText = "font-size:10px;font-weight:700;color:#999;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;"; k.textContent = titel; d.appendChild(k); list.appendChild(d); return d; };
+    const rij = ouder=>{ const r = document.createElement("div"); r.style.cssText = "display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;"; ouder.appendChild(r); return r; };
+    const vinkje = (ouder, tekst, aan, uit, titel)=>{ const l = document.createElement("label"), i = document.createElement("input"), s = document.createElement("span"); l.style.cssText = "display:inline-flex;align-items:center;gap:8px;font-size:12px;color:" + (uit ? "#888" : "#ddd") + ";cursor:" + (uit ? "not-allowed" : "pointer") + ";"; i.type = "checkbox"; i.checked = aan; i.disabled = uit; i.style.cssText = "width:17px;height:17px;margin:0;accent-color:#80cbc4;cursor:inherit;"; s.textContent = tekst; if(titel) l.title = titel; l.append(i, s); ouder.appendChild(l); return i; };
+    const knop = (ouder, tekst, id, kleur, fn)=>{ const b = document.createElement("button"); b.type = "button"; b.id = id; b.textContent = tekst; const c = kleur === "rood" ? "244,143,177" : (kleur === "blauw" ? "96,176,255" : "128,203,196"); b.style.cssText = "background:rgba(" + c + ",0.1);border:1px solid rgba(" + c + ",0.4);color:rgb(" + c + ");border-radius:8px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit;"; b.onclick = fn; ouder.appendChild(b); return b; };
+    const nota = (ouder, tekst)=>{ const n = document.createElement("span"); n.style.cssText = "font-size:11px;color:#777;"; n.textContent = tekst; ouder.appendChild(n); };
+    // Groep
+    if(isLogin){
+      const sg = sec("usr-sec-groep", "Groep"), r = rij(sg), huidig = curGroup(name), blijf = mij && huidig === GROUP_ADMIN, vakjes = [];
+      const bewaar = document.createElement("button"); bewaar.type = "button"; bewaar.id = "usr-groep-opslaan-account"; bewaar.textContent = "Groep opslaan";
+      bewaar.style.cssText = "background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;border-radius:8px;padding:6px 14px;font-size:11px;cursor:pointer;font-family:inherit;opacity:0.5;"; bewaar.disabled = true;
+      GROUP_NAMES.forEach(g=>{
+        const i = vinkje(r, g.replace("ICT-", ""), huidig === g, !adminNu || blijf, blijf ? "Jezelf uit " + GROUP_ADMIN + " halen kan niet; vraag een collega." : (adminNu ? "" : "Alleen een lid van " + GROUP_ADMIN + " kan de groep wijzigen."));
+        i.className = "usr-groep-vink"; i.dataset.groep = g; i.dataset.naam = name; vakjes.push(i);
+        i.onchange = ()=>{ if(!i.checked){ i.checked = true; return; } vakjes.forEach(o=>{ if(o !== i) o.checked = false; }); bewaar.disabled = g === huidig; bewaar.style.opacity = bewaar.disabled ? "0.5" : ""; };
+      });
+      if(adminNu && !blijf){
+        bewaar.onclick = async ()=>{ const naar = (vakjes.find(v=>v.checked) || { dataset: {} }).dataset.groep || ""; if(!naar || naar === huidig) return; bewaar.disabled = true; setMsg("Opslaan...", true); let res; try{ res = await groepenOpslaan([{ name, from: huidig, to: naar }]); }catch(e){ res = { error: "Opslaan mislukt (" + ((e && e.message) || e) + ")." }; } renderAccount(name, res.error ? { t: res.error, ok: false } : { t: "✓ Groep opgeslagen", ok: true }); };
+        r.appendChild(bewaar);
+      }
+    }
+    // Wachtwoord
+    { const sp = sec("usr-sec-wachtwoord", "Wachtwoord"), r = rij(sp);
+      const st = document.createElement("span"); st.id = "usr-ww-status"; st.style.cssText = "font-size:12px;color:" + (rec ? "#80cbc4" : "rgba(255,255,255,0.45)") + ";"; st.textContent = rec ? "Eigen wachtwoord sinds " + fmt(rec.set) : "Nog geen eigen wachtwoord: het startwachtwoord geldt."; r.appendChild(st);
+      if(mij && rec) knop(r, "Wijzigen", "usr-wijzig", "groen", ()=>showChangePassword());
+      if(!mij && rec){
+        if(canResetPasswords()) knop(r, "Wachtwoord resetten", "usr-reset", "rood", async ()=>{ const ok = await resetWachtwoord(name); renderAccount(name, ok ? { t: "Het wachtwoord van " + name + " is gereset: " + name + " kiest opnieuw een eigen wachtwoord, met het startwachtwoord.", ok: true } : null); });
+        else nota(r, "Alleen " + GROUP_ADMIN + " kan het wachtwoord van een ander resetten.");
+      }
+    }
+    // Werkweek
+    if(isTeam){ const sw = sec("usr-sec-werkweek", "Werkweek"), r = rij(sw);
+      if(canEditTemplate(name)) knop(r, "Werkweek bewerken", "usr-werkweek", "blauw", ()=>openStandaard(name)); else nota(r, "Alleen " + name + " of een lid van " + GROUP_ADMIN + " kan de werkweek aanpassen.");
+    }
+    // Boodschap
+    if(isTeam || name === "Monitor"){
+      const sb = sec("usr-sec-boodschap", "Boodschap"), r = rij(sb), r2 = isTeam ? rij(sb) : null;
+      if(r2) r2.style.marginTop = "12px";
+      const wijzig = async (el, taak, ok)=>{   // een instelling opslaan: eerst bewerken aan, dan schrijven, dan de pagina opnieuw tonen met de uitkomst
+        if(!await requireUnlock()){ renderAccount(name); return; }
+        el.disabled = true; setMsg("Opslaan...", true);
+        let res; try{ res = await taak(); }catch(e){ res = { error: "Opslaan mislukt (" + ((e && e.message) || e) + ")." }; }
+        renderAccount(name, res.error ? { t: res.error, ok: false } : { t: res.changed === false ? "Dat stond al zo: een collega had het net gewijzigd." : ok(res), ok: true });
+      };
+      const uitleg = mag ? "" : "Alleen " + name + " of een lid van " + GROUP_ADMIN + " kan dit wijzigen.";
+      if(isTeam){
+        const aan = vinkje(r, "Boodschap aan", complimentPersoonAan(name, BOODSCHAP.personen), !mag, uitleg); aan.dataset.veld = "aan"; aan.dataset.naam = name;
+        aan.onchange = ()=>{ const w = aan.checked; wijzig(aan, ()=>settingsSetPersoon(name, w), ()=>"De boodschap voor " + name + " staat " + (w ? "aan" : "uit") + "."); };
+        const cam = vinkje(r, "Alleen als aanwezig op de campus", campusNodig(name, BOODSCHAP.campus), !mag, uitleg); cam.dataset.veld = "campus"; cam.dataset.naam = name;
+        cam.onchange = ()=>{ const w = cam.checked; wijzig(cam, ()=>settingsSetCampus(name, w), ()=>"Compliment voor " + name + (w ? ": alleen als aanwezig op de campus." : ": ook als niet aanwezig op de campus.")); };
+      }
+      const mon = vinkje(r, "Monitorfunctie", monitorAan(name, BOODSCHAP.monitor), !mag, uitleg); mon.dataset.veld = "monitor"; mon.dataset.naam = name;
+      mon.onchange = ()=>{ const w = mon.checked; wijzig(mon, ()=>settingsSetMonitor(name, w), ()=>"Monitorfunctie voor " + name + " staat " + (w ? "aan" : "uit") + "."); };
+      if(isTeam){
+        const nu = complimentTalenVoor(name, BOODSCHAP.talen);
+        complimentTalenBeschikbaar().forEach(code=>{
+          const t = vinkje(r2, complimentTaalNaam(code), nu.includes(code), !mag, uitleg); t.dataset.veld = "taal"; t.dataset.taal = code; t.dataset.naam = name;
+          t.onchange = ()=>{ const lijst = t.checked ? nu.filter(c=>c !== code).concat(code) : nu.filter(c=>c !== code); if(!lijst.length){ t.checked = true; setMsg("Minstens één taal moet aan blijven voor " + name + ".", false); return; } wijzig(t, ()=>settingsSetTalen(name, lijst), res=>"Talen van " + name + ": " + res.tekst + "."); };
+        });
+        if(BOODSCHAP.talen[name]) knop(r2, "↺ Talen standaard", "usr-talen-reset", "groen", ()=>wijzig(r2, ()=>settingsSetTalen(name, null), res=>"Talen van " + name + ": " + res.tekst + ".")).disabled = !mag;
+      }
+    }
+    // Zichtbaarheid
+    if(isTeam){ const sz = sec("usr-sec-zicht", "Zichtbaarheid"), r = rij(sz);
+      const v = vinkje(r, "Verborgen in de planning (blijft bestaan, staat nergens in beeld)", HIDDEN.has(name), !adminNu, adminNu ? "" : "Alleen een lid van " + GROUP_ADMIN + " kan iemand verbergen."); v.dataset.veld = "verborgen"; v.dataset.naam = name;
+      v.onchange = async ()=>{ const w = v.checked; if(!await requireUnlock()){ renderAccount(name); return; } zetVerborgen(name, w); renderAccount(name, { t: name + (w ? " is verborgen." : " is weer zichtbaar."), ok: true }); };
+    }
+    if(melding) setMsg(melding.t, melding.ok);
+  }
   async function renderList(){
+    q("#usr-titel").textContent = beheer ? "👤 Accounts" : "👤 Mijn account";
     let reg; try{ reg = await usersLoad(); }catch(e){ list.textContent = "Laden mislukt: " + e.message; return; }
     try{ const c = await groupsFetch(); applyGroups(c.groups); groupsSha = c.sha; groupsReady = true; groupsError = null; gcur = c; }catch(e){ gcur = null; }   // lukt het ophalen niet, dan blijft de laatst bekende indeling gelden (en is er niets te wijzigen)
     const me = currentIdentity && currentIdentity.user, canReset = canResetPasswords(), editable = !!(beheer && gcur && me && gcur.groups[GROUP_ADMIN].includes(me));
@@ -1658,8 +1751,8 @@ async function showUsersModal(){   // Admin ▸ Accounts (ICT-Systeembeheer en I
       const rec = reg.users[name], mij = !!(me && me === name), isLogin = loginNames().includes(name);
       const row = document.createElement("div"); row.dataset.user = name; row.className = "usr-rij";
       row.style.cssText = "padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.06);";
-      const nm = document.createElement("span"); nm.className = "usr-naam"; nm.style.cssText = "color:#fff;"; nm.textContent = name + (TEAM.includes(name) ? "" : (EXTRA_LOGINS.includes(name) ? " (geen teamlid)" : " (niet in team)")) + (mij ? " (jij)" : "");
-      if(mij) nm.title = "Je eigen wachtwoord wijzig je met de knop 'Wijzigen' (met je huidige wachtwoord); resetten kan hier niet, zodat je jezelf niet buitensluit.";
+      const nm = document.createElement("span"); nm.className = "usr-naam"; nm.style.cssText = "color:#fff;cursor:pointer;text-decoration:underline dotted rgba(255,255,255,0.35);text-underline-offset:3px;"; nm.textContent = name + (TEAM.includes(name) ? "" : (EXTRA_LOGINS.includes(name) ? " (geen teamlid)" : " (niet in team)")) + (mij ? " (jij)" : "");
+      nm.setAttribute("role", "button"); nm.tabIndex = 0; nm.title = "Alle gegevens van " + name; nm.onclick = ()=>renderAccount(name); nm.onkeydown = e=>{ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); renderAccount(name); } };   // de pagina van deze werknemer
       row.appendChild(nm);
       const huidig = curGroup(name), blijf = mij && huidig === GROUP_ADMIN;   // jezelf uit ICT-Systeembeheer halen kan niet
       if(isLogin){   // de groep: een vinkje per groep, precies één per account
@@ -1709,7 +1802,7 @@ async function showUsersModal(){   // Admin ▸ Accounts (ICT-Systeembeheer en I
     }
     check();
   }
-  renderList();
+  if(beheer) renderList(); else renderAccount(currentIdentity.user);   // wie geen Admin heeft opent direct zijn eigen pagina
 }
 
 
