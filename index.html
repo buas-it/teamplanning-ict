@@ -170,6 +170,8 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 .vjb .vjb-emoji { margin-left:0.3em; }
 .vjb.vjb-cyc { animation:tpComplimentFade var(--cmp-dur, 22s) ease-in-out infinite; }
 .compliment.cmp-kaart { visibility:hidden; position:absolute; left:0; right:0; margin-left:auto; margin-right:auto; width:min(940px, 94%); }   /* de kaart staat in beeld: het tekstblok blijft onzichtbaar meedraaien als klok */
+.msg-tl-tabel th .tl-kort { display:none; }
+@media (max-width:520px){ .msg-tl-tabel th .tl-vol { display:none; } .msg-tl-tabel th .tl-kort { display:inline; } }
 </style>
 </head>
 <body>
@@ -208,7 +210,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 24 okt 2026 · 95</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 97</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -239,6 +241,8 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 <script id="data-store" type="application/json">{"store":{},"template":{},"manuallyEdited":{},"team":[]}</script>
 
 <script>
+let HIDDEN  = new Set();   // wie verborgen is: blijft bestaan (planning, standaardweek, berichten) maar staat nergens in beeld
+function visibleTeam(){ return TEAM.filter(p=>!HIDDEN.has(p)); }
 let TEAM    = ["Wim","Wouter","Annies","Bas","Frederique","Bram","Ivor","Sercan","Hans","Marco","Dave"];
 const DAYS    = ["MA","DI","WO","DO","VR"];
 const DAY_LABELS = {MA:"Maandag",DI:"Dinsdag",WO:"Woensdag",DO:"Donderdag",VR:"Vrijdag"};
@@ -276,10 +280,11 @@ function fmtDate(d){ return d.toLocaleDateString("nl-NL",{day:"numeric",month:"s
 function serializeState(){
   const me={};
   Object.keys(manuallyEdited).forEach(k=>{ me[k]=[...manuallyEdited[k]]; });
-  return {store, template, manuallyEdited:me, team:TEAM};
+  return {store, template, manuallyEdited:me, team:TEAM, hidden:[...HIDDEN]};
 }
 function applyState(data){
   if(data.team) TEAM = data.team.filter(p => p !== "__divider__");
+  HIDDEN = new Set(Array.isArray(data.hidden) ? data.hidden.filter(n=>TEAM.includes(n)) : []);
 
   if(data.store) Object.keys(data.store).forEach(k=>{
     // Verwijder personen die niet meer in het team zitten
@@ -357,7 +362,7 @@ const RESTORE_GROUP = "ICT-Systeembeheer";   // alleen deze groep mag een backup
 const GROUP_ADMIN = "ICT-Systeembeheer";     // alleen deze groep mag de groepen aanpassen
 const SETTINGS_PATH = "settings.json";       // gedeelde instellingen op de data-branch (de boodschap aan of uit, en de taal of talen per collega)
 const MESSAGE_ADMIN = "ICT-Systeembeheer";   // alleen deze groep mag de boodschap aan- en uitzetten
-let BOODSCHAP = { enabled: true, ready: false, by: null, at: null, talen: {}, talenBy: null, talenAt: null, personen: {}, personenBy: null, personenAt: null, persoonlijk: {}, sha: null, error: null };   // ready: de instelling is minstens één keer opgehaald; zolang dat niet zo is, geen boodschap
+let BOODSCHAP = { enabled: true, ready: false, by: null, at: null, talen: {}, talenBy: null, talenAt: null, personen: {}, personenBy: null, personenAt: null, persoonlijk: {}, monitor: {}, sha: null, error: null };   // ready: de instelling is minstens één keer opgehaald; zolang dat niet zo is, geen boodschap
 function canToggleMessage(){ return !!(currentIdentity && inGroup(currentIdentity.user, MESSAGE_ADMIN)); }
 let groupsReady = false, groupsError = null, groupsSha = null;   // groupsReady: de indeling is opgehaald (of er is nog geen bestand: standaard). Zolang dat niet zo is, geldt niemand als lid: bij twijfel geen rechten
 function groupOf(user){ return GROUP_NAMES.find(g=>GROUPS[g].includes(user)) || null; }
@@ -468,17 +473,24 @@ function settingsParsePersoonlijk(p){   // {naam: [boodschappen]}: alleen geldig
   Object.keys(p).forEach(n=>{ if(!Array.isArray(p[n])) return; const l = p[n].map(settingsParseEigen).filter(Boolean).slice(0, EIGEN_MAX_AANTAL); if(l.length) uit[n] = l; });
   return uit;
 }
+function settingsParseMonitor(p){   // {naam: true/false}: alleen echte keuzes (een eigen keuze gaat voor de standaard); rommel wordt genegeerd
+  const uit = {}; if(!p || typeof p !== "object" || Array.isArray(p)) return uit;
+  Object.keys(p).forEach(n=>{ if(typeof p[n] === "boolean") uit[n] = p[n]; });
+  return uit;
+}
+const MONITOR_STANDAARD = ["Monitor", "Hans"];   // wie standaard de monitorfunctie heeft: alle berichten zien, ongeacht eigen status of aanwezigheid
+function monitorAan(naam, monitor){ return monitor && Object.prototype.hasOwnProperty.call(monitor, naam) ? !!monitor[naam] : MONITOR_STANDAARD.includes(naam); }   // een eigen keuze (Admin ▸ Boodschap) gaat voor; anders de standaard
 function settingsParseWijz(w){ return { by: w && typeof w.by === "string" ? w.by : null, at: w && typeof w.at === "string" ? w.at : null }; }
 async function settingsFetch(){   // {boodschap:{enabled,by,at}, talen:{naam:[codes]}, talenWijz:{by,at}, raw, sha}; 404 = nog nooit ingesteld: aan; gooit bij een storing of een ongeldig bestand
   const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
-  if(r.status === 404) return { boodschap: { enabled: true, by: null, at: null }, talen: {}, talenWijz: { by: null, at: null }, personen: {}, personenWijz: { by: null, at: null }, persoonlijk: {}, raw: { v: 1 }, sha: null };
+  if(r.status === 404) return { boodschap: { enabled: true, by: null, at: null }, talen: {}, talenWijz: { by: null, at: null }, personen: {}, personenWijz: { by: null, at: null }, persoonlijk: {}, monitor: {}, raw: { v: 1 }, sha: null };
   if(!r.ok) throw new Error("HTTP " + r.status);
   const d = await r.json(), raw = JSON.parse(auditDecode(d.content));
   if(!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("ongeldig bestand");
   const boodschap = { enabled: true, by: null, at: null };   // de boodschap staat altijd aan: een eventuele oude stand in het bestand telt niet meer
-  return { boodschap, talen: settingsParseTalen(raw.talen), talenWijz: settingsParseWijz(raw.talenWijziging), personen: settingsParsePersonen(raw.personen), personenWijz: settingsParseWijz(raw.personenWijziging), persoonlijk: settingsParsePersoonlijk(raw.persoonlijk), raw, sha: d.sha };
+  return { boodschap, talen: settingsParseTalen(raw.talen), talenWijz: settingsParseWijz(raw.talenWijziging), personen: settingsParsePersonen(raw.personen), personenWijz: settingsParseWijz(raw.personenWijziging), persoonlijk: settingsParsePersoonlijk(raw.persoonlijk), monitor: settingsParseMonitor(raw.monitor), raw, sha: d.sha };
 }
-function applySettings(cur){ const w = cur.talenWijz || { by: null, at: null }, pw = cur.personenWijz || { by: null, at: null }; BOODSCHAP = { enabled: true, ready: true, by: null, at: null, talen: cur.talen || {}, talenBy: w.by, talenAt: w.at, personen: cur.personen || {}, personenBy: pw.by, personenAt: pw.at, persoonlijk: cur.persoonlijk || {}, sha: cur.sha || null, error: null }; }
+function applySettings(cur){ const w = cur.talenWijz || { by: null, at: null }, pw = cur.personenWijz || { by: null, at: null }; BOODSCHAP = { enabled: true, ready: true, by: null, at: null, talen: cur.talen || {}, talenBy: w.by, talenAt: w.at, personen: cur.personen || {}, personenBy: pw.by, personenAt: pw.at, persoonlijk: cur.persoonlijk || {}, monitor: cur.monitor || {}, sha: cur.sha || null, error: null }; }
 async function settingsLoad(){   // haalt de instellingen op; bij een storing blijft de eerder opgehaalde stand gelden
   try{ applySettings(await settingsFetch()); }
   catch(e){ BOODSCHAP.error = (e && e.message) || String(e); }
@@ -505,7 +517,7 @@ async function settingsSetTalen(naam, lijst){   // de talen van één collega in
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
-      applySettings({ boodschap: cur.boodschap, talen: settingsParseTalen(talen), talenWijz: raw.talenWijziging, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, sha });
+      applySettings({ boodschap: cur.boodschap, talen: settingsParseTalen(talen), talenWijz: raw.talenWijziging, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: cur.monitor, sha });
       auditEvent("boodschap taal: " + naam + ": " + complimentTalenTekst(oud) + " → " + tekst);   // pas na een geslaagde opslag in het logboek
       touchEditTimer(); try{ complimentSync(); }catch(e){}
       return { ok: true, changed: true, tekst };
@@ -531,8 +543,34 @@ async function settingsSetPersoon(naam, aan){   // de boodschap voor één colle
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
-      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: settingsParsePersonen(personen), personenWijz: raw.personenWijziging, persoonlijk: cur.persoonlijk, sha });
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: settingsParsePersonen(personen), personenWijz: raw.personenWijziging, persoonlijk: cur.persoonlijk, monitor: cur.monitor, sha });
       auditEvent("boodschap collega: " + naam + ": " + (oud ? "aan" : "uit") + " → " + (aan ? "aan" : "uit"));   // pas na een geslaagde opslag in het logboek
+      touchEditTimer(); try{ complimentSync(); }catch(e){}
+      return { ok: true, changed: true, aan };
+    }
+    if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
+  }
+  throw new Error("conflict");
+}
+async function settingsSetMonitor(naam, aan){   // de monitorfunctie van één gebruiker aan- of uitzetten (de Monitor zelf telt ook mee); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand, schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
+  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de monitorfunctie aan- of uitzetten." };
+  if(!editUnlocked) return { error: "Bewerken staat uit." };
+  if(!TEAM.includes(naam) && naam !== "Monitor") return { error: "Onbekende gebruiker." };
+  const me = currentIdentity.user;
+  for(let i = 0; i < 4; i++){
+    const cur = await settingsFetch(), oud = monitorAan(naam, cur.monitor);
+    if(oud === aan){ applySettings(cur); try{ complimentSync(); }catch(e){} return { ok: true, changed: false, aan }; }   // een collega had het al zo gezet: niets schrijven en niets in het logboek
+    const raw = cur.raw; raw.v = 1;
+    const mon = raw.monitor && typeof raw.monitor === "object" && !Array.isArray(raw.monitor) ? raw.monitor : {};
+    if(aan === MONITOR_STANDAARD.includes(naam)) delete mon[naam]; else mon[naam] = aan;   // gelijk aan de standaard: geen eigen regel meer
+    raw.monitor = mon;
+    const body = { message: "Monitorfunctie voor " + naam + (aan ? " aangezet" : " uitgezet") + " (door " + me + ")", content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
+    if(cur.sha) body.sha = cur.sha;
+    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
+    if(r.ok){
+      let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: settingsParseMonitor(mon), sha });
+      auditEvent("boodschap monitorfunctie: " + naam + ": " + (oud ? "aan" : "uit") + " → " + (aan ? "aan" : "uit"));   // pas na een geslaagde opslag in het logboek
       touchEditTimer(); try{ complimentSync(); }catch(e){}
       return { ok: true, changed: true, aan };
     }
@@ -573,7 +611,7 @@ async function settingsSetEigen(naam, actie, e){   // een persoonlijke boodschap
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(x){}
-      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: settingsParsePersoonlijk(alle), sha });
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: settingsParsePersoonlijk(alle), monitor: cur.monitor, sha });
       auditEvent(naam === EIGEN_ALGEMEEN ? "boodschap algemeen: " + werkwoord + " (" + kort(tekst) + ")" : "boodschap persoonlijk: " + naam + ": " + werkwoord + " (" + kort(tekst) + ")");   // pas na een geslaagde opslag in het logboek
       touchEditTimer(); try{ complimentSync(); }catch(x){}
       return { ok: true, changed: true };
@@ -2614,7 +2652,7 @@ function renamePerson(oldName, newName){
   if(idx === -1) return false;
   const why = teamLockoutReason(TEAM.map(n=>n===oldName ? newName : n), "rename");
   if(why){ alert(why); try{ buildTemplateGrid(); }catch(e){} return false; }   // niet je eigen naam (of die van de laatste beheerder) wijzigen
-  TEAM[idx] = newName;
+  TEAM[idx] = newName; if(HIDDEN.has(oldName)){ HIDDEN.delete(oldName); HIDDEN.add(newName); }
   // Kopieer template data
   template[newName] = template[oldName];
   delete template[oldName];
@@ -2659,7 +2697,7 @@ function removePerson(name){
   const idx = TEAM.indexOf(name);
   if(idx === -1) return;
   const why = teamLockoutReason(TEAM.filter(n=>n!==name), "remove"); if(why){ alert(why); return; }   // niet jezelf of de laatste beheerder uit het team halen
-  TEAM.splice(idx, 1);
+  TEAM.splice(idx, 1); HIDDEN.delete(name);
   delete template[name];
   Object.keys(store).forEach(k=>{ delete store[k][name]; });
   Object.keys(manuallyEdited).forEach(k=>{
@@ -2676,9 +2714,10 @@ function buildTemplateGrid(){
   // (addRow wordt hieronder aangemaakt en dan direct toegevoegd)
   // Header row met dag-kolommen
   const hdrRow=document.createElement("div");
-  hdrRow.style.cssText="display:grid;grid-template-columns:130px repeat(5,1fr) 28px;gap:4px;margin-bottom:8px;align-items:center;";
+  hdrRow.style.cssText="display:grid;grid-template-columns:130px repeat(5,1fr) 64px 28px;gap:4px;margin-bottom:8px;align-items:center;";
   hdrRow.appendChild(document.createElement("div"));
   DAYS.forEach(day=>{ const d=document.createElement("div"); d.style.cssText="text-align:center;font-size:12px;font-weight:800;color:#fff;letter-spacing:1px;padding:6px 0;"; d.textContent=day; hdrRow.appendChild(d); });
+  { const vh = document.createElement("div"); vh.style.cssText = "text-align:center;font-size:10px;font-weight:700;color:#999;padding:6px 0;"; vh.textContent = "Verborgen"; hdrRow.appendChild(vh); }
   hdrRow.appendChild(document.createElement("div")); // lege kolom voor verwijder-knop
   // Toevoegen-rij bovenaan
   const addRow=document.createElement("div");
@@ -2697,7 +2736,7 @@ function buildTemplateGrid(){
   container.appendChild(hdrRow);
   TEAM.forEach((person,pi)=>{
     const row=document.createElement("div");
-    row.style.cssText=`display:grid;grid-template-columns:130px repeat(5,1fr) 28px;gap:4px;margin-bottom:3px;border-radius:6px;align-items:center;background:${pi%2===0?"rgba(255,255,255,0.015)":"transparent"}`;
+    row.style.cssText=`display:grid;grid-template-columns:130px repeat(5,1fr) 64px 28px;gap:4px;margin-bottom:3px;border-radius:6px;align-items:center;background:${pi%2===0?"rgba(255,255,255,0.015)":"transparent"}`;
     const nameCell=document.createElement("div"); nameCell.style.cssText="display:flex;align-items:center;gap:6px;height:34px;padding:0 4px;";
     const dragH = buildDragHandle();
     const avatar = document.createElement("div");
@@ -2763,6 +2802,12 @@ function buildTemplateGrid(){
       cell.addEventListener("click",e=>{ e.stopPropagation(); if(openPopup&&openPopup.wrap===wrap){ closePopup(); return; } showPopup(wrap,null,person,day,true); });
       wrap.appendChild(cell); row.appendChild(wrap);
     });
+    // Verborgen: de collega blijft bestaan maar staat nergens in beeld
+    { const cel = document.createElement("label"), vink = document.createElement("input"); cel.style.cssText = "display:flex;align-items:center;justify-content:center;cursor:pointer;"; cel.title = person + " verbergen: de collega blijft bestaan maar staat nergens in beeld";
+      vink.type = "checkbox"; vink.className = "tpl-verborgen"; vink.dataset.person = person; vink.checked = HIDDEN.has(person); vink.setAttribute("aria-label", person + " verbergen"); vink.style.cssText = "width:16px;height:16px;accent-color:#60b0ff;cursor:pointer;";
+      vink.onclick = e=>e.stopPropagation(); vink.onchange = ()=>{ if(vink.checked) HIDDEN.add(person); else HIDDEN.delete(person); saveState(); buildTemplateGrid(); renderAndSync(); };
+      if(HIDDEN.has(person)) row.style.opacity = "0.6";
+      cel.appendChild(vink); row.appendChild(cel); }
     // Verwijder-knop
     const delBtn=document.createElement("button");
     delBtn.textContent="✕";
@@ -2802,7 +2847,7 @@ function personHalfPresent(sel, vm){   // is deze persoon aanwezig in dit dagdee
   return sel.some(k=>k === "kantoor" || k === "thuis" || k === "ziek_thuis" || k === dd + "kantoor" || k === dd + "thuis");
 }
 function groupCoverage(dayData, group, day){   // dekking van een groep op een dag; gap: "" (geen afwijking), "hele dag", "'s ochtends" of "'s middags"; zonder ingevulde gegevens van de groep valt er niets te beoordelen
-  const sels = group.map(p=>(dayData[p] || {})[day] || []);
+  const sels = group.filter(p=>!HIDDEN.has(p)).map(p=>(dayData[p] || {})[day] || []);   // een verborgen collega staat nergens in beeld en geeft dus ook geen dekking
   if(!sels.some(s=>s.length > 0)) return { hasData: false, vm: false, nm: false, gap: "" };
   const vm = sels.some(s=>personHalfPresent(s, true)), nm = sels.some(s=>personHalfPresent(s, false));
   return { hasData: true, vm, nm, gap: !vm && !nm ? "hele dag" : (!vm ? "'s ochtends" : (!nm ? "'s middags" : "")) };
@@ -2875,7 +2920,6 @@ function complimentEigen(naam, now, altijd){   // een persoonlijke boodschap voo
   const basis = eigenMetDagen(e, eigenDatum(now));   // bij aftellen: het aantal dagen van vandaag
   return { t: naam === EIGEN_ALGEMEEN ? eigenAlgemeenTekst(basis) : eigenTekst(basis), taal: "nl", id: "e:" + e.id, eigen: true, emoji: e.emoji || null };
 }
-const COMPLIMENT_USERS = ["Monitor", "Hans"];   // wie de berichten ziet; de verjaardagsbanner is voor iedere gebruiker
 let VERJAARDAGEN = { Hans: "12-28", Bram: "04-27", Wim: "05-30", Sercan: "01-28", Annies: "04-19", Marco: "04-30", Sam: "05-14", Bas: "10-25", Wouter: "08-08", Ted: "02-16" };   // vaste gegevens (MM-DD): er is geen plek om ze in te voeren, te wijzigen of te bekijken
 const VERJAARDAG_ID = "__verjaardag__";   // de sleutel voor de verjaardagsberichten: een eigen 'kandidaat' zonder collega, net als de algemene boodschap
 const VERJAARDAG_FELICITATIES = [
@@ -3352,14 +3396,19 @@ function complimentTaal(naam){   // in welke taal deze collega nu het compliment
 function complimentPresent(now){   // iedereen van het team die op dit moment op de campus is (voor 12 uur telt de ochtend, daarna de middag), behalve wie voor de boodschap is uitgezet (standaard Ted); thuis, ziek (ook ziek thuis), vrij en extern niet; in het weekend niemand
   const dag = DAYS[(now.getDay() || 7) - 1]; if(!dag) return [];
   const data = getData(mondayOf(now)), dagdeel = now.getHours() < 12 ? "vm_kantoor" : "nm_kantoor";
-  return TEAM.filter(p=>complimentPersoonAan(p, BOODSCHAP.personen)).filter(p=>{ const s = (data[p] || {})[dag] || []; return !s.includes("ziek") && (s.includes("kantoor") || s.includes(dagdeel)); });
+  return TEAM.filter(p=>!HIDDEN.has(p) && complimentPersoonAan(p, BOODSCHAP.personen)).filter(p=>{ const s = (data[p] || {})[dag] || []; return !s.includes("ziek") && (s.includes("kantoor") || s.includes(dagdeel)); });
+}
+function complimentAanwezigVoorMij(now){   // wie er aan de beurt is voor een gewoon compliment: wie op de campus is, en voor wie de monitorfunctie heeft ook de gebruiker zelf (op een werkdag), ongeacht zijn status of aanwezigheid: zo kan hij controleren of het werkt
+  const aanwezig = complimentPresent(now), ik = currentIdentity ? currentIdentity.user : null;
+  if(ik && DAYS[(now.getDay() || 7) - 1] && TEAM.includes(ik) && !HIDDEN.has(ik) && complimentPersoonAan(ik, BOODSCHAP.personen) && monitorAan(ik, BOODSCHAP.monitor) && !aanwezig.includes(ik)) aanwezig.push(ik);
+  return aanwezig;
 }
 function complimentAudience(now){   // wie er aan de beurt kan komen. Verjaardagsberichten (felicitatie, na een weekend de eerste werkdag erna, en de herinnering in de week ervoor) staan altijd in beeld, bij iedere gebruiker en ook als de boodschap uit staat. De rest alleen voor Monitor en Hans, met de echte planning van GitHub en als de boodschap aan staat: wie op de campus is (Hans dus alleen als hij er echt is) en wie een lopende persoonlijke of algemene boodschap heeft
   if(!currentIdentity) return [];
   const verj = verjaardagItems(now, VERJAARDAGEN).length > 0 ? [VERJAARDAG_ID] : [];
-  if(!BOODSCHAP.ready || !COMPLIMENT_USERS.includes(currentIdentity.user) || !complimentReady()) return verj;   // een gewone gebruiker krijgt alleen de verjaardag
-  const aanwezig = complimentPresent(now);
-  const extra = TEAM.filter(p=>!aanwezig.includes(p) && complimentEigenActief(p, now).length > 0);   // wie er niet is, of wiens gewone complimenten uit staan (schakelaar per collega), maar een lopende persoonlijke boodschap heeft: alleen die komt in beeld
+  if(!BOODSCHAP.ready || !monitorAan(currentIdentity.user, BOODSCHAP.monitor) || !complimentReady()) return verj;   // wie de monitorfunctie niet heeft krijgt alleen de verjaardag
+  const aanwezig = complimentAanwezigVoorMij(now);
+  const extra = TEAM.filter(p=>!HIDDEN.has(p) && !aanwezig.includes(p) && complimentEigenActief(p, now).length > 0);   // wie er niet is, of wiens gewone complimenten uit staan (schakelaar per collega), maar een lopende persoonlijke boodschap heeft: alleen die komt in beeld
   if(complimentEigenActief(EIGEN_ALGEMEEN, now).length > 0) extra.push(EIGEN_ALGEMEEN);
   return aanwezig.concat(extra, verj);
 }
@@ -3407,7 +3456,7 @@ function complimentNext(now){   // de volgende collega die aan de beurt is (iede
   }
   const naam = cmpOrder.shift(); cmpLast = naam;
   if(naam === VERJAARDAG_ID) return complimentVerjaardag(now);   // een verjaardagsbericht (felicitatie of herinnering)
-  const eigen = complimentEigen(naam, now, !complimentPresent(now).includes(naam));   // een persoonlijke boodschap als er een loopt: aanwezig om en om met de gewone complimenten; niet aanwezig altijd (een afwezige krijgt geen gewoon compliment)
+  const eigen = complimentEigen(naam, now, !complimentAanwezigVoorMij(now).includes(naam));   // een persoonlijke boodschap als er een loopt: aanwezig om en om met de gewone complimenten; niet aanwezig altijd (een afwezige krijgt geen gewoon compliment)
   if(eigen) return { naam, compliment: eigen, emoji: eigen.emoji || complimentSmiley(eigen) };   // een gekozen emoji staat er altijd achter; anders af en toe een passende smiley
   const taal = complimentTaal(naam), sp = complimentSpeciaal(naam, now), slot = (cmpTurn[naam] = (cmpTurn[naam] || 0) + 1) % 4;
   const kies = (slot === 0 || slot === 2) ? sp.eind : (slot === 1 ? sp.collectief : sp.persoonlijk);   // per vier beurten: tweemaal einde werktijd (als het zover is), eenmaal een collectief en eenmaal een persoonlijk vooruitzicht (als die er zijn), anders een gewoon compliment
@@ -3456,12 +3505,9 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   overlay.style.cssText = "position:fixed;inset:0;z-index:870;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 10px;";
   overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:540px;max-width:98vw;box-sizing:border-box;font-family:'Courier New',monospace;">
     <div style="font-size:14px;font-weight:700;color:#80cbc4;padding-right:40px;">💬 Boodschap</div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 18px;line-height:1.55;">Een vriendelijk compliment onder de legenda, voor iedereen die op dat moment op de campus is. Zet de boodschap hieronder per collega aan of uit.</div>
     <div id="msg-msg" style="font-size:11px;min-height:16px;margin-top:10px;line-height:1.5;"></div>
     <div style="margin-top:22px;border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;">
       <div style="font-size:13px;font-weight:700;color:#80cbc4;">👥 Per collega</div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.55);margin:6px 0 4px;line-height:1.55;">Zet de boodschap per collega aan of uit en kies in welke taal of talen het compliment komt. Staan er meer talen aan, dan wisselen ze om de beurt. Minstens één taal blijft aan. Met ↺ gaan de talen van een collega terug naar de standaard.</div>
-      <div id="msg-talen-std" style="font-size:10px;color:#777;margin-bottom:8px;line-height:1.5;"></div>
       <div id="msg-talen"></div>
       <div id="msg-talen-last" style="font-size:10px;color:#777;margin-top:10px;min-height:14px;"></div>
       <div id="msg-talen-msg" style="font-size:11px;min-height:16px;margin-top:6px;line-height:1.5;"></div>
@@ -3498,49 +3544,53 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   addWinX(overlay.firstElementChild, ()=>overlay.remove(), mag ? "msg-close" : "msg-view-close");   // alleen kijken sluit niet als bewerken uitgaat
   const setMsg = (t, kleur)=>{ msg.textContent = t || ""; msg.style.color = kleur === "ok" ? "#80cbc4" : (kleur === "fout" ? "#f48fb1" : "#999"); };
   const setMsgT = (t, kleur)=>{ const e = q("#msg-talen-msg"); e.textContent = t || ""; e.style.color = kleur === "ok" ? "#80cbc4" : (kleur === "fout" ? "#f48fb1" : "#999"); };
-  const toonTalen = ()=>{   // één rij per collega: de boodschap aan of uit, en een knop per taal
+  const toonTalen = ()=>{   // een tabel met vinkjes: per collega de boodschap aan of uit, de talen en de monitorfunctie; onderaan de Monitor zelf
     const wrap = q("#msg-talen"), beschikbaar = complimentTalenBeschikbaar(), vast = !mag || !BOODSCHAP.ready || !!wrap.dataset.bezig;
-    q("#msg-talen-std").textContent = "Standaard: aan" + (COMPLIMENT_NIET.length ? " (uit voor " + COMPLIMENT_NIET.join(", ") + ")" : "") + ", taal Nederlands" + Object.keys(COMPLIMENT_TALEN).map(n=>" · " + n + ": " + complimentTalenTekst(complimentTalenVoor(n, {}))).join("") + ".";
     wrap.textContent = "";
+    const tabel = document.createElement("table"), kop = document.createElement("thead"), kr = document.createElement("tr"), lijf = document.createElement("tbody");
+    tabel.className = "msg-tl-tabel"; tabel.style.cssText = "width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;";
+    [["Collega", "Collega"], ["Boodschap", "Aan"]].concat(beschikbaar.map(c=>[complimentTaalNaam(c), c.toUpperCase()]), [["Monitor", "Mon"], ["", ""]]).forEach((t, i)=>{ const th = document.createElement("th"), vol = document.createElement("span"), kort = document.createElement("span"); th.scope = "col"; vol.className = "tl-vol"; vol.textContent = t[0]; kort.className = "tl-kort"; kort.textContent = t[1]; th.title = t[0]; th.appendChild(vol); th.appendChild(kort);
+      th.style.cssText = "text-align:" + (i === 0 ? "left" : "center") + ";color:#999;font-weight:700;font-size:10px;padding:4px 2px 6px;white-space:nowrap;" + (i === 0 ? "width:76px;" : (t[0] === "" ? "width:34px;" : "")); kr.appendChild(th); });
+    kop.appendChild(kr); tabel.appendChild(kop);
+    const leeg = ()=>{ const td = document.createElement("td"); td.style.cssText = "padding:4px;"; return td; };
+    const vink = (naam, soort, code, aan, label, dim)=>{ const td = document.createElement("td"), c = document.createElement("input"); td.style.cssText = "text-align:center;padding:4px;"; c.type = "checkbox"; c.checked = aan; c.disabled = vast; c.dataset.naam = naam;
+      if(soort === "aan") c.dataset.aan = "1"; else if(soort === "taal") c.dataset.taal = code; else c.dataset.monitor = "1";
+      c.setAttribute("aria-label", label); c.title = !mag ? "Alleen " + MESSAGE_ADMIN + " kan dit wijzigen." : ""; c.style.cssText = "width:16px;height:16px;accent-color:#80cbc4;cursor:" + (vast ? "not-allowed" : "pointer") + ";opacity:" + (vast ? "0.55" : (dim ? "0.5" : "1")) + ";"; td.appendChild(c); return td; };
     TEAM.forEach(naam=>{
-      const aan = complimentTalenVoor(naam, BOODSCHAP.talen), actief = complimentPersoonAan(naam, BOODSCHAP.personen), rij = document.createElement("div"), nm = document.createElement("div"), sw2 = document.createElement("button");
-      rij.className = "msg-tl-rij"; rij.dataset.naam = naam; rij.dataset.actief = String(actief); rij.style.cssText = "display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);flex-wrap:wrap;";
-      nm.textContent = naam; nm.style.cssText = "width:70px;font-size:12px;font-weight:700;flex-shrink:0;color:" + (actief ? "#fff" : "#888") + ";"; rij.appendChild(nm);
-      sw2.type = "button"; sw2.dataset.aan = "1"; sw2.dataset.naam = naam; sw2.setAttribute("role", "switch"); sw2.setAttribute("aria-checked", String(actief)); sw2.setAttribute("aria-label", "Boodschap voor " + naam); sw2.textContent = actief ? "Aan" : "Uit"; sw2.disabled = vast;
-      sw2.title = !mag ? "Alleen " + MESSAGE_ADMIN + " kan dit wijzigen." : "De boodschap voor " + naam + (actief ? " uitzetten" : " aanzetten");
-      sw2.style.cssText = "font-family:inherit;font-size:11px;font-weight:700;min-width:46px;padding:4px 9px;border-radius:12px;cursor:" + (vast ? "not-allowed" : "pointer") + ";opacity:" + (vast ? "0.55" : "1") + ";border:1px solid " + (actief ? "#80cbc4" : "rgba(255,255,255,0.25)") + ";background:" + (actief ? "#2e7d6b" : "#3a3f4b") + ";color:" + (actief ? "#fff" : "#bbb") + ";";
-      rij.appendChild(sw2);
-      beschikbaar.forEach(code=>{
-        const b = document.createElement("button"), is = aan.includes(code);
-        b.type = "button"; b.dataset.taal = code; b.dataset.naam = naam; b.setAttribute("aria-pressed", String(is)); b.textContent = (is ? "✓ " : "") + complimentTaalNaam(code); b.disabled = vast;
-        b.title = !mag ? "Alleen " + MESSAGE_ADMIN + " kan dit wijzigen." : (actief ? "" : "De boodschap voor " + naam + " staat uit; de talen kun je alvast instellen.");
-        b.style.cssText = "font-family:inherit;font-size:11px;padding:4px 9px;border-radius:12px;cursor:" + (vast ? "not-allowed" : "pointer") + ";opacity:" + (vast ? "0.55" : (actief ? "1" : "0.5")) + ";border:1px solid " + (is ? "#80cbc4" : "rgba(255,255,255,0.2)") + ";background:" + (is ? "#2e7d6b" : "transparent") + ";color:" + (is ? "#fff" : "#888") + ";";
-        rij.appendChild(b);
-      });
-      if(BOODSCHAP.talen[naam]){
-        const r = document.createElement("button"); r.type = "button"; r.dataset.reset = "1"; r.dataset.naam = naam; r.textContent = "↺"; r.title = "Talen terug naar de standaard"; r.setAttribute("aria-label", "Talen terug naar de standaard voor " + naam); r.disabled = vast;
-        r.style.cssText = "font-family:inherit;font-size:13px;padding:2px 8px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#bbb;cursor:" + (vast ? "not-allowed" : "pointer") + ";opacity:" + (vast ? "0.55" : "1") + ";";
-        rij.appendChild(r);
-      }
-      wrap.appendChild(rij);
+      const aan = complimentTalenVoor(naam, BOODSCHAP.talen), actief = complimentPersoonAan(naam, BOODSCHAP.personen), tr = document.createElement("tr"), nm = document.createElement("th");
+      tr.className = "msg-tl-rij"; tr.dataset.naam = naam; tr.dataset.actief = String(actief); tr.style.cssText = "border-top:1px solid rgba(255,255,255,0.06);";
+      nm.scope = "row"; nm.textContent = naam; nm.style.cssText = "text-align:left;font-size:12px;font-weight:700;padding:4px 6px 4px 0;color:" + (actief ? "#fff" : "#888") + (HIDDEN.has(naam) ? ";font-style:italic;opacity:0.7" : "") + ";"; tr.appendChild(nm);
+      tr.appendChild(vink(naam, "aan", null, actief, "Boodschap voor " + naam, false));
+      beschikbaar.forEach(code=>tr.appendChild(vink(naam, "taal", code, aan.includes(code), complimentTaalNaam(code) + " voor " + naam, !actief)));
+      tr.appendChild(vink(naam, "monitor", null, monitorAan(naam, BOODSCHAP.monitor), "Monitorfunctie voor " + naam, false));
+      const rt = document.createElement("td"); rt.style.cssText = "text-align:center;padding:4px;";
+      if(BOODSCHAP.talen[naam]){ const r = document.createElement("button"); r.type = "button"; r.dataset.reset = "1"; r.dataset.naam = naam; r.textContent = "↺"; r.title = "Talen terug naar de standaard"; r.setAttribute("aria-label", "Talen terug naar de standaard voor " + naam); r.disabled = vast;
+        r.style.cssText = "font-family:inherit;font-size:13px;padding:2px 8px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#bbb;cursor:" + (vast ? "not-allowed" : "pointer") + ";opacity:" + (vast ? "0.55" : "1") + ";"; rt.appendChild(r); }
+      tr.appendChild(rt); lijf.appendChild(tr);
     });
+    { const tr = document.createElement("tr"), nm = document.createElement("th"); tr.className = "msg-tl-monitor"; tr.dataset.naam = "Monitor"; tr.style.cssText = "border-top:1px solid rgba(255,255,255,0.12);";
+      nm.scope = "row"; nm.textContent = "Monitor"; nm.style.cssText = "text-align:left;font-size:12px;font-weight:700;padding:4px 6px 4px 0;color:#fff;"; tr.appendChild(nm); tr.appendChild(leeg()); beschikbaar.forEach(()=>tr.appendChild(leeg()));
+      tr.appendChild(vink("Monitor", "monitor", null, monitorAan("Monitor", BOODSCHAP.monitor), "Monitorfunctie voor de Monitor", false)); tr.appendChild(leeg()); lijf.appendChild(tr); }
+    tabel.appendChild(lijf); wrap.appendChild(tabel);
     const laatste = [[BOODSCHAP.talenAt, BOODSCHAP.talenBy], [BOODSCHAP.personenAt, BOODSCHAP.personenBy]].filter(x=>x[0] && !isNaN(Date.parse(x[0]))).sort((a, b)=>Date.parse(b[0]) - Date.parse(a[0]))[0], d = laatste ? new Date(laatste[0]) : null;
     q("#msg-talen-last").textContent = d ? "Per collega laatst gewijzigd: " + d.toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + (laatste[1] ? " door " + laatste[1] : "") : "";
   };
   q("#msg-talen").onclick = async (ev)=>{
-    const b = ev.target.closest && ev.target.closest("button"), wrap = q("#msg-talen"); if(!b || b.disabled || !mag || wrap.dataset.bezig) return;
+    const b = ev.target.closest && ev.target.closest("button, input[type=checkbox]"), wrap = q("#msg-talen"); if(!b || b.disabled || !mag || wrap.dataset.bezig) return;
     const naam = b.dataset.naam; let taak, ok, fout;
     if(b.dataset.aan){   // de boodschap voor deze collega aan of uit
-      const wil = !complimentPersoonAan(naam, BOODSCHAP.personen);
-      taak = ()=>settingsSetPersoon(naam, wil); fout = "De boodschap is niet veranderd.";
+      const wil = b.checked; taak = ()=>settingsSetPersoon(naam, wil); fout = "De boodschap is niet veranderd.";
       ok = r=>r.changed ? "De boodschap voor " + naam + " staat " + (wil ? "aan" : "uit") + "." : "Dat stond al zo: een collega had het net gewijzigd.";
+    } else if(b.dataset.monitor){   // de monitorfunctie van deze gebruiker aan of uit
+      const wil = b.checked; taak = ()=>settingsSetMonitor(naam, wil); fout = "De monitorfunctie is niet veranderd.";
+      ok = r=>r.changed ? "Monitorfunctie voor " + naam + " staat " + (wil ? "aan" : "uit") + "." : "Dat stond al zo: een collega had het net gewijzigd.";
     } else {   // de talen
       let nieuw;
       if(b.dataset.reset) nieuw = null;
       else {
         const nu = complimentTalenVoor(naam, BOODSCHAP.talen), code = b.dataset.taal;
-        nieuw = nu.includes(code) ? nu.filter(c=>c !== code) : nu.concat(code);
-        if(!nieuw.length){ setMsgT("Minstens één taal moet aan blijven voor " + naam + ".", "fout"); return; }
+        nieuw = b.checked ? nu.filter(c=>c !== code).concat(code) : nu.filter(c=>c !== code);
+        if(!nieuw.length){ b.checked = true; setMsgT("Minstens één taal moet aan blijven voor " + naam + ".", "fout"); return; }
       }
       taak = ()=>settingsSetTalen(naam, nieuw); fout = "De talen zijn niet veranderd.";
       ok = r=>r.changed ? "Talen van " + naam + ": " + r.tekst + "." : "Dat stond al zo: een collega had het net gewijzigd.";
@@ -3580,6 +3630,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     vandaagStand();
   };
   const resetE = ()=>{ q("#msg-eigen-tekst").value = ""; q("#msg-eigen-van").value = ""; q("#msg-eigen-tot").value = ""; q("#msg-eigen-jaarlijks").checked = false; q("#msg-eigen-aftellen").checked = false; q("#msg-eigen-eendag").checked = false; q("#msg-eigen-emoji").value = ""; delete q("#msg-eigen-form").dataset.edit; q("#msg-eigen-ok").textContent = "Toevoegen"; q("#msg-eigen-annuleer").style.display = "none"; jaarlijksStand(); tellerE(); };
+  const nieuwBericht = ()=>{ q("#msg-eigen-wie").value = EIGEN_ALGEMEEN; resetE(); };   // een nieuw bericht begint altijd bij 'Algemeen' (voor iedereen, zonder naam): zo wordt het per ongeluk niet steeds voor dezelfde collega
   const datNl = v=>v ? v.slice(8, 10) + "-" + v.slice(5, 7) + "-" + v.slice(0, 4) : "";
   const eigenRij = (naam, e, vandaag, vast, inOverzicht, notitie)=>{   // één boodschap als rij (tekst met de naam, status, periode, wie) met ✎ en × — voor de lijst van één collega en voor het overzicht van alle actieve
     const st = eigenStatus(e, vandaag), rij = document.createElement("div"), tk = document.createElement("div"), meta = document.createElement("div"), kleur = st === "actief" ? "#80cbc4" : (st === "gepland" ? "#e0a96d" : "#888");
@@ -3634,7 +3685,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     if(r.error) setMsgE(r.error, "fout");
     else {
       setMsgE(r.changed ? (naam === EIGEN_ALGEMEEN ? "Algemene boodschap" : "Persoonlijke boodschap voor " + naam) + " " + ({ toevoegen: "toegevoegd", wijzigen: "gewijzigd", verwijderen: "verwijderd" })[actie] + "." : "Dat stond al zo: een collega had het net gewijzigd.", "ok");
-      if(actie !== "verwijderen" || q("#msg-eigen-form").dataset.edit === e.id) resetE();
+      if(actie !== "verwijderen" || q("#msg-eigen-form").dataset.edit === e.id) nieuwBericht();
     }
     toonEigen();
   };
@@ -3654,7 +3705,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     else { v.value = nu; t.value = nu; q("#msg-eigen-eendag").checked = true; q("#msg-eigen-jaarlijks").checked = false; q("#msg-eigen-aftellen").checked = false; }   // vandaag is één dag
     jaarlijksStand(); tellerE();
   };
-  q("#msg-eigen-annuleer").onclick = ()=>{ resetE(); setMsgE("", ""); };
+  q("#msg-eigen-annuleer").onclick = ()=>{ nieuwBericht(); setMsgE("", ""); toonEigen(); };
   q("#msg-eigen-ok").onclick = ()=>{
     if(!mag) return; const f = q("#msg-eigen-form"), bewerk = f.dataset.edit, een = q("#msg-eigen-eendag").checked, van = q("#msg-eigen-van").value;
     if(een && !van){ setMsgE("Kies de datum waarop de boodschap komt.", "fout"); return; }
@@ -3713,7 +3764,7 @@ function buildWeekPanel(monday){
     dayHdr.appendChild(dh);
   });
   panel.appendChild(dayHdr);
-  TEAM.forEach((person,pi)=>{
+  visibleTeam().forEach((person,pi)=>{
     const row=document.createElement("div"); row.className=`person-row${pi%2===0?" alt":""}`;
     DAYS.forEach((day,i)=>{
       const dayDate=addDays(monday,i), isToday=isSameDay(dayDate,today);
@@ -3752,7 +3803,7 @@ function buildWeekPanel(monday){
 function buildNameCol(){
   const col=document.createElement("div"); col.className="name-col";
   const spacer=document.createElement("div"); spacer.className="name-spacer"; col.appendChild(spacer);
-  TEAM.forEach((person,pi)=>{
+  visibleTeam().forEach((person,pi)=>{
     const row=document.createElement("div"); row.className=`name-row${pi%2===0?" alt":""}`;
     const av=document.createElement("div"); av.className="avatar"; av.style.background=AVATARS[pi%AVATARS.length]; av.textContent=person[0];
     const nm=document.createElement("span"); nm.className=`name-label${person==="Hans"?" self":""}`; nm.textContent=person;
@@ -3953,7 +4004,7 @@ function showMaandOverzicht(){
     tbl.appendChild(hdr2);
 
     // Persoon-rijen
-    TEAM.forEach(person=>{
+    visibleTeam().forEach(person=>{
       const tr = document.createElement("tr");
       const nameTd = document.createElement("td");
       nameTd.style.cssText = "font-size:10px;color:#fff;padding-right:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:72px;";
@@ -3969,7 +4020,7 @@ function showMaandOverzicht(){
           if(sel.length===0){ td.style.background="rgba(255,255,255,0.05)"; }
           else { const m=sel[0]; td.style.background=STATUS_COLORS[m]||"rgba(255,255,255,0.1)"; td.style.color=(m==="extern"||m==="vm_extern"||m==="nm_extern")?"rgba(0,0,0,0.7)":"#fff"; td.textContent=STATUS_LABELS[m]||""; }
           const isCurW2 = today >= w.monday && today <= addDays(w.monday, 6);
-          const isLastPerson = person === TEAM[TEAM.length-1];
+          const isLastPerson = person === visibleTeam().slice(-1)[0];
           if(isCurW2){
             if(i===0){ td.style.borderLeft="2px solid rgba(255,183,77,0.75)"; }
             if(i===4){ td.style.borderRight="2px solid rgba(255,183,77,0.75)"; }
@@ -4565,7 +4616,7 @@ async function showPeriodeModal(){
         <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:5px;letter-spacing:1px;">PERSOON</div>
         <select id="pd-person" style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:8px;padding:8px;font-family:'Courier New',monospace;font-size:12px;">
           <option value="" disabled selected style="color:rgba(255,255,255,0.3);">— Kies een persoon —</option>
-          ${TEAM.map(p=>`<option value="${p}">${p}</option>`).join("")}
+          ${visibleTeam().map(p=>`<option value="${p}">${p}</option>`).join("")}
         </select>
       </div>
       <div style="display:flex;border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden;">
