@@ -210,7 +210,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 99</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 100</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -2741,10 +2741,11 @@ function buildTemplateGrid(){
   // (addRow wordt hieronder aangemaakt en dan direct toegevoegd)
   // Header row met dag-kolommen
   const hdrRow=document.createElement("div");
-  hdrRow.style.cssText="display:grid;grid-template-columns:130px repeat(5,1fr) 64px 28px;gap:4px;margin-bottom:8px;align-items:center;";
+  hdrRow.style.cssText="display:grid;grid-template-columns:130px repeat(5,1fr) 64px 24px 28px;gap:4px;margin-bottom:8px;align-items:center;";
   hdrRow.appendChild(document.createElement("div"));
   DAYS.forEach(day=>{ const d=document.createElement("div"); d.style.cssText="text-align:center;font-size:12px;font-weight:800;color:#fff;letter-spacing:1px;padding:6px 0;"; d.textContent=day; hdrRow.appendChild(d); });
   { const vh = document.createElement("div"); vh.style.cssText = "text-align:center;font-size:10px;font-weight:700;color:#999;padding:6px 0;"; vh.textContent = "Verborgen"; hdrRow.appendChild(vh); }
+  hdrRow.appendChild(document.createElement("div")); // lege kolom voor omhoog/omlaag
   hdrRow.appendChild(document.createElement("div")); // lege kolom voor verwijder-knop
   // Toevoegen-rij bovenaan
   const addRow=document.createElement("div");
@@ -2763,7 +2764,7 @@ function buildTemplateGrid(){
   container.appendChild(hdrRow);
   TEAM.forEach((person,pi)=>{
     const row=document.createElement("div");
-    row.style.cssText=`display:grid;grid-template-columns:130px repeat(5,1fr) 64px 28px;gap:4px;margin-bottom:3px;border-radius:6px;align-items:center;background:${pi%2===0?"rgba(255,255,255,0.015)":"transparent"}`;
+    row.style.cssText=`display:grid;grid-template-columns:130px repeat(5,1fr) 64px 24px 28px;gap:4px;margin-bottom:3px;border-radius:6px;align-items:center;background:${pi%2===0?"rgba(255,255,255,0.015)":"transparent"}`;
     const nameCell=document.createElement("div"); nameCell.style.cssText="display:flex;align-items:center;gap:6px;height:34px;padding:0 4px;";
     const dragH = buildDragHandle();
     const avatar = document.createElement("div");
@@ -2835,6 +2836,14 @@ function buildTemplateGrid(){
       vink.onclick = e=>e.stopPropagation(); vink.onchange = ()=>{ if(vink.checked) HIDDEN.add(person); else HIDDEN.delete(person); saveState(); buildTemplateGrid(); renderAndSync(); };
       if(HIDDEN.has(person)) row.style.opacity = "0.6";
       cel.appendChild(vink); row.appendChild(cel); }
+    // Omhoog en omlaag: een zekere manier om de volgorde te veranderen, naast slepen (dat is lastig als de lijst scrolt)
+    { const kol = document.createElement("div"); kol.style.cssText = "display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;";
+      [["▲", -1, "omhoog"], ["▼", 1, "omlaag"]].forEach(([tekst, d, woord])=>{
+        const kn = document.createElement("button"), i0 = TEAM.indexOf(person); kn.type = "button"; kn.className = "tpl-" + woord; kn.dataset.person = person; kn.textContent = tekst; kn.title = person + " " + woord + " verplaatsen"; kn.setAttribute("aria-label", person + " " + woord + " verplaatsen"); kn.disabled = i0 + d < 0 || i0 + d >= TEAM.length;
+        kn.style.cssText = "background:transparent;border:1px solid rgba(255,255,255,0.18);color:#bbb;border-radius:4px;width:20px;height:14px;font-size:8px;line-height:1;padding:0;cursor:" + (kn.disabled ? "not-allowed" : "pointer") + ";opacity:" + (kn.disabled ? "0.35" : "1") + ";";
+        kn.onclick = e=>{ e.stopPropagation(); const i = TEAM.indexOf(person), j = i + d; if(i < 0 || j < 0 || j >= TEAM.length) return; TEAM.splice(i, 1); TEAM.splice(j, 0, person); saveState(); buildTemplateGrid(); renderAndSync(); };
+        kol.appendChild(kn); });
+      row.appendChild(kol); }
     // Verwijder-knop
     const delBtn=document.createElement("button");
     delBtn.textContent="✕";
