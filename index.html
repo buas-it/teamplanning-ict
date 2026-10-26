@@ -179,6 +179,8 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 .usr-cel input:disabled { cursor:not-allowed; opacity:0.5; }
 .usr-cap { display:none; font-size:10px; color:#aaa; }
 .usr-kaart { border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:10px 12px; margin-bottom:10px; background:rgba(255,255,255,0.02); }
+.usr-pull:focus-visible { outline:2px solid #80cbc4; outline-offset:3px; border-radius:6px; }
+.usr-pull-paneel { margin-top:10px; }
 .usr-leden { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px 14px; }
 @media (max-width:660px){
   .usr-kop { display:none; }
@@ -227,7 +229,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 110</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 114</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -379,7 +381,7 @@ const RESTORE_GROUP = "ICT-Systeembeheer";   // alleen deze groep mag een backup
 const GROUP_ADMIN = "ICT-Systeembeheer";     // alleen deze groep mag de groepen aanpassen
 const SETTINGS_PATH = "settings.json";       // gedeelde instellingen op de data-branch (de boodschap aan of uit, en de taal of talen per collega)
 const MESSAGE_ADMIN = "ICT-Systeembeheer";   // alleen deze groep mag de boodschap aan- en uitzetten
-let BOODSCHAP = { enabled: true, ready: false, by: null, at: null, talen: {}, talenBy: null, talenAt: null, personen: {}, personenBy: null, personenAt: null, persoonlijk: {}, monitor: {}, campus: {}, sha: null, error: null };   // ready: de instelling is minstens één keer opgehaald; zolang dat niet zo is, geen boodschap
+let BOODSCHAP = { enabled: true, ready: false, by: null, at: null, talen: {}, talenBy: null, talenAt: null, personen: {}, personenBy: null, personenAt: null, persoonlijk: {}, monitor: {}, campus: {}, verjaardagen: true, verjaardagInterval: null, sha: null, error: null };   // ready: de instelling is minstens één keer opgehaald; zolang dat niet zo is, geen boodschap
 function canToggleMessage(){ return !!(currentIdentity && inGroup(currentIdentity.user, MESSAGE_ADMIN)); }
 let groupsReady = false, groupsError = null, groupsSha = null;   // groupsReady: de indeling is opgehaald (of er is nog geen bestand: standaard). Zolang dat niet zo is, geldt niemand als lid: bij twijfel geen rechten
 function groupOf(user){ return GROUP_NAMES.find(g=>GROUPS[g].includes(user)) || null; }
@@ -415,7 +417,7 @@ function canSeeAdmin(){   // Admin (logboek, wachtwoorden, groepen): alleen team
   return !!(me && groupsReady && TEAM.includes(me) && ADMIN_VIEW_GROUPS.some(g=>inGroup(me, g)));
 }
 function closeAdminWindows(all){   // Admin-vensters dicht: bij verloren rechten allemaal; als bewerken uitgaat alleen de vensters waarmee je iets wijzigt (Audit, Status en het backup-overzicht zijn alleen kijken en blijven open)
-  (all ? ["au-close", "status-close", "stat-close", "bc-close", "usr-close", "restore-close", "backup-close", "msg-close", "msg-view-close"] : ["usr-close", "restore-close", "backup-close", "msg-close"]).forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o && !(id === "usr-close" && o.dataset.eigen === "1")) o.remove(); });   // het venster 'Mijn account' (voor wie geen Admin heeft) blijft staan: dat is geen Admin-venster
+  (all ? ["au-close", "status-close", "stat-close", "gb-close", "bc-close", "usr-close", "restore-close", "backup-close", "msg-close", "msg-view-close"] : ["usr-close", "restore-close", "backup-close", "msg-close"]).forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o && !(id === "usr-close" && o.dataset.eigen === "1")) o.remove(); });   // het venster 'Mijn account' (voor wie geen Admin heeft) blijft staan: dat is geen Admin-venster
 }
 function canResetPasswords(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }   // wachtwoorden van anderen resetten: alleen leden van ICT-Systeembeheer (je eigen wachtwoord wijzigen kan iedereen)
 function denyRestore(){ adminNotice(groupsReady ? "Een backup terugzetten mag alleen " + RESTORE_GROUP + "." : "De groepen konden niet worden opgehaald, dus terugzetten kan nu niet. Probeer het zo opnieuw.", "♻ Backup terugzetten"); }
@@ -507,17 +509,28 @@ function settingsParseMonitor(p){   // {naam: true/false}: alleen echte keuzes (
 function campusNodig(naam, campus){ return !(campus && campus[naam] === false); }   // standaard komt het compliment voor een collega alleen als hij of zij op de campus is; een eigen keuze 'niet nodig' (false) haalt die eis weg
 const MONITOR_STANDAARD = ["Monitor", "Hans"];   // wie standaard de monitorfunctie heeft: alle berichten zien, ongeacht eigen status of aanwezigheid
 function monitorAan(naam, monitor){ return monitor && Object.prototype.hasOwnProperty.call(monitor, naam) ? !!monitor[naam] : MONITOR_STANDAARD.includes(naam); }   // een eigen keuze (Admin ▸ Boodschap) gaat voor; anders de standaard
+function settingsParseInterval(p){   // {aan, uit} in hele minuten (aan 1 tot 60, uit 1 tot 240); alles wat daar niet aan voldoet telt als 'geen interval'
+  if(!p || typeof p !== "object" || Array.isArray(p)) return null;
+  const a = p.aan, u = p.uit; return Number.isInteger(a) && Number.isInteger(u) && a >= 1 && a <= 60 && u >= 1 && u <= 240 ? { aan: a, uit: u } : null;
+}
+function heeftEigenInstellingen(naam){ const heeft = m=>!!m && Object.prototype.hasOwnProperty.call(m, naam); return !!BOODSCHAP.talen[naam] || heeft(BOODSCHAP.personen) || heeft(BOODSCHAP.campus) || heeft(BOODSCHAP.monitor); }   // wijkt er iets af van de standaard (boodschap aan/uit, talen, Op campus of monitorfunctie)?
+function minTekst(n){ return n === 1 ? "1 minuut" : n + " minuten"; }
+function verjaardagInFase(nu){   // met een interval: de verjaardagsboodschap is 'aan' minuten zichtbaar en daarna 'uit' minuten niet, steeds opnieuw; de cyclus begint om middernacht, zodat elk scherm gelijk loopt (1 aan, 5 uit: zichtbaar rond :00, :06, :12 ...)
+  const iv = BOODSCHAP.verjaardagInterval; if(!iv) return true;
+  const m0 = new Date(nu); m0.setHours(0, 0, 0, 0);
+  return (nu.getTime() - m0.getTime()) % ((iv.aan + iv.uit) * 60000) < iv.aan * 60000;
+}
 function settingsParseWijz(w){ return { by: w && typeof w.by === "string" ? w.by : null, at: w && typeof w.at === "string" ? w.at : null }; }
 async function settingsFetch(){   // {boodschap:{enabled,by,at}, talen:{naam:[codes]}, talenWijz:{by,at}, raw, sha}; 404 = nog nooit ingesteld: aan; gooit bij een storing of een ongeldig bestand
   const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
-  if(r.status === 404) return { boodschap: { enabled: true, by: null, at: null }, talen: {}, talenWijz: { by: null, at: null }, personen: {}, personenWijz: { by: null, at: null }, persoonlijk: {}, monitor: {}, campus: {}, raw: { v: 1 }, sha: null };
+  if(r.status === 404) return { boodschap: { enabled: true, by: null, at: null }, talen: {}, talenWijz: { by: null, at: null }, personen: {}, personenWijz: { by: null, at: null }, persoonlijk: {}, monitor: {}, campus: {}, verjaardagen: true, verjaardagInterval: null, raw: { v: 1 }, sha: null };
   if(!r.ok) throw new Error("HTTP " + r.status);
   const d = await r.json(), raw = JSON.parse(auditDecode(d.content));
   if(!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("ongeldig bestand");
   const boodschap = { enabled: true, by: null, at: null };   // de boodschap staat altijd aan: een eventuele oude stand in het bestand telt niet meer
-  return { boodschap, talen: settingsParseTalen(raw.talen), talenWijz: settingsParseWijz(raw.talenWijziging), personen: settingsParsePersonen(raw.personen), personenWijz: settingsParseWijz(raw.personenWijziging), persoonlijk: settingsParsePersoonlijk(raw.persoonlijk), monitor: settingsParseMonitor(raw.monitor), campus: settingsParseMonitor(raw.campus), raw, sha: d.sha };
+  return { boodschap, talen: settingsParseTalen(raw.talen), talenWijz: settingsParseWijz(raw.talenWijziging), personen: settingsParsePersonen(raw.personen), personenWijz: settingsParseWijz(raw.personenWijziging), persoonlijk: settingsParsePersoonlijk(raw.persoonlijk), monitor: settingsParseMonitor(raw.monitor), campus: settingsParseMonitor(raw.campus), verjaardagen: raw.verjaardagen !== false, verjaardagInterval: settingsParseInterval(raw.verjaardagInterval), raw, sha: d.sha };
 }
-function applySettings(cur){ const w = cur.talenWijz || { by: null, at: null }, pw = cur.personenWijz || { by: null, at: null }; BOODSCHAP = { enabled: true, ready: true, by: null, at: null, talen: cur.talen || {}, talenBy: w.by, talenAt: w.at, personen: cur.personen || {}, personenBy: pw.by, personenAt: pw.at, persoonlijk: cur.persoonlijk || {}, monitor: cur.monitor || {}, campus: cur.campus || {}, sha: cur.sha || null, error: null }; }
+function applySettings(cur){ const w = cur.talenWijz || { by: null, at: null }, pw = cur.personenWijz || { by: null, at: null }; BOODSCHAP = { enabled: true, ready: true, by: null, at: null, talen: cur.talen || {}, talenBy: w.by, talenAt: w.at, personen: cur.personen || {}, personenBy: pw.by, personenAt: pw.at, persoonlijk: cur.persoonlijk || {}, monitor: cur.monitor || {}, campus: cur.campus || {}, verjaardagen: cur.verjaardagen !== false, verjaardagInterval: cur.verjaardagInterval || null, sha: cur.sha || null, error: null }; }
 async function settingsLoad(){   // haalt de instellingen op; bij een storing blijft de eerder opgehaalde stand gelden
   try{ applySettings(await settingsFetch()); }
   catch(e){ BOODSCHAP.error = (e && e.message) || String(e); }
@@ -544,7 +557,7 @@ async function settingsSetTalen(naam, lijst){   // de talen van één collega in
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
-      applySettings({ boodschap: cur.boodschap, talen: settingsParseTalen(talen), talenWijz: raw.talenWijziging, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: cur.monitor, campus: cur.campus, sha });
+      applySettings({ boodschap: cur.boodschap, talen: settingsParseTalen(talen), talenWijz: raw.talenWijziging, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: cur.monitor, campus: cur.campus, verjaardagen: cur.verjaardagen, verjaardagInterval: cur.verjaardagInterval, sha });
       auditEvent("boodschap taal: " + naam + ": " + complimentTalenTekst(oud) + " → " + tekst);   // pas na een geslaagde opslag in het logboek
       touchEditTimer(); try{ complimentSync(); }catch(e){}
       return { ok: true, changed: true, tekst };
@@ -570,7 +583,7 @@ async function settingsSetPersoon(naam, aan){   // de boodschap voor één colle
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
-      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: settingsParsePersonen(personen), personenWijz: raw.personenWijziging, persoonlijk: cur.persoonlijk, monitor: cur.monitor, campus: cur.campus, sha });
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: settingsParsePersonen(personen), personenWijz: raw.personenWijziging, persoonlijk: cur.persoonlijk, monitor: cur.monitor, campus: cur.campus, verjaardagen: cur.verjaardagen, verjaardagInterval: cur.verjaardagInterval, sha });
       auditEvent("boodschap collega: " + naam + ": " + (oud ? "aan" : "uit") + " → " + (aan ? "aan" : "uit"));   // pas na een geslaagde opslag in het logboek
       touchEditTimer(); try{ complimentSync(); }catch(e){}
       return { ok: true, changed: true, aan };
@@ -596,7 +609,7 @@ async function settingsSetMonitor(naam, aan){   // de monitorfunctie van één g
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
-      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: settingsParseMonitor(mon), campus: cur.campus, sha });
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: settingsParseMonitor(mon), campus: cur.campus, verjaardagen: cur.verjaardagen, verjaardagInterval: cur.verjaardagInterval, sha });
       auditEvent("boodschap monitorfunctie: " + naam + ": " + (oud ? "aan" : "uit") + " → " + (aan ? "aan" : "uit"));   // pas na een geslaagde opslag in het logboek
       touchEditTimer(); try{ complimentSync(); }catch(e){}
       return { ok: true, changed: true, aan };
@@ -622,10 +635,82 @@ async function settingsSetCampus(naam, nodig){   // voor één collega instellen
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
-      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: cur.monitor, campus: settingsParseMonitor(camp), sha });
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: cur.monitor, campus: settingsParseMonitor(camp), verjaardagen: cur.verjaardagen, verjaardagInterval: cur.verjaardagInterval, sha });
       auditEvent("boodschap campus: " + naam + ": " + (oud ? "alleen op de campus" : "ook niet op de campus") + " → " + (nodig ? "alleen op de campus" : "ook niet op de campus"));   // pas na een geslaagde opslag in het logboek
       touchEditTimer(); try{ complimentSync(); }catch(e){}
       return { ok: true, changed: true, nodig };
+    }
+    if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
+  }
+  throw new Error("conflict");
+}
+async function settingsSetVerjaardagen(aan){   // alle verjaardagsboodschappen aan of uit (één vinkje voor iedereen, standaard aan); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand, schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
+  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de verjaardagsboodschappen aan- of uitzetten." };
+  if(!editUnlocked) return { error: "Bewerken staat uit." };
+  const me = currentIdentity.user;
+  for(let i = 0; i < 4; i++){
+    const cur = await settingsFetch(), oud = cur.verjaardagen !== false;
+    if(oud === aan){ applySettings(cur); try{ complimentSync(); }catch(e){} return { ok: true, changed: false, aan }; }   // een collega had het al zo gezet: niets schrijven en niets in het logboek
+    const raw = cur.raw; raw.v = 1;
+    if(aan) delete raw.verjaardagen; else raw.verjaardagen = false;   // alleen 'uit' staat in het bestand; aan is de standaard
+    const body = { message: "Verjaardagsboodschappen " + (aan ? "aangezet" : "uitgezet") + " (door " + me + ")", content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
+    if(cur.sha) body.sha = cur.sha;
+    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
+    if(r.ok){
+      let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: cur.monitor, campus: cur.campus, verjaardagen: aan, verjaardagInterval: cur.verjaardagInterval, sha });
+      auditEvent("boodschap verjaardagen: " + (oud ? "aan" : "uit") + " → " + (aan ? "aan" : "uit"));   // pas na een geslaagde opslag in het logboek
+      touchEditTimer(); try{ complimentSync(); }catch(e){}
+      return { ok: true, changed: true, aan };
+    }
+    if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
+  }
+  throw new Error("conflict");
+}
+async function settingsSetVerjaardagInterval(iv){   // het interval van de verjaardagsboodschap instellen ({aan, uit} in hele minuten) of uitzetten (null); alleen ICT-Systeembeheer, met bewerken aan; schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
+  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan het interval van de verjaardagsboodschap wijzigen." };
+  if(!editUnlocked) return { error: "Bewerken staat uit." };
+  const nieuw = iv === null ? null : settingsParseInterval(iv);
+  if(iv !== null && !nieuw) return { error: "Kies hele minuten: aan van 1 tot 60, uit van 1 tot 240." };
+  const me = currentIdentity.user, tekst = x=>x ? minTekst(x.aan) + " aan, " + minTekst(x.uit) + " uit" : "geen interval";
+  for(let i = 0; i < 4; i++){
+    const cur = await settingsFetch(), oud = cur.verjaardagInterval || null;
+    if(JSON.stringify(oud) === JSON.stringify(nieuw)){ applySettings(cur); try{ complimentSync(); }catch(e){} return { ok: true, changed: false, iv: nieuw }; }   // een collega had het al zo gezet: niets schrijven en niets in het logboek
+    const raw = cur.raw; raw.v = 1;
+    if(nieuw) raw.verjaardagInterval = nieuw; else delete raw.verjaardagInterval;
+    const body = { message: "Interval verjaardagsboodschap: " + tekst(nieuw) + " (door " + me + ")", content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
+    if(cur.sha) body.sha = cur.sha;
+    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
+    if(r.ok){
+      let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: cur.monitor, campus: cur.campus, verjaardagen: cur.verjaardagen, verjaardagInterval: nieuw, sha });
+      auditEvent("boodschap verjaardagen interval: " + tekst(oud) + " → " + tekst(nieuw));   // pas na een geslaagde opslag in het logboek
+      touchEditTimer(); try{ complimentSync(); }catch(e){}
+      return { ok: true, changed: true, iv: nieuw };
+    }
+    if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
+  }
+  throw new Error("conflict");
+}
+async function settingsResetCollega(naam){   // alle boodschap-instellingen van één collega terug naar de standaard: boodschap aan/uit, talen, 'Op campus' en monitorfunctie (de persoonlijke boodschappen en 'Verborgen' blijven staan); alleen ICT-Systeembeheer, met bewerken aan; in één schrijfactie, leest eerst de nieuwste stand
+  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de instellingen terugzetten." };
+  if(!editUnlocked) return { error: "Bewerken staat uit." };
+  if(!TEAM.includes(naam)) return { error: "Onbekende collega." };
+  const me = currentIdentity.user, onderdelen = [["personen", "boodschap aan/uit"], ["talen", "talen"], ["campus", "op campus"], ["monitor", "monitorfunctie"]];
+  for(let i = 0; i < 4; i++){
+    const cur = await settingsFetch(), raw = cur.raw; raw.v = 1; const gewist = [];
+    onderdelen.forEach(([sleutel, label])=>{ const m = raw[sleutel]; if(m && typeof m === "object" && !Array.isArray(m) && Object.prototype.hasOwnProperty.call(m, naam)){ delete m[naam]; gewist.push(label); } });
+    if(!gewist.length){ applySettings(cur); try{ complimentSync(); }catch(e){} return { ok: true, changed: false }; }   // een collega had het al teruggezet: niets schrijven en niets in het logboek
+    const nu = new Date().toISOString(); if(gewist.includes("boodschap aan/uit")) raw.personenWijziging = { by: me, at: nu }; if(gewist.includes("talen")) raw.talenWijziging = { by: me, at: nu };
+    const body = { message: "Alle boodschap-instellingen van " + naam + " teruggezet naar de standaard (door " + me + ")", content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
+    if(cur.sha) body.sha = cur.sha;
+    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
+    if(r.ok){
+      let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
+      applySettings({ boodschap: cur.boodschap, talen: settingsParseTalen(raw.talen && typeof raw.talen === "object" ? raw.talen : {}), talenWijz: raw.talenWijziging || cur.talenWijz, personen: settingsParsePersonen(raw.personen && typeof raw.personen === "object" ? raw.personen : {}), personenWijz: raw.personenWijziging || cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: settingsParseMonitor(raw.monitor), campus: settingsParseMonitor(raw.campus), verjaardagen: cur.verjaardagen, verjaardagInterval: cur.verjaardagInterval, sha });
+      auditEvent("boodschap reset: " + naam + ": " + gewist.join(", ") + " terug naar de standaard");   // pas na een geslaagde opslag in het logboek
+      touchEditTimer(); try{ complimentSync(); }catch(e){}
+      return { ok: true, changed: true, gewist };
     }
     if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
   }
@@ -664,7 +749,7 @@ async function settingsSetEigen(naam, actie, e){   // een persoonlijke boodschap
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(x){}
-      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: settingsParsePersoonlijk(alle), monitor: cur.monitor, campus: cur.campus, sha });
+      applySettings({ boodschap: cur.boodschap, talen: cur.talen, talenWijz: cur.talenWijz, personen: cur.personen, personenWijz: cur.personenWijz, persoonlijk: settingsParsePersoonlijk(alle), monitor: cur.monitor, campus: cur.campus, verjaardagen: cur.verjaardagen, verjaardagInterval: cur.verjaardagInterval, sha });
       auditEvent(naam === EIGEN_ALGEMEEN ? "boodschap algemeen: " + werkwoord + " (" + kort(tekst) + ")" : "boodschap persoonlijk: " + naam + ": " + werkwoord + " (" + kort(tekst) + ")");   // pas na een geslaagde opslag in het logboek
       touchEditTimer(); try{ complimentSync(); }catch(x){}
       return { ok: true, changed: true };
@@ -1199,22 +1284,21 @@ function openWhoMenu(){
   if(!canSeeAdmin()) item("menu-accounts", "👤 Mijn account", "", ()=>showUsersModal());   // wie geen Admin heeft: het eigen account (groep, wachtwoord en standaardbezetting); bij Admin staat het als Accounts
   if(canSeeAdmin()){   // Admin: alleen ICT-Systeembeheer en ICT-Management
     const kop = t => { const d = document.createElement("div"); d.className = "hd"; d.textContent = t; d.setAttribute("role", "presentation"); m.appendChild(d); };   // een kopje in het menu (geen knop)
-    if(canSeeInfo()){   // alleen ICT-Systeembeheer
+    {   // de map Info: ICT-Systeembeheer ziet Audit, Status, Statistics en Geen Beheer; ICT-Management alleen Geen Beheer
       // Info: een map onder de ingelogde gebruiker die uitklapt naar Audit, Status en Statistics (alleen kijken); klappen blijft het menu openhouden
       sep();
       const infoTab = document.createElement("button"); infoTab.type = "button"; infoTab.id = "menu-info"; infoTab.className = "c-status";
       infoTab.setAttribute("role", "menuitem"); infoTab.setAttribute("aria-haspopup", "true"); infoTab.setAttribute("aria-expanded", "false"); infoTab.textContent = "ℹ️ Info ▸";
       m.appendChild(infoTab);
-      item("menu-audit", "📜 Audit", "c-admin sub", cmd("btn-admin"));
-      item("menu-status", "📊 Status", "c-status sub", ()=>showStatusWindow());
-      item("menu-stats", "📈 Statistics", "c-status sub", ()=>showStatsWindow());
+      if(canSeeInfo()) item("menu-audit", "📜 Audit", "c-admin sub", cmd("btn-admin"));
+      if(canSeeInfo()) item("menu-status", "📊 Status", "c-status sub", ()=>showStatusWindow());
+      if(canSeeInfo()) item("menu-stats", "📈 Statistics", "c-status sub", ()=>showStatsWindow());
       item("menu-geenbeheer", "⚠ Geen Beheer", "c-geenbeheer sub", cmd("btn-geen-beheer"));
-      const infoSubs = ["#menu-audit", "#menu-status", "#menu-stats", "#menu-geenbeheer"].map(s=>m.querySelector(s)); infoSubs.forEach(x=>{ x.hidden = true; });
+      const infoSubs = ["#menu-audit", "#menu-status", "#menu-stats", "#menu-geenbeheer"].map(s=>m.querySelector(s)).filter(Boolean); infoSubs.forEach(x=>{ x.hidden = true; });
       infoTab.onclick = ()=>{ const open = infoTab.getAttribute("aria-expanded") !== "true"; infoTab.setAttribute("aria-expanded", String(open)); infoTab.textContent = "ℹ️ Info " + (open ? "▾" : "▸"); infoSubs.forEach(x=>{ x.hidden = !open; }); };
     }
     sep(); kop("Admin");
     item("menu-accounts", "👤 Accounts", "c-admin", ()=>showUsersModal());
-    item("menu-groepen", "👥 Groepen", "c-admin", ()=>showUsersModal("groepen"));
     item("menu-boodschap", "💬 Boodschap", "c-admin", ()=>showBoodschapModal());
     // Backup/Restore: een tabblad onder Admin dat uitklapt naar Backup en Restore (klappen blijft het menu openhouden)
     const bkTab = document.createElement("button"); bkTab.type = "button"; bkTab.id = "menu-backuprestore"; bkTab.className = "c-admin";
@@ -1226,7 +1310,7 @@ function openWhoMenu(){
     bkTab.onclick = ()=>{ const open = bkTab.getAttribute("aria-expanded") !== "true"; bkTab.setAttribute("aria-expanded", String(open)); bkTab.textContent = "🗄 Backup/Restore " + (open ? "▾" : "▸"); bkSubs.forEach(x=>{ x.hidden = !open; }); };
     if(!canRestore()){ const t = m.querySelector("#menu-backup-terugzetten"); t.setAttribute("aria-disabled", "true"); t.title = "Een backup terugzetten mag alleen " + RESTORE_GROUP; }
     if(!editUnlocked){   // Admin werkt alleen als bewerken aan staat: een klik op een onderdeel geeft eerst de vraag om bewerken aan te zetten (bewuste tussenstap)
-      ["menu-accounts", "menu-groepen", "menu-boodschap", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{   // Audit, Status en Statistics zijn alleen kijken: zonder vraag
+      ["menu-accounts", "menu-boodschap", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{   // Audit, Status en Statistics zijn alleen kijken: zonder vraag
         const x = m.querySelector("#" + id); if(!x) return;
         if(id === "menu-boodschap" && !canToggleMessage()) return;   // ICT-Management kijkt alleen mee: geen vraag
         if(id === "menu-backup-terugzetten" && !canRestore()) return;   // terugzetten mag deze gebruiker niet: blijft uitgeschakeld met uitleg
@@ -1277,7 +1361,7 @@ function showLockIndicator(){
   }
   const on = !!currentIdentity;
   const ab = document.getElementById("btn-admin"); if(ab) ab.style.display = canSeeAdmin() ? "" : "none";   // Admin: alleen voor ICT-Systeembeheer en ICT-Management
-  if(!canSeeInfo()) ["au-close", "status-close", "stat-close", "gb-close"].forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o) o.remove(); });   // verlies je ICT-Systeembeheer, dan gaan ook Audit, Status, Statistics en Geen Beheer dicht
+  if(!canSeeInfo()) ["au-close", "status-close", "stat-close"].forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o) o.remove(); });   // verlies je ICT-Systeembeheer, dan gaan ook Audit, Status, Statistics en Geen Beheer dicht
   if(!canSeeAdmin()) closeAdminWindows(true); else if(!editUnlocked) closeAdminWindows();                                                                     // verandert je groep terwijl Admin openstaat, dan gaat het dicht
   try{ updateAuditDot(); }catch(e){}
   try{ updateBadgeHealth(); }catch(e){}
@@ -1701,11 +1785,11 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
     try{ const c = await groupsFetch(); applyGroups(c.groups); groupsSha = c.sha; groupsReady = true; groupsError = null; gcur = c; }
     catch(e){ gcur = null; hint.textContent = ""; list.textContent = "De groepen konden niet worden opgehaald. Er kan nu niets worden aangepast."; return; }
     const me = currentIdentity && currentIdentity.user, editable = !!(me && gcur.groups[GROUP_ADMIN].includes(me)), namen = loginNames();
-    hint.textContent = "Kies per groep de leden. Een account zit in precies één groep: een account in een andere groep aanvinken verplaatst het." + (editable ? " Jezelf uit " + GROUP_ADMIN + " halen kan niet." : " Alleen een lid van " + GROUP_ADMIN + " kan de groepen aanpassen.");
+    hint.textContent = "Klap een groep open om de leden te kiezen. Een account zit in precies één groep: een account in een andere groep aanvinken verplaatst het." + (editable ? " Jezelf uit " + GROUP_ADMIN + " halen kan niet." : " Alleen een lid van " + GROUP_ADMIN + " kan de groepen aanpassen.");
     const zonder0 = namen.filter(n=>!curGroup(n));
     if(zonder0.length){ const z = document.createElement("div"); z.id = "usr-zonder-groep"; z.style.cssText = "font-size:11px;color:#ffcc80;margin:0 0 10px;"; z.textContent = "Zonder groep: " + zonder0.join(", ") + ". Vink ze aan bij een groep."; list.appendChild(z); }
     const vakjes = {}; GROUP_NAMES.forEach(g=>{ vakjes[g] = {}; });
-    const tel = ()=>GROUP_NAMES.forEach(g=>{ const k = list.querySelector('.usr-kaart[data-groep="' + g + '"] .usr-n'); if(k){ const aantal = Object.keys(vakjes[g]).filter(n=>vakjes[g][n].checked).length; k.textContent = String(aantal); const e = k.parentElement.querySelector(".usr-eenh"); if(e) e.textContent = aantal === 1 ? "lid" : "leden"; } });
+    const tel = ()=>GROUP_NAMES.forEach(g=>{ const k = list.querySelector('.usr-kaart[data-groep="' + g + '"] .usr-n'); if(k){ const leden = Object.keys(vakjes[g]).filter(n=>vakjes[g][n].checked), aantal = leden.length; k.textContent = String(aantal); const e = k.parentElement.querySelector(".usr-eenh"); if(e) e.textContent = aantal === 1 ? "lid" : "leden"; const t = list.querySelector('.usr-kaart[data-groep="' + g + '"] .usr-leden-tekst'); if(t) t.textContent = leden.join(", ") || "Geen leden"; } });
     const moves = ()=>namen.map(n=>({ name: n, from: curGroup(n), to: GROUP_NAMES.find(g=>vakjes[g][n].checked) || "" })).filter(m=>m.from !== m.to);
     const check = ()=>{
       const save = q("#usr-groepen-opslaan"); if(!save) return;
@@ -1715,12 +1799,15 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
       save.disabled = !ms.length || !!bad; save.style.opacity = save.disabled ? "0.5" : "";
       if(bad) setMsg(bad, false); else if(!msg.dataset.keep) setMsg("");
     };
-    GROUP_NAMES.forEach(g=>{
+    const zetOpen = (g, aan)=>{ GROUP_NAMES.forEach(x=>{ const k = list.querySelector('.usr-kaart[data-groep="' + x + '"]'); if(!k) return; const w = aan && x === g; k.querySelector(".usr-pull").setAttribute("aria-expanded", String(w)); k.querySelector(".usr-pull-paneel").style.display = w ? "grid" : "none"; k.querySelector(".usr-pijl").textContent = w ? "▴" : "▾"; }); };   // één pulldown tegelijk open
+    GROUP_NAMES.forEach(g=>{   // per groep een pulldown: de knop toont de groep en het aantal leden, het uitklapmenu laat per account kiezen of hij lid is
       const kaart = document.createElement("div"); kaart.className = "usr-kaart"; kaart.dataset.groep = g;
-      const kop = document.createElement("div"); kop.className = "usr-kaart-kop"; kop.style.cssText = "display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;";
+      const kop = document.createElement("button"); kop.type = "button"; kop.className = "usr-pull"; kop.setAttribute("aria-expanded", "false"); kop.setAttribute("aria-controls", "usr-paneel-" + g.replace(/[^A-Za-z]/g, ""));
+      kop.style.cssText = "display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;background:transparent;border:0;padding:0;cursor:pointer;font-family:inherit;text-align:left;color:inherit;";
       const gn = document.createElement("span"); gn.className = "usr-gnaam"; gn.style.cssText = "font-size:12px;font-weight:700;color:#80cbc4;"; gn.textContent = g;
-      const tl = document.createElement("span"); tl.style.cssText = "font-size:10px;color:#888;"; const n0 = document.createElement("span"); n0.className = "usr-n"; const eh = document.createElement("span"); eh.className = "usr-eenh"; tl.append(n0, " ", eh); kop.append(gn, tl);
-      const leden = document.createElement("div"); leden.className = "usr-leden";
+      const rechts = document.createElement("span"); rechts.style.cssText = "font-size:11px;color:#aaa;display:inline-flex;align-items:center;gap:6px;"; const n0 = document.createElement("span"); n0.className = "usr-n"; const eh = document.createElement("span"); eh.className = "usr-eenh"; const pijl = document.createElement("span"); pijl.className = "usr-pijl"; pijl.textContent = "▾"; pijl.style.cssText = "font-size:12px;color:#80cbc4;"; rechts.append(n0, " ", eh, " ", pijl); kop.append(gn, rechts);
+      const tekst = document.createElement("div"); tekst.className = "usr-leden-tekst"; tekst.style.cssText = "font-size:11px;color:#aaa;margin-top:6px;line-height:1.5;";
+      const paneel = document.createElement("div"); paneel.className = "usr-leden usr-pull-paneel"; paneel.id = "usr-paneel-" + g.replace(/[^A-Za-z]/g, ""); paneel.style.display = "none"; paneel.setAttribute("role", "group"); paneel.setAttribute("aria-label", "Leden van " + g);
       namen.forEach(n=>{
         const vast = !editable || (n === me && curGroup(me) === GROUP_ADMIN);   // jezelf uit ICT-Systeembeheer halen kan niet
         const lbl = document.createElement("label"), inp = document.createElement("input"), sp = document.createElement("span");
@@ -1732,9 +1819,10 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
           GROUP_NAMES.forEach(x=>{ if(x !== g) vakjes[x][n].checked = false; });
           delete msg.dataset.keep; tel(); check();
         };
-        vakjes[g][n] = inp; lbl.append(inp, sp); leden.appendChild(lbl);
+        vakjes[g][n] = inp; lbl.append(inp, sp); paneel.appendChild(lbl);
       });
-      kaart.append(kop, leden); list.appendChild(kaart);
+      kop.onclick = ()=>zetOpen(g, kop.getAttribute("aria-expanded") !== "true");
+      kaart.append(kop, tekst, paneel); list.appendChild(kaart);
     });
     tel();
     if(editable){
@@ -1804,7 +1892,7 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
           const t = vinkje(r2, complimentTaalNaam(code), nu.includes(code), !mag, uitleg); t.dataset.veld = "taal"; t.dataset.taal = code; t.dataset.naam = name;
           t.onchange = ()=>{ const lijst = t.checked ? nu.filter(c=>c !== code).concat(code) : nu.filter(c=>c !== code); if(!lijst.length){ t.checked = true; setMsg("Minstens één taal moet aan blijven voor " + name + ".", false); return; } wijzig(t, ()=>settingsSetTalen(name, lijst), res=>"Talen van " + name + ": " + res.tekst + "."); };
         });
-        if(BOODSCHAP.talen[name]) knop(r2, "↺ Talen standaard", "usr-talen-reset", "groen", ()=>wijzig(r2, ()=>settingsSetTalen(name, null), res=>"Talen van " + name + ": " + res.tekst + ".")).disabled = !mag;
+        knop(r2, "↺ Alles terugzetten", "usr-reset-alles", "groen", ()=>{ if(!confirm("Alle instellingen van " + name + " terugzetten naar de standaard?\nBoodschap aan/uit, talen, Op campus en monitorfunctie. Persoonlijke boodschappen blijven staan.")) return; wijzig(r2, ()=>settingsResetCollega(name), ()=>"Alle instellingen van " + name + " staan weer op de standaard."); }).disabled = !mag || !heeftEigenInstellingen(name);
       }
     }
     // Zichtbaarheid
@@ -3149,7 +3237,7 @@ function verjaardagItems(now, verj){   // wat er vandaag voor verjaardagen is: d
   return uit.sort((a, b)=>rang[a.id.charAt(0)] - rang[b.id.charAt(0)] || (a.id < b.id ? -1 : 1));
 }
 function complimentVerjaardag(now){   // het volgende verjaardagsbericht, om de beurt als er meerdere zijn (de laatst getoonde wordt bewaard)
-  const items = verjaardagItems(now, VERJAARDAGEN); if(!items.length) return null;
+  const items = verjaardagenNu(now); if(!items.length) return null;
   const sleutel = "tp_cmp_eigen_" + VERJAARDAG_ID; let laatste = null; try{ laatste = localStorage.getItem(sleutel); }catch(x){}
   const i = items.findIndex(e=>e.id === laatste), e = items[(i + 1) % items.length];
   try{ localStorage.setItem(sleutel, e.id); }catch(x){}
@@ -3157,6 +3245,7 @@ function complimentVerjaardag(now){   // het volgende verjaardagsbericht, om de 
 }
 const VJB_PALET = ["#ffcc66", "#7ec8ff", "#ff8fa3", "#a5e6a1", "#d7a8ff"];
 const VJB_FOTO = "verjaardag-feest.jpg?v=1";   // de feestfoto (ongeveer 100 KB), pas opgehaald op een dag met een verjaardag; lukt dat niet, dan blijft de tekening staan
+function verjaardagenNu(now){ return BOODSCHAP.verjaardagen === false || !verjaardagInFase(now) ? [] : verjaardagItems(now, VERJAARDAGEN); }   // wat er vandaag voor verjaardagen is, tenzij ICT-Systeembeheer de verjaardagsboodschappen heeft uitgezet (Admin ▸ Boodschap)
 function verjaardagArt(){   // de tekening: slingers, ballonnen links en rechts, cadeaus en een taart met kaarsen (vaste tekening, geen invoer van buiten)
   let s = '<path d="M0 12 Q275 40 550 12 Q825 -14 1100 12" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.6"/>';
   for(let i = 0; i < 22; i++){ const x = 25 + i * 50, y = 22 - 12 * Math.cos(x / 1100 * Math.PI * 4); s += '<path d="M' + (x - 13) + ' ' + y.toFixed(1) + ' L' + (x + 13) + ' ' + y.toFixed(1) + ' L' + x + ' ' + (y + 28).toFixed(1) + ' Z" fill="' + VJB_PALET[i % 5] + '" opacity="0.92"/>'; }
@@ -3218,13 +3307,13 @@ function complimentToon(el, n){   // het volgende bericht in beeld: een gewoon c
   const kaart = document.getElementById("verjaardag-banner"), isKaart = !!kaart && (n.naam === VERJAARDAG_ID || !!(n.compliment && n.compliment.eigen)), wie = currentIdentity ? currentIdentity.user : "";
   el.classList.toggle("cmp-kaart", false);
   if(!isKaart){ kaartCyclusUit(); return; }
-  if(n.naam === VERJAARDAG_ID){ if(!kaartFeestInhoud(kaart, verjaardagItems(new Date(), VERJAARDAGEN), wie)){ kaartCyclusUit(); return; } } else kaartBerichtInhoud(kaart, n);
+  if(n.naam === VERJAARDAG_ID){ if(!kaartFeestInhoud(kaart, verjaardagenNu(new Date()), wie)){ kaartCyclusUit(); return; } } else kaartBerichtInhoud(kaart, n);
   el.classList.add("cmp-kaart"); kaart.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
   kaart.dataset.modus = "cyc"; delete kaart.dataset.sleutel; kaart.style.display = ""; kaart.classList.remove("vjb-cyc"); void kaart.offsetWidth; kaart.classList.add("vjb-cyc");
 }
 function verjaardagBanner(){   // de vaste banner: zolang er een verjaardag is en er verder niets in de rotatie zit (een gewone gebruiker, of niemand op de campus); anders draait de banner mee met de andere berichten. Hij kan niet gesloten worden
   const el = document.getElementById("verjaardag-banner"); if(!el) return;
-  const nu = new Date(), items = currentIdentity ? verjaardagItems(nu, VERJAARDAGEN) : [], wie = currentIdentity ? currentIdentity.user : "";
+  const nu = new Date(), items = currentIdentity ? verjaardagenNu(nu) : [], wie = currentIdentity ? currentIdentity.user : "";
   const vast = items.length > 0 && complimentAudience(nu).filter(n=>n !== VERJAARDAG_ID).length === 0;
   if(!vast){ if(el.dataset.modus === "vast"){ el.style.display = "none"; delete el.dataset.modus; delete el.dataset.sleutel; } return; }
   if(el.dataset.modus === "cyc") kaartCyclusUit();
@@ -3596,7 +3685,7 @@ function complimentAanwezigVoorMij(now){   // wie er aan de beurt is voor een ge
 }
 function complimentAudience(now){   // wie er aan de beurt kan komen. Verjaardagsberichten (felicitatie, na een weekend de eerste werkdag erna, en de herinnering in de week ervoor) staan altijd in beeld, bij iedere gebruiker en ook als de boodschap uit staat. De rest alleen voor Monitor en Hans, met de echte planning van GitHub en als de boodschap aan staat: wie op de campus is (Hans dus alleen als hij er echt is) en wie een lopende persoonlijke of algemene boodschap heeft
   if(!currentIdentity) return [];
-  const verj = verjaardagItems(now, VERJAARDAGEN).length > 0 ? [VERJAARDAG_ID] : [];
+  const verj = verjaardagenNu(now).length > 0 ? [VERJAARDAG_ID] : [];
   if(!BOODSCHAP.ready || !monitorAan(currentIdentity.user, BOODSCHAP.monitor) || !complimentReady()) return verj;   // wie de monitorfunctie niet heeft krijgt alleen de verjaardag
   const aanwezig = complimentAanwezigVoorMij(now);
   const extra = TEAM.filter(p=>!HIDDEN.has(p) && !aanwezig.includes(p) && complimentEigenActief(p, now).length > 0);   // wie er niet is, of wiens gewone complimenten uit staan (schakelaar per collega), maar een lopende persoonlijke boodschap heeft: alleen die komt in beeld
@@ -3697,6 +3786,15 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:540px;max-width:98vw;box-sizing:border-box;font-family:'Courier New',monospace;">
     <div style="font-size:14px;font-weight:700;color:#80cbc4;padding-right:40px;">💬 Boodschap</div>
     <div id="msg-msg" style="font-size:11px;min-height:16px;margin-top:10px;line-height:1.5;"></div>
+    <div style="margin-top:14px;">
+      <label id="msg-verj-label" style="font-size:12px;color:#ddd;display:inline-flex;align-items:center;gap:8px;"><input id="msg-verj" type="checkbox" style="width:17px;height:17px;margin:0;accent-color:#80cbc4;"> 🎂 Verjaardagsboodschappen tonen</label>
+      <div id="msg-verj-iv" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:8px 0 0 25px;font-size:11px;color:#bbb;">
+        <label style="display:inline-flex;align-items:center;gap:6px;"><input id="msg-iv" type="checkbox" style="width:16px;height:16px;margin:0;accent-color:#80cbc4;"> Met tijdsinterval</label>
+        <label style="display:inline-flex;align-items:center;gap:6px;"><input id="msg-iv-aan" type="number" min="1" max="60" step="1" value="1" aria-label="Minuten zichtbaar" style="width:52px;font-family:inherit;font-size:12px;padding:3px 6px;border-radius:8px;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);"> minuten aan</label>
+        <label style="display:inline-flex;align-items:center;gap:6px;"><input id="msg-iv-uit" type="number" min="1" max="240" step="1" value="5" aria-label="Minuten verborgen" style="width:52px;font-family:inherit;font-size:12px;padding:3px 6px;border-radius:8px;background:#1a1a2e;color:#eee;border:1px solid rgba(255,255,255,0.15);"> minuten uit</label>
+      </div>
+      <div id="msg-verj-msg" style="font-size:11px;min-height:16px;margin-top:6px;line-height:1.5;"></div>
+    </div>
     <div style="margin-top:22px;border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;">
       <div style="font-size:13px;font-weight:700;color:#80cbc4;">👥 Per collega</div>
       <div id="msg-talen"></div>
@@ -3735,7 +3833,37 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   addWinX(overlay.firstElementChild, ()=>overlay.remove(), mag ? "msg-close" : "msg-view-close");   // alleen kijken sluit niet als bewerken uitgaat
   const setMsg = (t, kleur)=>{ msg.textContent = t || ""; msg.style.color = kleur === "ok" ? "#80cbc4" : (kleur === "fout" ? "#f48fb1" : "#999"); };
   const setMsgT = (t, kleur)=>{ const e = q("#msg-talen-msg"); e.textContent = t || ""; e.style.color = kleur === "ok" ? "#80cbc4" : (kleur === "fout" ? "#f48fb1" : "#999"); };
+  const setMsgV = (t, c)=>{ const e = q("#msg-verj-msg"); e.textContent = t || ""; e.style.color = c === "fout" ? "#f48fb1" : (c === "ok" ? "#80cbc4" : "#aaa"); };
+  const toonVerj = ()=>{   // het vinkje voor alle verjaardagsboodschappen: aan is de standaard
+    const c = q("#msg-verj"); c.checked = BOODSCHAP.verjaardagen !== false; c.disabled = !mag || !BOODSCHAP.ready || !!c.dataset.bezig;
+    q("#msg-verj-label").style.cursor = c.disabled ? "not-allowed" : "pointer"; q("#msg-verj-label").title = mag ? "" : "Alleen " + MESSAGE_ADMIN + " kan dit wijzigen.";
+    const iv = BOODSCHAP.verjaardagInterval, ib = q("#msg-iv"), na = q("#msg-iv-aan"), nu = q("#msg-iv-uit"), vast = c.disabled || BOODSCHAP.verjaardagen === false;   // het interval kan alleen als de verjaardagsboodschappen aan staan
+    ib.checked = !!iv; if(iv){ na.value = String(iv.aan); nu.value = String(iv.uit); }
+    ib.disabled = vast; na.disabled = nu.disabled = vast || !ib.checked; q("#msg-verj-iv").style.opacity = vast ? "0.6" : "1";
+    q("#msg-verj-iv").title = mag ? "" : "Alleen " + MESSAGE_ADMIN + " kan dit wijzigen.";
+  };
+  const IV_FOUT = "Kies hele minuten: aan van 1 tot 60, uit van 1 tot 240.";
+  const leesIv = ()=>{ const a = Number(q("#msg-iv-aan").value), u = Number(q("#msg-iv-uit").value); return q("#msg-iv-aan").value.trim() !== "" && q("#msg-iv-uit").value.trim() !== "" && Number.isInteger(a) && Number.isInteger(u) && a >= 1 && a <= 60 && u >= 1 && u <= 240 ? { aan: a, uit: u } : null; };
+  const bewaarIv = async (iv, ok)=>{   // het interval opslaan (of uitzetten met null) en de melding tonen
+    const c = q("#msg-verj"); if(!mag || c.dataset.bezig){ toonVerj(); return; }
+    c.dataset.bezig = "1"; toonVerj(); setMsgV("Opslaan...", "");
+    let r; try{ r = await settingsSetVerjaardagInterval(iv); }catch(e){ r = { error: "Opslaan mislukt (" + ((e && e.message) || e) + "). Het interval is niet veranderd." }; }
+    delete c.dataset.bezig; if(!document.body.contains(overlay)) return;
+    if(r.error) setMsgV(r.error, "fout"); else setMsgV(r.changed ? ok : "Dat stond al zo: een collega had het net gewijzigd.", "ok");
+    toonVerj();
+  };
+  q("#msg-iv").onchange = ()=>{ if(!q("#msg-iv").checked){ bewaarIv(null, "Geen interval meer: de verjaardagsboodschap blijft in beeld."); return; } const iv = leesIv(); if(!iv){ toonVerj(); setMsgV(IV_FOUT, "fout"); return; } bewaarIv(iv, "Interval: " + minTekst(iv.aan) + " aan, " + minTekst(iv.uit) + " uit."); };
+  ["#msg-iv-aan", "#msg-iv-uit"].forEach(s=>{ q(s).onchange = ()=>{ if(!q("#msg-iv").checked) return; const iv = leesIv(); if(!iv){ setMsgV(IV_FOUT, "fout"); toonVerj(); return; } bewaarIv(iv, "Interval: " + minTekst(iv.aan) + " aan, " + minTekst(iv.uit) + " uit."); }; });
+  q("#msg-verj").onchange = async ()=>{
+    const c = q("#msg-verj"), w = c.checked; if(!mag || c.dataset.bezig){ toonVerj(); return; }
+    c.dataset.bezig = "1"; toonVerj(); setMsgV("Opslaan...", "");
+    let r; try{ r = await settingsSetVerjaardagen(w); }catch(e){ r = { error: "Opslaan mislukt (" + ((e && e.message) || e) + "). De verjaardagsboodschappen zijn niet veranderd." }; }
+    delete c.dataset.bezig; if(!document.body.contains(overlay)) return;
+    if(r.error) setMsgV(r.error, "fout"); else setMsgV(r.changed ? "De verjaardagsboodschappen staan " + (w ? "aan" : "uit") + "." : "Dat stond al zo: een collega had het net gewijzigd.", "ok");
+    toonVerj();
+  };
   const toonTalen = ()=>{   // een tabel met vinkjes: per collega de boodschap aan of uit, de talen en de monitorfunctie; onderaan de Monitor zelf
+    toonVerj();
     const wrap = q("#msg-talen"), beschikbaar = complimentTalenBeschikbaar(), vast = !mag || !BOODSCHAP.ready || !!wrap.dataset.bezig;
     wrap.textContent = "";
     const tabel = document.createElement("table"), kop = document.createElement("thead"), kr = document.createElement("tr"), lijf = document.createElement("tbody");
@@ -3756,7 +3884,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
       beschikbaar.forEach(code=>tr.appendChild(vink(naam, "taal", code, aan.includes(code), complimentTaalNaam(code) + " voor " + naam, !actief)));
       tr.appendChild(vink(naam, "monitor", null, monitorAan(naam, BOODSCHAP.monitor), "Monitorfunctie voor " + naam, false));
       const rt = document.createElement("td"); rt.style.cssText = "text-align:center;padding:4px;";
-      { const eigen = !!BOODSCHAP.talen[naam], r = document.createElement("button"); r.type = "button"; r.dataset.reset = "1"; r.dataset.naam = naam; r.textContent = "↺"; r.title = eigen ? "Talen terug naar de standaard" : "De talen staan al op de standaard"; r.setAttribute("aria-label", "Talen terug naar de standaard voor " + naam); r.disabled = vast || !eigen;   // bij iedere collega; alleen te gebruiken als de talen afwijken van de standaard
+      { const eigen = heeftEigenInstellingen(naam), r = document.createElement("button"); r.type = "button"; r.dataset.reset = "1"; r.dataset.naam = naam; r.textContent = "↺"; r.title = eigen ? "Alle instellingen van " + naam + " terug naar de standaard" : "Alles staat al op de standaard"; r.setAttribute("aria-label", "Alle instellingen terug naar de standaard voor " + naam); r.disabled = vast || !eigen;   // bij iedere collega; alleen te gebruiken als de talen afwijken van de standaard
         r.style.cssText = "font-family:inherit;font-size:13px;padding:2px 8px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#bbb;cursor:" + (r.disabled ? "not-allowed" : "pointer") + ";opacity:" + (vast ? "0.55" : (eigen ? "1" : "0.35")) + ";"; rt.appendChild(r); }
       tr.appendChild(rt); lijf.appendChild(tr);
     });
@@ -3779,9 +3907,13 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     } else if(b.dataset.monitor){   // de monitorfunctie van deze gebruiker aan of uit
       const wil = b.checked; taak = ()=>settingsSetMonitor(naam, wil); fout = "De monitorfunctie is niet veranderd.";
       ok = r=>r.changed ? "Monitorfunctie voor " + naam + " staat " + (wil ? "aan" : "uit") + "." : "Dat stond al zo: een collega had het net gewijzigd.";
+    } else if(b.dataset.reset){   // alle instellingen van deze collega terug naar de standaard (na een bevestiging)
+      if(!confirm("Alle instellingen van " + naam + " terugzetten naar de standaard?\nBoodschap aan/uit, talen, Op campus en monitorfunctie. Persoonlijke boodschappen blijven staan.")) return;
+      taak = ()=>settingsResetCollega(naam); fout = "De instellingen zijn niet teruggezet.";
+      ok = r=>r.changed ? "Alle instellingen van " + naam + " staan weer op de standaard." : "Dat stond al zo: een collega had het net gewijzigd.";
     } else {   // de talen
       let nieuw;
-      if(b.dataset.reset) nieuw = null;
+      if(false) nieuw = null;
       else {
         const nu = complimentTalenVoor(naam, BOODSCHAP.talen), code = b.dataset.taal;
         nieuw = b.checked ? nu.filter(c=>c !== code).concat(code) : nu.filter(c=>c !== code);
@@ -4992,7 +5124,7 @@ async function showPeriodeModal(){
 
 // ── Geen Beheer modal ────────────────────────────────────────────
 function showGeenBeheerModal(){
-  if(!canSeeInfo()) return;   // Geen Beheer zit in de map Info: alleen ICT-Systeembeheer
+  if(!canSeeAdmin()) return;   // Geen Beheer zit in de map Info: ICT-Systeembeheer en ICT-Management (alleen kijken)
   const MUST = GROUPS["ICT-Systeembeheer"];
   const SUPPORT = GROUPS["ICT-Support"];
   const DAYS_LIST = ["MA","DI","WO","DO","VR"];
