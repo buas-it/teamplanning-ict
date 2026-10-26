@@ -229,7 +229,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 122</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 123</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -2696,6 +2696,97 @@ const LOCKED_DAYS = new Set([
   "2027-W52-MA","2027-W52-DI","2027-W52-WO","2027-W52-DO","2027-W52-VR", // Kerst 2027
 ]);
 
+// ───── Een halve dag vrij mag nooit een leeg andere dagdeel hebben: er moet dan Thuis, Campus of Extern staan
+const HD_HELE = ["kantoor","thuis","vrij","ziek","ziek_thuis","extern"], HD_VM = ["vm_kantoor","vm_thuis","vm_vrij","vm_extern"], HD_NM = ["nm_kantoor","nm_thuis","nm_vrij","nm_extern"];
+function halveDagLeeg(sel){   // "nm" als de ochtend vrij is en de middag leeg, "vm" als de middag vrij is en de ochtend leeg, anders null
+  const s = Array.isArray(sel) ? sel : []; if(s.some(k=>HD_HELE.includes(k))) return null;
+  const vm = s.filter(k=>HD_VM.includes(k)), nm = s.filter(k=>HD_NM.includes(k));
+  if(vm.includes("vm_vrij") && !nm.length) return "nm";
+  if(nm.includes("nm_vrij") && !vm.length) return "vm";
+  return null;
+}
+const HD_KEUZES = [["thuis", "🏠 Thuis"], ["kantoor", "🏢 Campus"], ["extern", "📍 Extern"]];
+function hdToast(tekst){   // een melding onderaan, verdwijnt vanzelf
+  const t = document.createElement("div"); t.className = "hd-toast"; t.setAttribute("role", "status"); t.textContent = tekst;
+  t.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:975;max-width:92vw;background:#1a1a2e;border:1px solid rgba(255,183,77,0.5);color:#ffcc80;border-radius:10px;padding:10px 16px;font-size:12px;font-family:'Courier New',monospace;line-height:1.5;box-shadow:0 8px 32px rgba(0,0,0,0.6);cursor:pointer;";
+  t.onclick = ()=>t.remove(); document.body.appendChild(t); setTimeout(()=>t.remove(), 10000);
+}
+function hdDeel(leeg){ return leeg === "nm" ? "'s middags" : "'s ochtends"; }
+function hdDialog(titel, tekst){   // een venster met een titel, tekst en een plek voor knoppen; geeft { overlay, box, inhoud, sluit }
+  const overlay = document.createElement("div"); overlay.className = "tp-overlay"; overlay.id = "hd-overlay";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:960;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 10px;";
+  const box = document.createElement("div"); box.style.cssText = "background:#111827;border:1px solid rgba(255,183,77,0.4);border-radius:14px;padding:20px;width:520px;max-width:98vw;font-family:'Courier New',monospace;";
+  const k = document.createElement("div"); k.style.cssText = "font-size:14px;font-weight:700;color:#ffcc80;margin-bottom:8px;"; k.textContent = titel;
+  const t = document.createElement("div"); t.style.cssText = "font-size:12px;color:#ddd;line-height:1.6;margin-bottom:14px;"; t.textContent = tekst;
+  const inhoud = document.createElement("div"); box.append(k, t, inhoud); overlay.appendChild(box); document.body.appendChild(overlay);
+  return { overlay, box, inhoud, sluit: ()=>overlay.remove() };
+}
+function hdKnoppen(ouder, onKies){   // Thuis, Campus, Extern
+  const rij = document.createElement("div"); rij.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;";
+  HD_KEUZES.forEach(([key, label])=>{ const b = document.createElement("button"); b.type = "button"; b.dataset.keuze = key; b.textContent = label; b.style.cssText = "background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit;"; b.onclick = ()=>onKies(key, b); rij.appendChild(b); });
+  ouder.appendChild(rij); return rij;
+}
+function hdDagTekst(monday, day, isTemplate){ return isTemplate ? "in de werkweek op " + DAY_LABELS[day].toLowerCase() : "op " + DAY_LABELS[day].toLowerCase() + " " + fmtDate(addDays(monday, DAYS.indexOf(day))); }
+function vraagDagdeel(person, monday, day, leeg, isTemplate){   // vraagt de medewerker het andere dagdeel in te vullen; geeft "thuis" | "kantoor" | "extern", of null als hij annuleert
+  return new Promise(resolve=>{
+    const vrijDeel = leeg === "nm" ? "'s ochtends" : "'s middags";
+    const d = hdDialog("Halve dag vrij: vul het andere dagdeel in", "Je hebt " + vrijDeel + " vrij genoteerd " + hdDagTekst(monday, day, isTemplate) + ". Waar ben je " + hdDeel(leeg) + "? Een halve dag vrij kan niet met een leeg andere dagdeel.");
+    const klaar = v=>{ d.sluit(); resolve(v); };
+    hdKnoppen(d.inhoud, key=>klaar(key));
+    const a = document.createElement("button"); a.type = "button"; a.id = "hd-annuleer"; a.textContent = "Annuleren (wijziging ongedaan maken)"; a.style.cssText = "margin-top:12px;background:transparent;border:1px solid rgba(255,255,255,0.18);color:#bbb;border-radius:8px;padding:8px 14px;font-size:11px;cursor:pointer;font-family:inherit;"; a.onclick = ()=>klaar(null); d.inhoud.appendChild(a);
+  });
+}
+async function controleerHalveDag(monday, person, day, isTemplate, voor){   // na een wijziging van een dag: staat er een halve dag vrij zonder invulling van het andere dagdeel?
+  const nu = isTemplate ? ((template[person] || {})[day] || []) : (((getData(monday)[person]) || {})[day] || []), leeg = halveDagLeeg(nu);
+  if(!leeg) return;
+  const me = currentIdentity && currentIdentity.user;
+  if(me !== person){ hdToast("Let op: " + person + " heeft " + hdDagTekst(monday, day, isTemplate) + " een halve dag vrij zonder invulling van " + hdDeel(leeg) + ". " + person + " krijgt de vraag dit in te vullen zodra " + person + " de planning opent."); return; }
+  const keuze = await vraagDagdeel(person, monday, day, leeg, isTemplate);
+  if(keuze){ toggleStatus(monday, person, day, (leeg === "vm" ? "vm_" : "nm_") + keuze, isTemplate); }
+  else{   // geannuleerd: de wijziging ongedaan maken, zodat het andere dagdeel niet leeg blijft
+    if(isTemplate){ template[person][day] = [...(voor || [])]; pushTemplateCell(person, day); }
+    else{ getData(monday)[person][day] = [...(voor || [])]; }
+    saveState();
+  }
+  try{ closePopup(); }catch(e){}
+  if(!isTemplate){ render(); requestAnimationFrame(()=>{ try{ syncNameSpacer(); }catch(e){} }); }
+  else{ render(); const tm = document.getElementById("tpl-modal"); if(tm && tm.style.display !== "none") buildTemplateGrid(); }
+}
+function ontbrekendeDagdelen(user){   // de dagen vanaf vandaag (en de werkweek) van deze medewerker met een halve dag vrij zonder invulling van het andere dagdeel
+  const uit = []; if(!user || !TEAM.includes(user) || HIDDEN.has(user)) return uit;
+  Object.keys(store).sort().forEach(k=>{
+    const maandag = weekMondayFromKey(k);
+    DAYS.forEach((d, i)=>{ const datum = addDays(maandag, i); if(datum < today || LOCKED_DAYS.has(k + "-" + d)) return; const bew = manuallyEdited[k]; if(!bew || !bew.has(user + "-" + d)) return;   // een dag die alleen uit de werkweek komt telt niet apart mee: dan gaat het om de werkweek zelf
+      const leeg = halveDagLeeg((store[k][user] || {})[d]); if(leeg) uit.push({ soort: "week", maandag, dag: d, leeg }); });
+  });
+  DAYS.forEach(d=>{ const leeg = halveDagLeeg((template[user] || {})[d]); if(leeg) uit.push({ soort: "werkweek", dag: d, leeg }); });
+  return uit;
+}
+function toonOntbrekendeDagdelen(lijst){   // bij het openen: de medewerker vragen de lege dagdelen in te vullen
+  const me = currentIdentity.user, d = hdDialog("Vul je halve dagen aan", "Je hebt een halve dag vrij genoteerd, maar het andere dagdeel is leeg. Kies per dag waar je dan bent.");
+  let open = lijst.length;
+  lijst.forEach(r=>{
+    const rij = document.createElement("div"); rij.className = "hd-rij"; rij.dataset.soort = r.soort; rij.dataset.dag = r.dag; if(r.maandag) rij.dataset.week = weekKey(r.maandag);
+    rij.style.cssText = "border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 12px;margin-bottom:10px;";
+    const t = document.createElement("div"); t.style.cssText = "font-size:12px;color:#fff;margin-bottom:8px;"; t.textContent = (r.soort === "werkweek" ? "Werkweek " + DAY_LABELS[r.dag].toLowerCase() : DAY_LABELS[r.dag] + " " + fmtDate(addDays(r.maandag, DAYS.indexOf(r.dag)))) + ": " + (r.leeg === "nm" ? "ochtend vrij, middag leeg" : "middag vrij, ochtend leeg");
+    rij.appendChild(t);
+    hdKnoppen(rij, async (key)=>{
+      if(!await requireUnlock()) return;
+      toggleStatus(r.maandag || mondayOf(today), me, r.dag, (r.leeg === "vm" ? "vm_" : "nm_") + key, r.soort === "werkweek");
+      render(); try{ syncNameSpacer(); }catch(e){}
+      rij.textContent = "✓ " + t.textContent.split(":")[0] + ": " + (r.leeg === "nm" ? "'s middags" : "'s ochtends") + " " + HD_KEUZES.find(k=>k[0] === key)[1].replace(/^\S+\s/, "") + " ingevuld"; rij.style.color = "#80cbc4"; rij.style.fontSize = "12px"; rij.dataset.klaar = "1";
+      if(--open <= 0) setTimeout(()=>d.sluit(), 900);
+    });
+    d.inhoud.appendChild(rij);
+  });
+  const later = document.createElement("button"); later.type = "button"; later.id = "hd-later"; later.textContent = "Later"; later.style.cssText = "background:transparent;border:1px solid rgba(255,255,255,0.18);color:#bbb;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit;"; later.onclick = d.sluit; d.inhoud.appendChild(later);
+}
+let hdGevraagd = false;
+function hdCheck(){   // één keer per keer openen, zodra de planning geladen is en je bent ingelogd
+  if(hdGevraagd) return; const mg = document.getElementById("main-grid");
+  if(!currentIdentity || !mg || mg.style.visibility !== "visible" || document.getElementById("hd-overlay")) return;
+  hdGevraagd = true; const lijst = ontbrekendeDagdelen(currentIdentity.user); if(lijst.length) toonOntbrekendeDagdelen(lijst);
+}
 function toggleStatus(monday,person,day,key,isTemplate){
   if(isTemplate && !canEditTemplate(person)) return;   // een standaardbezetting van een ander mag alleen ICT-Systeembeheer aanpassen
   if(!isTemplate){
@@ -2881,6 +2972,7 @@ async function checkForNewVersion(){
   // Toon grid nu state geladen is
   if(mainGrid) mainGrid.style.visibility = "visible";
   const legendaEl = document.getElementById("legend"); if(legendaEl) legendaEl.style.visibility = "visible";   // de legenda komt tegelijk met het hoofdvenster in beeld
+  setInterval(hdCheck, 3000);   // een medewerker met een halve dag vrij zonder invulling krijgt bij het openen de vraag dit in te vullen
   // Achtergrond-sync: herlaad van GitHub elke 60 seconden, en meteen als je terugkomt op het tabblad of in de app (timers staan stil zolang een tabblad op de achtergrond staat of de telefoon slaapt)
   let syncBusy = false, lastSyncRun = 0;
   async function backgroundSync(){
@@ -2938,7 +3030,9 @@ async function showPopup(cellWrap,monday,person,day,isTemplate){
       item.innerHTML=`<div class="popup-dot" style="background:${active?s.color:"rgba(255,255,255,0.1)"};${active?`box-shadow:0 0 6px ${s.color}88`:""}"></div><span class="popup-label" style="color:${active?"#fff":"#888"}">${s.label}</span>${active?`<span class="popup-check" style="color:${s.color}">✓</span>`:""}`;
       item.addEventListener("click",e=>{
         e.stopPropagation();
+        const _voor=[...(isTemplate?((template[person]||{})[day]||[]):(((getData(monday)[person])||{})[day]||[]))];
         toggleStatus(monday,person,day,s.key,isTemplate);
+        controleerHalveDag(monday,person,day,isTemplate,_voor);   // een halve dag vrij zonder invulling van het andere dagdeel: de medewerker invullen laten
         if(!isTemplate){
           const _m=monday,_p=person,_d=day;
           render();
@@ -4575,11 +4669,14 @@ function showMaandOverzicht(){
                 if(active){ const chk=document.createElement("span"); chk.textContent="✓"; chk.style.cssText="margin-left:auto;color:#80cbc4;font-size:10px;"; item.appendChild(chk); }
                 item.addEventListener("click", async ev=>{
                   ev.stopPropagation();
+                  const _voor=[...(((getData(w.monday)[person])||{})[dayKey]||[])];
                   await toggleStatus(w.monday,person,dayKey,s.key,false);
                   menu.remove();
-                  const ns=(getData(w.monday)[person]||{})[dayKey]||[];
+                  const paint=()=>{ const ns=(getData(w.monday)[person]||{})[dayKey]||[];
                   if(ns.length===0){ td.style.background="rgba(255,255,255,0.05)"; td.style.color=""; td.textContent=""; }
                   else { const m=ns[0]; td.style.background=STATUS_COLORS[m]||"rgba(255,255,255,0.1)"; td.style.color=(m==="extern"||m==="vm_extern"||m==="nm_extern")?"rgba(0,0,0,0.7)":"#fff"; td.textContent=STATUS_LABELS[m]||""; }
+                  };
+                  paint(); await controleerHalveDag(w.monday,person,dayKey,false,_voor); paint();
                 });
                 menu.appendChild(item);
               });
