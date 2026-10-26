@@ -229,7 +229,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 119</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 122</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -378,25 +378,32 @@ const ADMIN_VIEW_GROUPS = ["ICT-Systeembeheer", "ICT-Management"];   // alleen d
 const GROUPS = JSON.parse(JSON.stringify(GROUP_DEFAULTS));   // de actuele indeling
 const GROUPS_PATH = "groups.json";
 const RESTORE_GROUP = "ICT-Systeembeheer";   // alleen deze groep mag een backup terugzetten
-const GROUP_ADMIN = "ICT-Systeembeheer";     // alleen deze groep mag de groepen aanpassen
+const GROUP_ADMIN = "ICT-Systeembeheer";     // deze groep heeft (voorlopig) alle rechten
+const ADMIN_SEED = ["Hans"];                 // de Administrators zolang groups.json ze nog niet vastlegt
+const SYSTEEMBEHEER_HEEFT_RECHTEN = true;    // ICT-Systeembeheer heeft nog alle rechten; op false zetten = alleen de Administrators hebben rechten (het loskoppelen)
+const MONITOR_ACCOUNT = "Monitor", MONITOR_GROUP = "ICT-Monitoring";   // het Monitor-account zit alleen in ICT-Monitoring (nooit in een andere groep) en is altijd Administrator
+let ADMINISTRATORS = [...ADMIN_SEED, MONITOR_ACCOUNT];     // de Administrators: hebben alle rechten; alleen zij voegen leden toe of halen ze weg; de laatste kan nooit weg
 const SETTINGS_PATH = "settings.json";       // gedeelde instellingen op de data-branch (de boodschap aan of uit, en de taal of talen per collega)
 const MESSAGE_ADMIN = "ICT-Systeembeheer";   // alleen deze groep mag de boodschap aan- en uitzetten
 let BOODSCHAP = { enabled: true, ready: false, by: null, at: null, talen: {}, talenBy: null, talenAt: null, personen: {}, personenBy: null, personenAt: null, persoonlijk: {}, monitor: {}, campus: {}, verjaardagen: true, verjaardagInterval: null, sha: null, error: null };   // ready: de instelling is minstens één keer opgehaald; zolang dat niet zo is, geen boodschap
-function canToggleMessage(){ return !!(currentIdentity && inGroup(currentIdentity.user, MESSAGE_ADMIN)); }
+function canToggleMessage(){ return !!(currentIdentity && heeftBeheer(currentIdentity.user)); }
 let groupsReady = false, groupsError = null, groupsSha = null;   // groupsReady: de indeling is opgehaald (of er is nog geen bestand: standaard). Zolang dat niet zo is, geldt niemand als lid: bij twijfel geen rechten
+function isAdministrator(user){ return !!(groupsReady && user && ADMINISTRATORS.includes(user)); }
+function heeftBeheer(user){ return !!(groupsReady && user && (ADMINISTRATORS.includes(user) || (SYSTEEMBEHEER_HEEFT_RECHTEN && GROUPS[GROUP_ADMIN].includes(user)))); }   // alle rechten: een Administrator, of (zolang dat zo is ingesteld) een lid van ICT-Systeembeheer
+function canEditAdministrators(){ return !!(currentIdentity && isAdministrator(currentIdentity.user)); }   // alleen een Administrator voegt Administrators toe of haalt ze weg
 function groupOf(user){ return GROUP_NAMES.find(g=>GROUPS[g].includes(user)) || null; }
 function inGroup(user, g){ return !!(groupsReady && user && GROUPS[g] && GROUPS[g].includes(user)); }
-function canRestore(){ return !!(currentIdentity && inGroup(currentIdentity.user, RESTORE_GROUP)); }
+function canRestore(){ return !!(currentIdentity && heeftBeheer(currentIdentity.user)); }
 let tplFilter = null;   // null: alle standaardweken (alleen ICT-Systeembeheer); een naam: alleen de standaardbezetting van die persoon
-function canSeeInfo(){ return !!(currentIdentity && canSeeAdmin() && inGroup(currentIdentity.user, GROUP_ADMIN)); }   // de map Info (Audit, Status, Statistics): alleen leden van ICT-Systeembeheer
+function canSeeInfo(){ return !!(currentIdentity && canSeeAdmin() && heeftBeheer(currentIdentity.user)); }   // de map Info (Audit, Status, Statistics): alleen leden van ICT-Systeembeheer
 function zetVerborgen(naam, aan){   // een collega verbergen of weer tonen (blijft bestaan maar staat nergens in beeld): alleen ICT-Systeembeheer
   if(!canEditGroups() || !TEAM.includes(naam)) return false;
   if(aan) HIDDEN.add(naam); else HIDDEN.delete(naam);
   saveState(); try{ renderAndSync(); }catch(e){}
   return true;
 }
-function canEditTemplate(person){ return !!(currentIdentity && person && (person === currentIdentity.user || inGroup(currentIdentity.user, GROUP_ADMIN))); }   // je eigen standaardbezetting mag je aanpassen; die van iedereen alleen als je lid bent van ICT-Systeembeheer
-function canEditGroups(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }
+function canEditTemplate(person){ return !!(currentIdentity && person && (person === currentIdentity.user || heeftBeheer(currentIdentity.user))); }   // je eigen standaardbezetting mag je aanpassen; die van iedereen alleen als je lid bent van ICT-Systeembeheer
+function canEditGroups(){ return !!(currentIdentity && heeftBeheer(currentIdentity.user)); }
 // ── Niet jezelf buitensluiten ──
 // Een beheerder mag zichzelf niet buitensluiten: je naam moet in het team blijven (anders staat hij niet meer in het inlogscherm en kom je niet meer bij Admin),
 // je blijft zelf lid van ICT-Systeembeheer (een collega kan dat wel veranderen) en ICT-Systeembeheer houdt altijd minstens één lid in het team.
@@ -408,20 +415,25 @@ function teamLockoutReason(newTeam, what){   // geeft een tekst als dit team de 
     if(what === "restore") return "Deze backup bevat jou niet in het team. Als je hem terugzet, kun je niet meer inloggen en niet meer bij Admin komen. Kies een nieuwere backup.";
     return "Je kunt jezelf niet uit het team halen: je zou niet meer kunnen inloggen en niet meer bij Admin komen.";
   }
-  const admins = GROUPS[GROUP_ADMIN] || [];
+  const admins = [...new Set([...(GROUPS[GROUP_ADMIN] || []), ...ADMINISTRATORS])];   // wie alle rechten heeft: ICT-Systeembeheer en de Administrators
   if(groupsReady && admins.length && !admins.some(n=>t.includes(n))) return GROUP_ADMIN + " zou dan geen lid meer in het team hebben.";
   return null;
 }
 function canSeeAdmin(){   // Admin (logboek, wachtwoorden, groepen): alleen teamleden in ICT-Systeembeheer of ICT-Management; zolang de groepen niet bekend zijn, niemand
   const me = currentIdentity && currentIdentity.user;
-  return !!(me && groupsReady && TEAM.includes(me) && ADMIN_VIEW_GROUPS.some(g=>inGroup(me, g)));
+  return !!(me && groupsReady && TEAM.includes(me) && (heeftBeheer(me) || inGroup(me, "ICT-Management")));
 }
 function closeAdminWindows(all){   // Admin-vensters dicht: bij verloren rechten allemaal; als bewerken uitgaat alleen de vensters waarmee je iets wijzigt (Audit, Status en het backup-overzicht zijn alleen kijken en blijven open)
   (all ? ["au-close", "status-close", "stat-close", "gb-close", "bc-close", "usr-close", "restore-close", "backup-close", "msg-close", "msg-view-close"] : ["usr-close", "restore-close", "backup-close", "msg-close"]).forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o && !(id === "usr-close" && o.dataset.eigen === "1")) o.remove(); });   // het venster 'Mijn account' (voor wie geen Admin heeft) blijft staan: dat is geen Admin-venster
 }
-function canResetPasswords(){ return !!(currentIdentity && inGroup(currentIdentity.user, GROUP_ADMIN)); }   // wachtwoorden van anderen resetten: alleen leden van ICT-Systeembeheer (je eigen wachtwoord wijzigen kan iedereen)
+function canResetPasswords(){ return !!(currentIdentity && heeftBeheer(currentIdentity.user)); }   // wachtwoorden van anderen resetten: alleen leden van ICT-Systeembeheer (je eigen wachtwoord wijzigen kan iedereen)
 function denyRestore(){ adminNotice(groupsReady ? "Een backup terugzetten mag alleen " + RESTORE_GROUP + "." : "De groepen konden niet worden opgehaald, dus terugzetten kan nu niet. Probeer het zo opnieuw.", "♻ Backup terugzetten"); }
-function applyGroups(g){ GROUP_NAMES.forEach(n=>{ GROUPS[n] = g[n].slice(); }); }
+function applyGroups(g, admins){ GROUP_NAMES.forEach(n=>{ GROUPS[n] = g[n].slice(); }); if(Array.isArray(admins) && admins.length) ADMINISTRATORS = normalizeAdmins(admins); }
+function normalizeAdmins(a){   // altijd het Monitor-account én minstens één persoon; ontbreekt de lijst of is hij leeg of kapot, dan gelden de standaard-Administrators
+  const uit = []; if(Array.isArray(a)) a.forEach(n=>{ if(typeof n === "string" && n.trim() && n !== MONITOR_ACCOUNT && !uit.includes(n)) uit.push(n); });
+  if(!uit.length) ADMIN_SEED.forEach(n=>uit.push(n));
+  uit.push(MONITOR_ACCOUNT); return uit;
+}   // altijd minstens één Administrator: ontbreekt de lijst of is hij leeg of kapot, dan gelden de standaard-Administrators
 function normalizeGroups(src){   // altijd precies de vaste groepen, alleen namen (tekst), niemand in twee groepen; een groep die nog niet in het bestand staat (bestand van vóór die groep) krijgt zijn standaardleden
   const out = {}, seen = new Set();
   GROUP_NAMES.forEach(g=>{
@@ -429,22 +441,23 @@ function normalizeGroups(src){   // altijd precies de vaste groepen, alleen name
     const lijst = (src && Array.isArray(src[g])) ? src[g] : ((src && typeof src === "object" && !(g in src)) ? GROUP_DEFAULTS[g] : []);
     lijst.forEach(n=>{ if(typeof n === "string" && n.trim() && !seen.has(n)){ seen.add(n); out[g].push(n); } });
   });
+  GROUP_NAMES.forEach(g=>{ out[g] = out[g].filter(n=>n !== MONITOR_ACCOUNT); }); out[MONITOR_GROUP].unshift(MONITOR_ACCOUNT);   // het Monitor-account zit alleen in ICT-Monitoring, wat er ook in het bestand staat
   return out;
 }
 async function groupsFetch(){   // {groups, sha}; gooit bij een storing of een ongeldig bestand (dan geen rechten uitdelen)
   const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GROUPS_PATH}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
-  if(r.status === 404) return { groups: normalizeGroups(GROUP_DEFAULTS), sha: null };   // nog nooit aangepast: standaardindeling
+  if(r.status === 404) return { groups: normalizeGroups(GROUP_DEFAULTS), administrators: ADMIN_SEED.slice(), sha: null };   // nog nooit aangepast: standaardindeling
   if(!r.ok) throw new Error("HTTP " + r.status);
   const d = await r.json();
   const parsed = JSON.parse(auditDecode(d.content));
   if(!parsed || typeof parsed.groups !== "object" || !parsed.groups) throw new Error("ongeldig bestand");
   const g = normalizeGroups(parsed.groups);
   if(!g[GROUP_ADMIN].length) throw new Error("ongeldig bestand: " + GROUP_ADMIN + " is leeg");   // dan kan niemand de groepen nog herstellen
-  return { groups: g, sha: d.sha };
+  return { groups: g, administrators: normalizeAdmins(parsed.administrators), sha: d.sha };
 }
 async function groupsRefresh(){   // haalt de nieuwste indeling op en past hem toe; gooit bij een storing of ongeldig bestand
   const cur = await groupsFetch();
-  applyGroups(cur.groups); groupsSha = cur.sha; groupsReady = true; groupsError = null;
+  applyGroups(cur.groups, cur.administrators); groupsSha = cur.sha; groupsReady = true; groupsError = null;
   return cur;
 }
 async function groupsLoad(){   // haalt de indeling op; bij een storing blijft de eerder opgehaalde indeling gelden
@@ -457,14 +470,14 @@ async function groupsLoad(){   // haalt de indeling op; bij een storing blijft d
 async function groupsMutate(mutator, message){
   for(let i=0;i<4;i++){
     const cur = await groupsFetch();
-    const refuse = mutator(cur.groups);
+    const refuse = mutator(cur.groups, cur.administrators);
     if(refuse) return { error: refuse };
-    const body = { message, content: encodeBase64(JSON.stringify({ v: 1, groups: cur.groups }, null, 1)), branch: GH_BRANCH };
+    const body = { message, content: encodeBase64(JSON.stringify({ v: 1, groups: cur.groups, administrators: cur.administrators }, null, 1)), branch: GH_BRANCH };
     if(cur.sha) body.sha = cur.sha;
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${GROUPS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
-      applyGroups(cur.groups); groupsSha = sha; groupsReady = true; groupsError = null;
+      applyGroups(cur.groups, cur.administrators); groupsSha = sha; groupsReady = true; groupsError = null;
       try{ showLockIndicator(); }catch(e){}
       return { ok: true, groups: cur.groups };
     }
@@ -513,7 +526,6 @@ function settingsParseInterval(p){   // {aan, uit} in hele minuten (aan 1 tot 60
   if(!p || typeof p !== "object" || Array.isArray(p)) return null;
   const a = p.aan, u = p.uit; return Number.isInteger(a) && Number.isInteger(u) && a >= 1 && a <= 60 && u >= 1 && u <= 240 ? { aan: a, uit: u } : null;
 }
-function heeftEigenInstellingen(naam){ const heeft = m=>!!m && Object.prototype.hasOwnProperty.call(m, naam); return !!BOODSCHAP.talen[naam] || heeft(BOODSCHAP.personen) || heeft(BOODSCHAP.campus) || heeft(BOODSCHAP.monitor); }   // wijkt er iets af van de standaard (boodschap aan/uit, talen, Op campus of monitorfunctie)?
 function minTekst(n){ return n === 1 ? "1 minuut" : n + " minuten"; }
 function verjaardagInFase(nu){   // met een interval: de verjaardagsboodschap is 'aan' minuten zichtbaar en daarna 'uit' minuten niet, steeds opnieuw; de cyclus begint om middernacht, zodat elk scherm gelijk loopt (1 aan, 5 uit: zichtbaar rond :00, :06, :12 ...)
   const iv = BOODSCHAP.verjaardagInterval; if(!iv) return true;
@@ -692,29 +704,182 @@ async function settingsSetVerjaardagInterval(iv){   // het interval van de verja
   }
   throw new Error("conflict");
 }
-async function settingsResetCollega(naam){   // alle boodschap-instellingen van één collega terug naar de standaard: boodschap aan/uit, talen, 'Op campus' en monitorfunctie (de persoonlijke boodschappen en 'Verborgen' blijven staan); alleen ICT-Systeembeheer, met bewerken aan; in één schrijfactie, leest eerst de nieuwste stand
+// ───── Een collega terugzetten naar een backup (Admin ▸ Boodschap, het ↺): planning en werkweek, verborgen, boodschap-instellingen en persoonlijke boodschappen, groep en wachtwoord
+function backupLabel(bestand){ const m = /^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})/.exec(bestand); return m ? m[3] + "-" + m[2] + "-" + m[1] + " " + m[4] + ":" + m[5] : String(bestand).replace(".json", ""); }
+async function restoreBackupLijst(){   // de namen van de backups (nieuwste eerst); backups worden na 14 dagen opgeruimd
+  const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups?ref=${GH_BRANCH}&t=${Date.now()}`, { headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"} });
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  const files = await r.json();
+  return (Array.isArray(files) ? files : []).map(f=>f.name).filter(n=>/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.json$/.test(n)).sort().reverse();
+}
+async function restoreBackupTijd(bestand){   // het moment van de backup: de commit van het bestand (de bestandsnaam heeft een lokale tijd)
+  try{
+    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/commits?sha=${GH_BRANCH}&path=${encodeURIComponent("backups/" + bestand)}&per_page=1&t=${Date.now()}`, { headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"} });
+    if(r.ok){ const l = await r.json(); const d = l && l[0] && l[0].commit && l[0].commit.committer && l[0].commit.committer.date; if(d && !isNaN(Date.parse(d))) return d; }
+  }catch(e){}
+  const m = /^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})/.exec(bestand); return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], 59).toISOString() : new Date().toISOString();
+}
+async function ghHistorisch(pad, tot){   // een bestand op de data-branch zoals het was op een moment (de laatste wijziging op of vóór 'tot'); null als het bestand er toen niet was
+  const hd = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
+  const cr = await fetch(`https://api.github.com/repos/${GH_REPO}/commits?sha=${GH_BRANCH}&path=${encodeURIComponent(pad)}&until=${encodeURIComponent(tot)}&per_page=1&t=${Date.now()}`, { headers: hd });
+  if(!cr.ok) throw new Error(pad + ": HTTP " + cr.status);
+  const lijst = await cr.json(); if(!Array.isArray(lijst) || !lijst.length) return null;
+  const fr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${pad}?ref=${lijst[0].sha}&t=${Date.now()}`, { headers: hd });
+  if(fr.status === 404) return null;
+  if(!fr.ok) throw new Error(pad + ": HTTP " + fr.status);
+  const d = await fr.json(); return JSON.parse(auditDecode(d.content));
+}
+function herstelPlanningVan(naam, bk){   // planning, handmatig bewerkte dagen en werkweek van één persoon terug naar de backup (andere personen blijven zoals ze zijn)
+  const klon = x=>JSON.parse(JSON.stringify(x));
+  new Set([...Object.keys(store), ...Object.keys(bk.store || {})]).forEach(wk=>{
+    const b = bk.store && bk.store[wk] ? bk.store[wk][naam] : undefined;
+    if(!store[wk]) store[wk] = {};
+    if(b === undefined) delete store[wk][naam]; else store[wk][naam] = klon(b);   // een week die er toen niet was: weg
+  });
+  const voorvoegsel = naam + "-";
+  Object.keys(manuallyEdited).forEach(wk=>{ manuallyEdited[wk] = new Set([...manuallyEdited[wk]].filter(e=>!String(e).startsWith(voorvoegsel))); });
+  Object.keys(bk.manuallyEdited || {}).forEach(wk=>{ const set = manuallyEdited[wk] || (manuallyEdited[wk] = new Set()); (bk.manuallyEdited[wk] || []).filter(e=>String(e).startsWith(voorvoegsel)).forEach(e=>set.add(e)); });
+  if(bk.template && bk.template[naam]) template[naam] = klon(bk.template[naam]);
+}
+async function settingsRestoreCollega(naam, hs){   // de boodschap-instellingen en persoonlijke boodschappen van één collega terug naar de stand van een eerder moment (hs = settings.json van toen, of null); in één schrijfactie
   if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de instellingen terugzetten." };
   if(!editUnlocked) return { error: "Bewerken staat uit." };
-  if(!TEAM.includes(naam)) return { error: "Onbekende collega." };
-  const me = currentIdentity.user, onderdelen = [["personen", "boodschap aan/uit"], ["talen", "talen"], ["campus", "op campus"], ["monitor", "monitorfunctie"]];
+  const me = currentIdentity.user, onderdelen = ["personen", "talen", "campus", "monitor", "persoonlijk"], isMap = m=>!!m && typeof m === "object" && !Array.isArray(m);
   for(let i = 0; i < 4; i++){
-    const cur = await settingsFetch(), raw = cur.raw; raw.v = 1; const gewist = [];
-    onderdelen.forEach(([sleutel, label])=>{ const m = raw[sleutel]; if(m && typeof m === "object" && !Array.isArray(m) && Object.prototype.hasOwnProperty.call(m, naam)){ delete m[naam]; gewist.push(label); } });
-    if(!gewist.length){ applySettings(cur); try{ complimentSync(); }catch(e){} return { ok: true, changed: false }; }   // een collega had het al teruggezet: niets schrijven en niets in het logboek
-    const nu = new Date().toISOString(); if(gewist.includes("boodschap aan/uit")) raw.personenWijziging = { by: me, at: nu }; if(gewist.includes("talen")) raw.talenWijziging = { by: me, at: nu };
-    const body = { message: "Alle boodschap-instellingen van " + naam + " teruggezet naar de standaard (door " + me + ")", content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
+    const cur = await settingsFetch(), raw = cur.raw; raw.v = 1; const gewijzigd = [];
+    onderdelen.forEach(k=>{
+      const hist = hs && isMap(hs[k]) && Object.prototype.hasOwnProperty.call(hs[k], naam) ? hs[k][naam] : undefined;
+      const m = isMap(raw[k]) ? raw[k] : null, nu = m && Object.prototype.hasOwnProperty.call(m, naam) ? m[naam] : undefined;
+      if(JSON.stringify(nu) === JSON.stringify(hist)) return;
+      if(hist === undefined){ delete m[naam]; } else { (m || (raw[k] = {}))[naam] = JSON.parse(JSON.stringify(hist)); }
+      gewijzigd.push(k);
+    });
+    if(!gewijzigd.length){ applySettings(cur); try{ complimentSync(); }catch(e){} return { ok: true, changed: false }; }   // stond al zo: niets schrijven
+    const nu = new Date().toISOString(); if(gewijzigd.includes("personen")) raw.personenWijziging = { by: me, at: nu }; if(gewijzigd.includes("talen")) raw.talenWijziging = { by: me, at: nu };
+    const body = { message: "Boodschap-instellingen van " + naam + " teruggezet naar een backup (door " + me + ")", content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
     if(cur.sha) body.sha = cur.sha;
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
     if(r.ok){
       let sha = null; try{ const d = await r.json(); sha = (d && d.content && d.content.sha) || null; }catch(e){}
-      applySettings({ boodschap: cur.boodschap, talen: settingsParseTalen(raw.talen && typeof raw.talen === "object" ? raw.talen : {}), talenWijz: raw.talenWijziging || cur.talenWijz, personen: settingsParsePersonen(raw.personen && typeof raw.personen === "object" ? raw.personen : {}), personenWijz: raw.personenWijziging || cur.personenWijz, persoonlijk: cur.persoonlijk, monitor: settingsParseMonitor(raw.monitor), campus: settingsParseMonitor(raw.campus), verjaardagen: cur.verjaardagen, verjaardagInterval: cur.verjaardagInterval, sha });
-      auditEvent("boodschap reset: " + naam + ": " + gewist.join(", ") + " terug naar de standaard");   // pas na een geslaagde opslag in het logboek
+      applySettings({ boodschap: cur.boodschap, talen: settingsParseTalen(isMap(raw.talen) ? raw.talen : {}), talenWijz: raw.talenWijziging || cur.talenWijz, personen: settingsParsePersonen(isMap(raw.personen) ? raw.personen : {}), personenWijz: raw.personenWijziging || cur.personenWijz, persoonlijk: settingsParsePersoonlijk(raw.persoonlijk), monitor: settingsParseMonitor(raw.monitor), campus: settingsParseMonitor(raw.campus), verjaardagen: cur.verjaardagen, verjaardagInterval: cur.verjaardagInterval, sha });
       touchEditTimer(); try{ complimentSync(); }catch(e){}
-      return { ok: true, changed: true, gewist };
+      return { ok: true, changed: true, gewijzigd };
     }
     if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
   }
   throw new Error("conflict");
+}
+// delen: { planning, boodschap, verborgen, groep, wachtwoord }; geeft { error } (er is niets gebeurd) of { ok, uitkomst: [{ deel, ok, tekst }] }
+async function restoreCollega(naam, bestand, delen){
+  if(!canRestore()) return { error: "Alleen " + GROUP_ADMIN + " kan een collega terugzetten naar een backup." };
+  if(!editUnlocked) return { error: "Bewerken staat uit." };
+  if(!TEAM.includes(naam) && naam !== "Monitor") return { error: "Onbekende collega." };
+  if(!/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.json$/.test(bestand || "")) return { error: "Kies een backup." };
+  const me = currentIdentity.user, uitkomst = [], label = backupLabel(bestand), isTeam = TEAM.includes(naam), opHeader = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
+  let bk, tot, hs = null, hg = null, hu = null;
+  try{   // alles wat nodig is eerst ophalen: lukt dat niet, dan wordt er niets teruggezet (liever niets dan de helft)
+    const br = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups/${bestand}?ref=${GH_BRANCH}&t=${Date.now()}`, { headers: opHeader });
+    if(!br.ok) throw new Error("backup: HTTP " + br.status);
+    bk = JSON.parse(auditDecode((await br.json()).content)); tot = await restoreBackupTijd(bestand);
+    if(delen.boodschap) hs = await ghHistorisch("settings.json", tot);
+    if(delen.groep) hg = await ghHistorisch("groups.json", tot);
+    if(delen.wachtwoord) hu = await ghHistorisch("users.json", tot);
+  }catch(e){ return { error: "De gegevens van de backup konden niet worden opgehaald (" + ((e && e.message) || e) + "). Er is niets teruggezet." }; }
+  const inBackup = isTeam && Array.isArray(bk.team) && bk.team.includes(naam), planningDelen = isTeam && (delen.planning || delen.verborgen);
+  if(planningDelen && inBackup){   // een veiligheidsbackup van de huidige planning, zodat dit terug te draaien is
+    const pb = await maybeBackup(JSON.stringify(serializeState()), { always: true, force: true, label: "Backup voor terugzetten", who: " (" + naam + " naar " + label + ")", attempts: 3 });
+    if(!(pb && pb.ok) && HEALTH.lastBackupErr !== "HTTP 422") return { error: "De veiligheidsbackup van de planning is niet gelukt (" + ((pb && pb.err) || "geen verbinding") + "). Er is niets teruggezet." };
+  }
+  const klaar = (deel, ok, tekst)=>uitkomst.push({ deel, ok, tekst });
+  // 1. planning, werkweek en verborgen (één wijziging van de planning, die daarna zoals altijd wordt opgeslagen)
+  if(isTeam && (delen.planning || delen.verborgen)){
+    if(!inBackup){ if(delen.planning) klaar("planning", false, naam + " stond niet in die backup"); if(delen.verborgen) klaar("verborgen", false, naam + " stond niet in die backup"); }
+    else{
+      try{
+        if(delen.planning){ herstelPlanningVan(naam, bk); klaar("planning", true, "planning en werkweek van " + label); }
+        if(delen.verborgen){ if((bk.hidden || []).includes(naam)) HIDDEN.add(naam); else HIDDEN.delete(naam); klaar("verborgen", true, HIDDEN.has(naam) ? "verborgen" : "zichtbaar"); }
+        saveState(); try{ renderAndSync(); }catch(e){}   // geen propagateTemplateToAll: dat zou ook de planning van andere personen aanraken
+      }catch(e){ klaar("planning", false, "mislukt (" + ((e && e.message) || e) + ")"); }
+    }
+  }
+  // 2. boodschap-instellingen en persoonlijke boodschappen
+  if(delen.boodschap){
+    try{ const r = await settingsRestoreCollega(naam, hs); if(r.error) klaar("boodschap", false, r.error); else klaar("boodschap", true, r.changed ? "boodschap-instellingen en persoonlijke boodschappen teruggezet" : "stond al zo"); }
+    catch(e){ klaar("boodschap", false, "mislukt (" + ((e && e.message) || e) + ")"); }
+  }
+  // 3. groep (met dezelfde regels als altijd: jezelf niet buitensluiten, ICT-Systeembeheer houdt een lid)
+  if(delen.groep){
+    try{
+      const histGroep = hg && hg.groups ? (GROUP_NAMES.find(g=>Array.isArray(hg.groups[g]) && hg.groups[g].includes(naam)) || "") : "", huidig = groupOf(naam) || "";
+      if(naam === MONITOR_ACCOUNT) klaar("groep", true, "het Monitor-account zit altijd in " + MONITOR_GROUP);
+      else if(!histGroep) klaar("groep", false, "stond toen in geen groep: niet aangepast");
+      else if(histGroep === huidig) klaar("groep", true, "stond al in " + histGroep);
+      else { const r = await groepenOpslaan([{ name: naam, from: huidig, to: histGroep }]); if(r.error) klaar("groep", false, r.error); else klaar("groep", true, huidig + " → " + histGroep); }
+    }catch(e){ klaar("groep", false, "mislukt (" + ((e && e.message) || e) + ")"); }
+  }
+  // 4. wachtwoord (je eigen wachtwoord niet: dan sluit je jezelf buiten)
+  if(delen.wachtwoord){
+    if(naam === me) klaar("wachtwoord", false, "overgeslagen: je eigen wachtwoord zet ik niet terug (dan sluit je jezelf buiten)");
+    else{
+      try{
+        const hist = hu && hu.users && typeof hu.users === "object" ? hu.users[naam] : undefined;
+        const r = await usersMutate(u=>{ if(JSON.stringify(u[naam]) === JSON.stringify(hist)) return "stond al zo"; if(hist === undefined) delete u[naam]; else u[naam] = JSON.parse(JSON.stringify(hist)); return false; }, "Wachtwoord van " + naam + " teruggezet naar de stand van " + label + " (door " + me + ")");
+        if(r.error === "stond al zo") klaar("wachtwoord", true, "stond al zo"); else if(r.error) klaar("wachtwoord", false, r.error); else klaar("wachtwoord", true, hist === undefined ? "terug naar het startwachtwoord (er was toen geen eigen wachtwoord)" : "wachtwoord van " + label);
+      }catch(e){ klaar("wachtwoord", false, "mislukt (" + ((e && e.message) || e) + ")"); }
+    }
+  }
+  const gelukt = uitkomst.filter(u=>u.ok).map(u=>u.deel);
+  auditEvent("boodschap restore: " + naam + " ← backup " + bestand.replace(".json", "") + ": " + (gelukt.join(", ") || "niets") + (uitkomst.some(u=>!u.ok) ? " (niet gelukt: " + uitkomst.filter(u=>!u.ok).map(u=>u.deel).join(", ") + ")" : ""));
+  return { ok: true, uitkomst };
+}
+// Het venster waarin je kiest naar welke backup en wat er terug moet; geeft { gedaan, samenvatting } als het venster dicht gaat
+function showRestoreCollegaDialog(naam){
+  return new Promise(async resolve=>{
+    if(!canRestore()){ resolve({ gedaan: false }); return; }
+    if(!await requireUnlock()){ resolve({ gedaan: false }); return; }
+    const isTeam = TEAM.includes(naam), me = currentIdentity && currentIdentity.user;
+    const overlay = document.createElement("div"); overlay.className = "tp-overlay"; overlay.id = "rc-overlay";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
+    const box = document.createElement("div"); box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:560px;max-width:98vw;font-family:'Courier New',monospace;";
+    const DELEN = [["planning", "Planning en werkweek", isTeam], ["verborgen", "Verborgen (zichtbaarheid)", isTeam], ["boodschap", "Boodschap-instellingen en persoonlijke boodschappen", true], ["groep", "Groep", true], ["wachtwoord", naam === me ? "Wachtwoord (je eigen wachtwoord zet ik niet terug)" : "Wachtwoord", true]].filter(d=>d[2]);
+    box.innerHTML = `<div style="font-size:14px;font-weight:700;color:#80cbc4;margin-bottom:6px;padding-right:40px;">↺ ${naam} terugzetten naar een backup</div>
+      <div style="font-size:11px;color:#999;line-height:1.6;margin-bottom:12px;">Kies een backup. De gekozen onderdelen van ${naam} gaan terug naar de stand van dat moment; wat daarna is gewijzigd gaat voor ${naam} verloren. Van de planning wordt eerst een veiligheidsbackup gemaakt. Backups worden 14 dagen bewaard.</div>
+      <div id="rc-lijst" style="max-height:220px;overflow-y:auto;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px;margin-bottom:12px;font-size:12px;color:#ddd;">Backups laden...</div>
+      <div id="rc-delen" style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:#ddd;margin-bottom:12px;"></div>
+      <div id="rc-msg" style="font-size:11px;min-height:16px;line-height:1.6;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;"><button id="rc-ok" type="button" disabled style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;opacity:0.5;">Terugzetten</button><button id="rc-annuleer" type="button" style="background:transparent;border:1px solid rgba(255,255,255,0.18);color:#bbb;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;">Annuleren</button></div>`;
+    overlay.appendChild(box); document.body.appendChild(overlay);
+    let samenvatting = "", gedaan = false;
+    const sluit = ()=>{ overlay.remove(); resolve({ gedaan, samenvatting }); };
+    addWinX(box, sluit, "rc-close");
+    const q = s=>box.querySelector(s), msg = q("#rc-msg"), ok = q("#rc-ok"), lijst = q("#rc-lijst"), delenEl = q("#rc-delen");
+    const setMsg = (t, goed)=>{ msg.textContent = ""; (Array.isArray(t) ? t : [t]).forEach(r=>{ const d = document.createElement("div"); d.textContent = r.tekst || r; d.style.color = r.kleur || (goed === false ? "#f48fb1" : (goed ? "#80cbc4" : "#aaa")); msg.appendChild(d); }); };
+    DELEN.forEach(([id, tekst])=>{
+      const l = document.createElement("label"), c = document.createElement("input"), s = document.createElement("span"); l.style.cssText = "display:flex;align-items:center;gap:8px;cursor:pointer;"; c.type = "checkbox"; c.id = "rc-deel-" + id; c.dataset.deel = id; c.checked = !(id === "wachtwoord" && naam === me); c.disabled = id === "wachtwoord" && naam === me; c.style.cssText = "width:17px;height:17px;margin:0;accent-color:#80cbc4;"; s.textContent = tekst; l.append(c, s); delenEl.appendChild(l); c.onchange = bijwerken;
+    });
+    const gekozenBackup = ()=>{ const r = box.querySelector("input[name=rc-bk]:checked"); return r ? r.value : ""; };
+    const gekozenDelen = ()=>{ const o = {}; delenEl.querySelectorAll("input").forEach(c=>{ o[c.dataset.deel] = c.checked && !c.disabled; }); return o; };
+    function bijwerken(){ const kan = !!gekozenBackup() && Object.values(gekozenDelen()).some(Boolean) && !ok.dataset.bezig && !gedaan; ok.disabled = !kan; ok.style.opacity = kan ? "1" : "0.5"; }
+    try{
+      const namen = await restoreBackupLijst(); lijst.textContent = "";
+      if(!namen.length) lijst.textContent = "Er zijn geen backups gevonden.";
+      namen.slice(0, 80).forEach(n=>{ const l = document.createElement("label"), r = document.createElement("input"), s = document.createElement("span"); l.style.cssText = "display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;"; r.type = "radio"; r.name = "rc-bk"; r.value = n; r.style.cssText = "margin:0;accent-color:#80cbc4;"; s.textContent = backupLabel(n); l.append(r, s); lijst.appendChild(l); r.onchange = bijwerken; });
+    }catch(e){ lijst.textContent = "De backups konden niet worden opgehaald (" + ((e && e.message) || e) + ")."; }
+    q("#rc-annuleer").onclick = sluit;
+    ok.onclick = async ()=>{
+      const bestand = gekozenBackup(), delen = gekozenDelen(); if(!bestand || ok.dataset.bezig || gedaan) return;
+      const welke = DELEN.filter(d=>delen[d[0]]).map(d=>d[1].replace(/ \(.*\)$/, "")).join(", ");
+      if(!confirm(naam + " terugzetten naar de backup van " + backupLabel(bestand) + "?\n" + welke + ".\nWat daarna is gewijzigd gaat voor " + naam + " verloren.")) return;
+      ok.dataset.bezig = "1"; bijwerken(); setMsg("Bezig met terugzetten...", null);
+      let r; try{ r = await restoreCollega(naam, bestand, delen); }catch(e){ r = { error: "Terugzetten mislukt (" + ((e && e.message) || e) + ")." }; }
+      delete ok.dataset.bezig;
+      if(r.error){ setMsg(r.error, false); bijwerken(); return; }
+      const NAMEN = { planning: "Planning en werkweek", verborgen: "Verborgen", boodschap: "Boodschap-instellingen", groep: "Groep", wachtwoord: "Wachtwoord" };
+      setMsg(r.uitkomst.map(u=>({ tekst: (u.ok ? "✓ " : "✗ ") + NAMEN[u.deel] + ": " + u.tekst, kleur: u.ok ? "#80cbc4" : "#f48fb1" })), true);
+      gedaan = true; samenvatting = naam + " is teruggezet naar de backup van " + backupLabel(bestand) + (r.uitkomst.some(u=>!u.ok) ? " (niet alles is gelukt)" : "") + ".";
+      q("#rc-annuleer").textContent = "Sluiten"; ok.disabled = true; ok.style.opacity = "0.5";
+    };
+  });
 }
 async function settingsSetEigen(naam, actie, e){   // een persoonlijke boodschap voor één collega toevoegen, wijzigen (e.id) of verwijderen (e.id); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand (wat een collega intussen anders wijzigde blijft staan), schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
   if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan persoonlijke boodschappen maken." };
@@ -1283,6 +1448,7 @@ function openWhoMenu(){
   item("menu-pw", "🔑 Wachtwoord wijzigen", "", ()=>showChangePassword());
   item("menu-logout", "↪ Uitloggen", "out", ()=>lock());
   const verEl = document.getElementById("app-version"); if(verEl){ const v = document.createElement("div"); v.className = "ver"; v.id = "menu-version"; v.textContent = verEl.textContent; m.appendChild(v); }
+  { const a = document.createElement("div"); a.className = "ver"; a.id = "menu-admins"; a.style.color = "rgba(255,255,255,0.5)"; a.textContent = "Administrators: " + (groupsReady ? ADMINISTRATORS.join(", ") : "…"); a.title = "Administrators hebben alle rechten. Neem contact op met een van hen voor een wijziging in de rechten."; m.appendChild(a); }   // voor iedereen zichtbaar, om wijzigingen door te kunnen geven
   sep();
   item("menu-maand", "📅 Maand", "c-maand", cmd("btn-maand"));
   item("menu-periode", "📆 Periode", "c-periode", cmd("btn-periode"));
@@ -1722,18 +1888,35 @@ async function showChangePassword(){
 async function groepenOpslaan(ms){   // groepen van accounts wijzigen vanuit Admin ▸ Accounts: dezelfde regels als Admin ▸ Groepen (precies één groep per persoon, jezelf niet uit ICT-Systeembeheer, ICT-Systeembeheer houdt minstens één lid); gecontroleerd op de nieuwste indeling
   if(!canEditGroups()) return { error: "Alleen een lid van " + GROUP_ADMIN + " kan de groepen aanpassen." };   // geen vraag om bewerken aan te zetten voor wie dit toch niet mag
   if(!await requireUnlock()) return { error: "Bewerken staat uit." };
-  const res = await groupsMutate(g=>{
-    const me = currentIdentity && currentIdentity.user;
-    if(!me || !g[GROUP_ADMIN].includes(me)) return "Alleen een lid van " + GROUP_ADMIN + " kan de groepen aanpassen.";
+  const res = await groupsMutate((g, adm)=>{
+    const me = currentIdentity && currentIdentity.user, beheer = ()=>adm.includes(me) || (SYSTEEMBEHEER_HEEFT_RECHTEN && g[GROUP_ADMIN].includes(me));   // alle rechten volgens de nieuwste indeling
+    if(!me || !beheer()) return "Alleen een lid van " + GROUP_ADMIN + " kan de groepen aanpassen.";
     if(ms.some(m=>!m.to)) return "Kies voor iedereen een groep.";
+    if(ms.some(m=>m.name === MONITOR_ACCOUNT && m.to !== MONITOR_GROUP)) return "Het Monitor-account zit altijd in " + MONITOR_GROUP + " en in geen andere groep.";
     ms.forEach(m=>{ GROUP_NAMES.forEach(x=>{ g[x] = g[x].filter(n=>n!==m.name); }); if(m.to) g[m.to].push(m.name); });
-    if(!g[GROUP_ADMIN].includes(me)) return "Je kunt jezelf niet uit " + GROUP_ADMIN + " halen. Vraag een collega uit " + GROUP_ADMIN + " om dat te doen.";
+    if(!beheer()) return "Je kunt jezelf niet uit " + GROUP_ADMIN + " halen. Vraag een collega uit " + GROUP_ADMIN + " om dat te doen.";
     if(g[GROUP_ADMIN].filter(n=>TEAM.includes(n)).length < 1) return GROUP_ADMIN + " moet minstens één lid houden.";
     return false;
   }, commitMessage("Groepen aangepast"));
   if(res.error) return res;
   auditEvent("groepen gewijzigd: " + ms.map(m=>m.name + ": " + (m.from || "geen groep") + " → " + (m.to || "geen groep")).join("; "));
   try{ renderAndSync(); }catch(e){}   // de dekking-waarschuwingen volgen de nieuwe groepen
+  return res;
+}
+async function administratorsWijzig(actie, naam){   // een Administrator toevoegen of weghalen: alleen een Administrator (volgens de nieuwste indeling), en er blijft altijd minstens één over
+  if(!canEditAdministrators()) return { error: "Alleen een Administrator kan Administrators toevoegen of weghalen." };
+  const me = currentIdentity.user, teken = actie === "toevoegen" ? "+ " : "− ";
+  const res = await groupsMutate((g, adm)=>{
+    if(!adm.includes(me)) return "Alleen een Administrator kan Administrators toevoegen of weghalen.";
+    if(actie === "toevoegen"){ if(!TEAM.includes(naam)) return "Kies een account uit het team."; if(adm.includes(naam)) return naam + " is al Administrator."; adm.push(naam); }
+    else if(actie === "verwijderen"){ if(naam === MONITOR_ACCOUNT) return "Het Monitor-account is altijd Administrator."; if(!adm.includes(naam)) return naam + " is geen Administrator."; if(adm.filter(n=>n !== MONITOR_ACCOUNT).length <= 1) return "De laatste Administrator kan niet worden weggehaald: dan kan niemand meer iets aanpassen."; adm.splice(adm.indexOf(naam), 1); }
+    else return "Onbekende actie.";
+    const mi = adm.indexOf(MONITOR_ACCOUNT); if(mi > -1) adm.splice(mi, 1); adm.push(MONITOR_ACCOUNT);   // het Monitor-account staat altijd achteraan
+    return false;
+  }, commitMessage("Administrators: " + teken + naam));
+  if(res.error) return res;
+  auditEvent("administrators gewijzigd: " + teken + naam);
+  try{ renderAndSync(); }catch(e){}
   return res;
 }
 async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groepen (start = "groepen") (ICT-Systeembeheer en ICT-Management zien alle accounts) of 'Mijn account' (iedere andere gebruiker ziet alleen zijn eigen account): een tabel met vinkjes voor de groep en het eigen wachtwoord, en knoppen voor de standaardbezetting; hier komen straks ook de andere gebruikersinstellingen
@@ -1785,12 +1968,42 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
     save.disabled = !ms.length || !!bad; save.style.opacity = save.disabled ? "0.5" : "";
     if(bad) setMsg(bad, false); else if(!msg.dataset.keep) setMsg("");
   };
+  function administratorsBlok(bewerk, opnieuw){   // wie Administrator is (voor iedereen te zien); alleen een Administrator voegt toe of haalt weg
+    const me = currentIdentity && currentIdentity.user;
+    const box = document.createElement("div"); box.id = "usr-admins"; box.style.cssText = "margin:18px 0 6px;padding:12px 14px;border:1px solid rgba(128,203,196,0.25);border-radius:10px;background:rgba(128,203,196,0.05);";
+    const kop = document.createElement("div"); kop.id = "usr-admins-kop"; kop.style.cssText = "font-size:12px;font-weight:700;color:#80cbc4;margin-bottom:4px;"; kop.textContent = "🛡️ Administrators (" + ADMINISTRATORS.length + ")";
+    const uitleg = document.createElement("div"); uitleg.style.cssText = "font-size:10px;color:#888;line-height:1.5;margin-bottom:8px;"; uitleg.textContent = bewerk ? "Administrators hebben alle rechten. Alleen een Administrator kan leden toevoegen of weghalen; de laatste persoon kan niet worden weggehaald en het Monitor-account is altijd Administrator." : "Administrators hebben alle rechten en voegen leden toe. Voor een wijziging in de rechten: neem contact op met een van hen.";
+    const chips = document.createElement("div"); chips.id = "usr-admins-lijst"; chips.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;margin-bottom:" + (bewerk ? "10px" : "0") + ";";
+    const wijzig = async (actie, naam)=>{
+      if(!naam || !await requireUnlock()) return; setMsg("Opslaan...", true);
+      let r; try{ r = await administratorsWijzig(actie, naam); }catch(e){ r = { error: "Opslaan mislukt (" + ((e && e.message) || e) + "). Probeer het opnieuw." }; }
+      msg.dataset.keep = "1"; await opnieuw(); if(r.error) setMsg(r.error, false); else setMsg(actie === "toevoegen" ? naam + " is nu Administrator." : naam + " is geen Administrator meer.", true);
+    };
+    ADMINISTRATORS.forEach(n=>{
+      const c = document.createElement("span"); c.className = "usr-adm"; c.dataset.naam = n; c.style.cssText = "display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#fff;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:3px 10px;";
+      c.appendChild(document.createTextNode(n + (me === n ? " (jij)" : "")));
+      if(n === MONITOR_ACCOUNT){ c.title = "Het Monitor-account is altijd Administrator"; c.appendChild(document.createTextNode(" · altijd")); }
+      else if(bewerk){ const laatste = ADMINISTRATORS.filter(a=>a !== MONITOR_ACCOUNT).length <= 1, x = document.createElement("button"); x.type = "button"; x.className = "usr-adm-weg"; x.dataset.naam = n; x.textContent = "×"; x.disabled = laatste; x.title = laatste ? "De laatste Administrator kan niet worden weggehaald" : n + " uit de Administrators halen"; x.setAttribute("aria-label", n + " uit de Administrators halen"); x.style.cssText = "background:transparent;border:0;color:" + (laatste ? "#555" : "#f48fb1") + ";font-size:15px;line-height:1;padding:0 2px;cursor:" + (laatste ? "not-allowed" : "pointer") + ";font-family:inherit;"; x.onclick = ()=>wijzig("verwijderen", n); c.appendChild(x); }
+      chips.appendChild(c);
+    });
+    box.append(kop, uitleg, chips);
+    if(bewerk){
+      const rij = document.createElement("div"); rij.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;align-items:center;";
+      const s = document.createElement("select"); s.id = "usr-admin-add"; s.setAttribute("aria-label", "Account toevoegen aan de Administrators"); s.style.cssText = "background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);color:#eee;border-radius:8px;padding:6px 8px;font-family:inherit;font-size:12px;max-width:100%;";
+      const ph = document.createElement("option"); ph.value = ""; ph.textContent = "— kies een account —"; s.appendChild(ph);
+      TEAM.filter(n=>!ADMINISTRATORS.includes(n)).forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n; s.appendChild(o); });
+      const k = document.createElement("button"); k.type = "button"; k.id = "usr-admin-toevoegen"; k.textContent = "Toevoegen"; k.disabled = true; k.style.cssText = "background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;" + BTN + "opacity:0.5;";
+      s.onchange = ()=>{ k.disabled = !s.value; k.style.opacity = s.value ? "1" : "0.5"; }; k.onclick = ()=>wijzig("toevoegen", s.value);
+      rij.append(s, k); box.appendChild(rij);
+    }
+    return box;
+  }
   async function renderAccount(name, melding){   // de pagina van één werknemer: groep, wachtwoord, werkweek, boodschap-instellingen en zichtbaarheid; ICT-Systeembeheer wijzigt van iedereen, iedere andere gebruiker alleen zijn eigen gegevens
     let reg; try{ reg = await usersLoad(); }catch(e){ list.textContent = "Laden mislukt: " + e.message; return; }
-    try{ const c = await groupsFetch(); applyGroups(c.groups); groupsSha = c.sha; groupsReady = true; groupsError = null; gcur = c; }catch(e){ gcur = null; }
+    try{ const c = await groupsFetch(); applyGroups(c.groups, c.administrators); groupsSha = c.sha; groupsReady = true; groupsError = null; gcur = c; }catch(e){ gcur = null; }
     try{ applySettings(await settingsFetch()); }catch(e){}   // de nieuwste boodschap-instellingen
     const me = currentIdentity && currentIdentity.user, mij = me === name, isTeam = TEAM.includes(name), isLogin = loginNames().includes(name), rec = reg.users[name];
-    const adminNu = !!(gcur && me && gcur.groups[GROUP_ADMIN].includes(me)), mag = adminNu;   // adminNu: ICT-Systeembeheer volgens de nieuwste indeling; de boodschap-instellingen wijzigt alleen ICT-Systeembeheer
+    const adminNu = !!(gcur && me && heeftBeheer(me)), mag = adminNu;   // adminNu: ICT-Systeembeheer volgens de nieuwste indeling; de boodschap-instellingen wijzigt alleen ICT-Systeembeheer
     q("#usr-titel").textContent = (!beheer && mij) ? "👤 Mijn account" : "👤 Account van " + name + (mij ? " (jij)" : "");
     hint.textContent = adminNu ? "Als lid van " + GROUP_ADMIN + " kun je alle gegevens van " + (mij ? "jezelf" : name) + " wijzigen." : (mij ? "Je kunt je eigen wachtwoord en je eigen werkweek wijzigen. De rest wijzigt alleen een lid van " + GROUP_ADMIN + "." : "Je kunt alleen kijken: alleen " + GROUP_ADMIN + " wijzigt de gegevens van anderen.");
     list.innerHTML = ""; acties.innerHTML = ""; setMsg("");
@@ -1839,7 +2052,6 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
           const t = vinkje(r2, complimentTaalNaam(code), nu.includes(code), !mag, uitleg); t.dataset.veld = "taal"; t.dataset.taal = code; t.dataset.naam = name;
           t.onchange = ()=>{ const lijst = t.checked ? nu.filter(c=>c !== code).concat(code) : nu.filter(c=>c !== code); if(!lijst.length){ t.checked = true; setMsg("Minstens één taal moet aan blijven voor " + name + ".", false); return; } wijzig(t, ()=>settingsSetTalen(name, lijst), res=>"Talen van " + name + ": " + res.tekst + "."); };
         });
-        knop(r2, "↺ Alles terugzetten", "usr-reset-alles", "groen", ()=>{ if(!confirm("Alle instellingen van " + name + " terugzetten naar de standaard?\nBoodschap aan/uit, talen, Op campus en monitorfunctie. Persoonlijke boodschappen blijven staan.")) return; wijzig(r2, ()=>settingsResetCollega(name), ()=>"Alle instellingen van " + name + " staan weer op de standaard."); }).disabled = !mag || !heeftEigenInstellingen(name);
       }
     }
     // Zichtbaarheid
@@ -1847,13 +2059,19 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
       const v = vinkje(r, "Verborgen in de planning (blijft bestaan, staat nergens in beeld)", HIDDEN.has(name), !adminNu, adminNu ? "" : "Alleen een lid van " + GROUP_ADMIN + " kan iemand verbergen."); v.dataset.veld = "verborgen"; v.dataset.naam = name;
       v.onchange = async ()=>{ const w = v.checked; if(!await requireUnlock()){ renderAccount(name); return; } zetVerborgen(name, w); renderAccount(name, { t: name + (w ? " is verborgen." : " is weer zichtbaar."), ok: true }); };
     }
+    // Terugzetten naar een backup (planning, werkweek, boodschap, groep en wachtwoord): alleen ICT-Systeembeheer
+    if(canRestore() && (isTeam || name === "Monitor")){ const sr = sec("usr-sec-terugzetten", "Terugzetten"), r = rij(sr);
+      knop(r, "↺ Terugzetten naar backup", "usr-reset-alles", "groen", async ()=>{ const res = await showRestoreCollegaDialog(name); if(res && res.gedaan) renderAccount(name, { t: res.samenvatting, ok: true }); });
+      nota(r, (isTeam ? "Planning, werkweek, " : "") + "boodschap, groep en wachtwoord van " + name + " naar een backup die je kiest.");
+    }
+    if(!beheer) list.appendChild(administratorsBlok(false, ()=>renderAccount(name)));   // iedereen ziet wie Administrator is
     if(melding) setMsg(melding.t, melding.ok);
   }
   async function renderList(){
     q("#usr-titel").textContent = beheer ? "👤 Accounts" : "👤 Mijn account";
     let reg; try{ reg = await usersLoad(); }catch(e){ list.textContent = "Laden mislukt: " + e.message; return; }
-    try{ const c = await groupsFetch(); applyGroups(c.groups); groupsSha = c.sha; groupsReady = true; groupsError = null; gcur = c; }catch(e){ gcur = null; }   // lukt het ophalen niet, dan blijft de laatst bekende indeling gelden (en is er niets te wijzigen)
-    const me = currentIdentity && currentIdentity.user, canReset = canResetPasswords(), editable = !!(beheer && gcur && me && gcur.groups[GROUP_ADMIN].includes(me));
+    try{ const c = await groupsFetch(); applyGroups(c.groups, c.administrators); groupsSha = c.sha; groupsReady = true; groupsError = null; gcur = c; }catch(e){ gcur = null; }   // lukt het ophalen niet, dan blijft de laatst bekende indeling gelden (en is er niets te wijzigen)
+    const me = currentIdentity && currentIdentity.user, canReset = canResetPasswords(), editable = !!(beheer && gcur && me && heeftBeheer(me));
     hint.textContent = beheer
       ? "Alle accounts met hun groep, eigen wachtwoord en werkweek. Vink 'Eigen wachtwoord' uit om het te resetten: die persoon kiest dan opnieuw een eigen wachtwoord, met het startwachtwoord." + (canReset ? "" : (groupsReady ? " Alleen leden van " + GROUP_ADMIN + " kunnen een reset doen." : " De groepen zijn nog niet opgehaald, dus resetten kan nu niet."))
       : "Je eigen account: je groep, je wachtwoord en je eigen werkweek.";
@@ -1876,7 +2094,8 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
         if(!curGroup(name)){ const ph = document.createElement("option"); ph.value = ""; ph.disabled = true; ph.textContent = "— kies een groep —"; s.appendChild(ph); }
         GROUP_NAMES.forEach(g=>{ const o = document.createElement("option"); o.value = g; o.textContent = g; s.appendChild(o); });
         s.value = curGroup(name);
-        if(mij && curGroup(name) === GROUP_ADMIN){ s.disabled = true; s.title = "Jezelf uit " + GROUP_ADMIN + " halen kan niet; vraag een collega."; }   // niet jezelf buitensluiten
+        if(name === MONITOR_ACCOUNT){ s.disabled = true; s.title = "Het Monitor-account zit altijd in " + MONITOR_GROUP + " en in geen andere groep."; }
+        else if(mij && curGroup(name) === GROUP_ADMIN){ s.disabled = true; s.title = "Jezelf uit " + GROUP_ADMIN + " halen kan niet; vraag een collega."; }   // niet jezelf buitensluiten
         s.onchange = ()=>{ delete msg.dataset.keep; check(); };
         gr.appendChild(s);
       } else gr.textContent = isLogin ? (groupsReady ? (curGroup(name) || "—") : "…") : "";
@@ -1897,6 +2116,7 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
       row.appendChild(actie);
       list.appendChild(row);
     });
+    if(beheer) list.appendChild(administratorsBlok(canEditAdministrators(), renderList));   // wie Administrator is: voor iedereen te zien, alleen een Administrator wijzigt
     if(beheer && canEditGroups()){   // alle standaardweken: namen, volgorde, verbergen en verwijderen horen bij ICT-Systeembeheer
       const alle = document.createElement("button"); alle.type = "button"; alle.id = "usr-alle-standaard"; alle.textContent = "Alle werkweken";
       alle.style.cssText = "background:rgba(96,176,255,0.12);border:1px solid rgba(96,176,255,0.4);color:#60b0ff;" + BTN; alle.onclick = ()=>openStandaard(null); acties.appendChild(alle);
@@ -3856,8 +4076,8 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
       beschikbaar.forEach(code=>tr.appendChild(vink(naam, "taal", code, aan.includes(code), complimentTaalNaam(code) + " voor " + naam, !actief)));
       tr.appendChild(vink(naam, "monitor", null, monitorAan(naam, BOODSCHAP.monitor), "Monitorfunctie voor " + naam, false));
       const rt = document.createElement("td"); rt.style.cssText = "text-align:center;padding:4px;";
-      { const eigen = heeftEigenInstellingen(naam), r = document.createElement("button"); r.type = "button"; r.dataset.reset = "1"; r.dataset.naam = naam; r.textContent = "↺"; r.title = eigen ? "Alle instellingen van " + naam + " terug naar de standaard" : "Alles staat al op de standaard"; r.setAttribute("aria-label", "Alle instellingen terug naar de standaard voor " + naam); r.disabled = vast || !eigen;   // bij iedere collega; alleen te gebruiken als de talen afwijken van de standaard
-        r.style.cssText = "font-family:inherit;font-size:13px;padding:2px 8px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#bbb;cursor:" + (r.disabled ? "not-allowed" : "pointer") + ";opacity:" + (vast ? "0.55" : (eigen ? "1" : "0.35")) + ";"; rt.appendChild(r); }
+      { const r = document.createElement("button"); r.type = "button"; r.dataset.reset = "1"; r.dataset.naam = naam; r.textContent = "↺"; r.title = "Terugzetten naar een backup: planning, werkweek, boodschap, groep en wachtwoord van " + naam; r.setAttribute("aria-label", "Terugzetten naar een backup voor " + naam); r.disabled = vast;   // opent het venster om een collega terug te zetten naar een backup
+        r.style.cssText = "font-family:inherit;font-size:13px;padding:2px 8px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#bbb;cursor:" + (r.disabled ? "not-allowed" : "pointer") + ";opacity:" + (vast ? "0.55" : "1") + ";"; rt.appendChild(r); }
       tr.appendChild(rt); lijf.appendChild(tr);
     });
     { const tr = document.createElement("tr"), nm = document.createElement("th"); tr.className = "msg-tl-monitor"; tr.dataset.naam = "Monitor"; tr.style.cssText = "border-top:1px solid rgba(255,255,255,0.12);";
@@ -3879,10 +4099,12 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     } else if(b.dataset.monitor){   // de monitorfunctie van deze gebruiker aan of uit
       const wil = b.checked; taak = ()=>settingsSetMonitor(naam, wil); fout = "De monitorfunctie is niet veranderd.";
       ok = r=>r.changed ? "Monitorfunctie voor " + naam + " staat " + (wil ? "aan" : "uit") + "." : "Dat stond al zo: een collega had het net gewijzigd.";
-    } else if(b.dataset.reset){   // alle instellingen van deze collega terug naar de standaard (na een bevestiging)
-      if(!confirm("Alle instellingen van " + naam + " terugzetten naar de standaard?\nBoodschap aan/uit, talen, Op campus en monitorfunctie. Persoonlijke boodschappen blijven staan.")) return;
-      taak = ()=>settingsResetCollega(naam); fout = "De instellingen zijn niet teruggezet.";
-      ok = r=>r.changed ? "Alle instellingen van " + naam + " staan weer op de standaard." : "Dat stond al zo: een collega had het net gewijzigd.";
+    } else if(b.dataset.reset){   // het ↺: deze collega terugzetten naar een backup (eigen venster met keuze van de backup en van wat er terug moet)
+      wrap.dataset.bezig = "1"; toonTalen();
+      let res = { gedaan: false }; try{ res = await showRestoreCollegaDialog(naam); }catch(e){}
+      delete wrap.dataset.bezig; if(!document.body.contains(overlay)) return;
+      if(res.gedaan){ try{ applySettings(await settingsFetch()); }catch(e){} setMsgT(res.samenvatting, "ok"); }
+      toonTalen(); toonEigen(); return;
     } else {   // de talen
       let nieuw;
       if(false) nieuw = null;
