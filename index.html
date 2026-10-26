@@ -229,7 +229,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 118</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 119</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -1279,6 +1279,11 @@ function openWhoMenu(){
   const item = (id, label, cls, fn)=>{ const x = document.createElement("button"); x.type = "button"; x.id = id; x.setAttribute("role", "menuitem"); x.textContent = label; if(cls) x.className = cls; x.onclick = ()=>{ closeWhoMenu(); fn(); }; m.appendChild(x); };
   const sep = ()=>{ const d = document.createElement("div"); d.className = "sep"; d.setAttribute("role", "separator"); m.appendChild(d); };
   const cmd = id => ()=>{ const knop = document.getElementById(id); if(knop) knop.click(); };   // de tabbladen zijn opdrachten: het menu roept dezelfde (verborgen) knoppen aan als voorheen
+  // direct onder 'Ingelogd als …': wachtwoord wijzigen, uitloggen en de versie
+  item("menu-pw", "🔑 Wachtwoord wijzigen", "", ()=>showChangePassword());
+  item("menu-logout", "↪ Uitloggen", "out", ()=>lock());
+  const verEl = document.getElementById("app-version"); if(verEl){ const v = document.createElement("div"); v.className = "ver"; v.id = "menu-version"; v.textContent = verEl.textContent; m.appendChild(v); }
+  sep();
   item("menu-maand", "📅 Maand", "c-maand", cmd("btn-maand"));
   item("menu-periode", "📆 Periode", "c-periode", cmd("btn-periode"));
   if(!canSeeAdmin()) item("menu-accounts", "👤 Mijn account", "", ()=>showUsersModal());   // wie geen Admin heeft: het eigen account (groep, wachtwoord en standaardbezetting); bij Admin staat het als Accounts
@@ -1325,10 +1330,6 @@ function openWhoMenu(){
       if(tab) tab.onclick = async ()=>{ closeWhoMenu(); if(await requireUnlock({ admin: true })){ openWhoMenu(); const a = document.getElementById("menu-admin"); if(a) a.click(); const t = document.getElementById("menu-backuprestore"); if(t) t.click(); } };
     }
   }
-  sep();
-  item("menu-pw", "🔑 Wachtwoord wijzigen", "", ()=>showChangePassword());
-  item("menu-logout", "↪ Uitloggen", "out", ()=>lock());
-  const verEl = document.getElementById("app-version"); if(verEl){ const v = document.createElement("div"); v.className = "ver"; v.id = "menu-version"; v.textContent = verEl.textContent; m.appendChild(v); }
   m.addEventListener("keydown", e=>{
     const items = [...m.querySelectorAll("button")].filter(x=>!x.hidden), i = items.indexOf(document.activeElement);
     if(e.key === "ArrowDown"){ e.preventDefault(); items[(i + 1) % items.length].focus(); }
