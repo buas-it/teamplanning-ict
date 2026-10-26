@@ -36,6 +36,12 @@
    "hash": "VVsikpxDbnL0irqJ94psTG0GfRqBt9CVI0GiXr88oWM=",
    "iter": 210000,
    "set": "2026-10-21T07:44:05.205Z"
+  },
+  "Marco": {
+   "salt": "JUU4BKS+XGBgNAzOiS/2cA==",
+   "hash": "Wsg5diXFeHdqderw1Jds/h/YKr91i4kSQ79gGinloLU=",
+   "iter": 210000,
+   "set": "2026-10-26T10:00:47.488Z"
   }
  }
 }
