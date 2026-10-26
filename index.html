@@ -228,7 +228,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 124</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 125</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -389,6 +389,7 @@ function zetVerborgen(naam, aan){   // een collega verbergen of weer tonen (blij
   return true;
 }
 function canEditTemplate(person){ return !!(currentIdentity && person && (person === currentIdentity.user || heeftBeheer(currentIdentity.user))); }   // je eigen standaardbezetting mag je aanpassen; die van iedereen alleen als je lid bent van ICT-Systeembeheer
+function canEditSettingsOf(naam){ return !!(currentIdentity && naam && (currentIdentity.user === naam || canToggleMessage())); }   // de boodschap-instellingen (aan/uit, campus, monitorfunctie, talen) van een account: dat account zelf, of een Administrator
 function canEditGroups(){ return !!(currentIdentity && heeftBeheer(currentIdentity.user)); }
 // ── Niet jezelf buitensluiten ──
 // Een beheerder mag zichzelf niet buitensluiten: je naam moet in het team blijven (anders staat hij niet meer in het inlogscherm en kom je niet meer bij Admin),
@@ -528,7 +529,7 @@ async function settingsLoad(){   // haalt de instellingen op; bij een storing bl
   return BOODSCHAP.ready;
 }
 async function settingsSetTalen(naam, lijst){   // de talen van één collega instellen (lijst = null: terug naar de standaard); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand (een collega kan intussen iets anders hebben gewijzigd: dat blijft staan), schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
-  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de talen wijzigen." };
+  if(!canEditSettingsOf(naam)) return { error: "Alleen " + MESSAGE_ADMIN + " kan de talen van een ander wijzigen." };
   if(!editUnlocked) return { error: "Bewerken staat uit." };
   if(!TEAM.includes(naam)) return { error: "Onbekende collega." };
   const nieuw = lijst === null ? null : complimentTalenSorteer(lijst);
@@ -557,7 +558,7 @@ async function settingsSetTalen(naam, lijst){   // de talen van één collega in
   throw new Error("conflict");
 }
 async function settingsSetPersoon(naam, aan){   // de boodschap voor één collega aan- of uitzetten (los van de schakelaar voor iedereen); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand (wat een collega intussen anders wijzigde blijft staan), schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
-  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de boodschap per collega aan- of uitzetten." };
+  if(!canEditSettingsOf(naam)) return { error: "Alleen " + MESSAGE_ADMIN + " kan de boodschap van een ander aan- of uitzetten." };
   if(!editUnlocked) return { error: "Bewerken staat uit." };
   if(!TEAM.includes(naam)) return { error: "Onbekende collega." };
   const me = currentIdentity.user;
@@ -583,7 +584,7 @@ async function settingsSetPersoon(naam, aan){   // de boodschap voor één colle
   throw new Error("conflict");
 }
 async function settingsSetMonitor(naam, aan){   // de monitorfunctie van één gebruiker aan- of uitzetten (de Monitor zelf telt ook mee); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand, schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
-  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan de monitorfunctie aan- of uitzetten." };
+  if(!canEditSettingsOf(naam)) return { error: "Alleen " + MESSAGE_ADMIN + " kan de monitorfunctie van een ander aan- of uitzetten." };
   if(!editUnlocked) return { error: "Bewerken staat uit." };
   if(!TEAM.includes(naam) && naam !== "Monitor") return { error: "Onbekende gebruiker." };
   const me = currentIdentity.user;
@@ -609,7 +610,7 @@ async function settingsSetMonitor(naam, aan){   // de monitorfunctie van één g
   throw new Error("conflict");
 }
 async function settingsSetCampus(naam, nodig){   // voor één collega instellen of het compliment alleen komt als hij of zij op de campus is (standaard wel); alleen ICT-Systeembeheer, met bewerken aan; leest eerst de nieuwste stand, schrijft alleen als er echt iets verandert; bij een schrijfconflict opnieuw
-  if(!canToggleMessage()) return { error: "Alleen " + MESSAGE_ADMIN + " kan dit wijzigen." };
+  if(!canEditSettingsOf(naam)) return { error: "Alleen " + MESSAGE_ADMIN + " kan dit van een ander wijzigen." };
   if(!editUnlocked) return { error: "Bewerken staat uit." };
   if(!TEAM.includes(naam)) return { error: "Onbekende collega." };
   const me = currentIdentity.user;
@@ -1942,7 +1943,7 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
     const me = currentIdentity && currentIdentity.user, mij = me === name, isTeam = TEAM.includes(name), isLogin = loginNames().includes(name), rec = reg.users[name];
     const adminNu = !!(me && heeftBeheer(me)), mag = adminNu;   // adminNu: ICT-Systeembeheer volgens de nieuwste indeling; de boodschap-instellingen wijzigt alleen ICT-Systeembeheer
     q("#usr-titel").textContent = (!beheer && mij) ? "👤 Mijn account" : "👤 Account van " + name + (mij ? " (jij)" : "");
-    hint.textContent = adminNu ? "Als Administrator kun je alle gegevens van " + (mij ? "jezelf" : name) + " wijzigen." : (mij ? "Je kunt je eigen wachtwoord en je eigen werkweek wijzigen. De rest wijzigt alleen een Administrator." : "Je kunt alleen kijken: alleen een Administrator wijzigt de gegevens van anderen.");
+    hint.textContent = adminNu ? "Als Administrator kun je alle gegevens van " + (mij ? "jezelf" : name) + " wijzigen." : (mij ? "Je kunt je eigen wachtwoord, je eigen werkweek en je eigen boodschap-instellingen wijzigen. De rest (zoals verbergen) wijzigt alleen een Administrator." : "Je kunt alleen kijken: alleen een Administrator wijzigt de gegevens van anderen.");
     list.innerHTML = ""; acties.innerHTML = ""; setMsg("");
     if(beheer){ const t = document.createElement("button"); t.type = "button"; t.id = "usr-terug"; t.textContent = "← Alle accounts"; t.style.cssText = "background:transparent;border:1px solid rgba(255,255,255,0.18);color:#bbb;border-radius:8px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:inherit;margin-bottom:6px;"; t.onclick = ()=>renderList(); list.appendChild(t); }
     const sec = (id, titel)=>{ const d = document.createElement("div"); d.id = id; d.className = "usr-sec"; d.style.cssText = "padding:12px 4px;border-bottom:1px solid rgba(255,255,255,0.08);"; const k = document.createElement("div"); k.style.cssText = "font-size:10px;font-weight:700;color:#999;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;"; k.textContent = titel; d.appendChild(k); list.appendChild(d); return d; };
@@ -1973,19 +1974,19 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
         let res; try{ res = await taak(); }catch(e){ res = { error: "Opslaan mislukt (" + ((e && e.message) || e) + ")." }; }
         renderAccount(name, res.error ? { t: res.error, ok: false } : { t: res.changed === false ? "Dat stond al zo: een collega had het net gewijzigd." : ok(res), ok: true });
       };
-      const uitleg = mag ? "" : "Alleen een Administrator kan dit wijzigen.";
+      const eigenMag = mag || mij, uitleg = eigenMag ? "" : "Alleen een Administrator kan dit wijzigen.";   // je eigen boodschap-instellingen mag je zelf wijzigen
       if(isTeam){
-        const aan = vinkje(r, "Boodschap aan", complimentPersoonAan(name, BOODSCHAP.personen), !mag, uitleg); aan.dataset.veld = "aan"; aan.dataset.naam = name;
+        const aan = vinkje(r, "Boodschap aan", complimentPersoonAan(name, BOODSCHAP.personen), !eigenMag, uitleg); aan.dataset.veld = "aan"; aan.dataset.naam = name;
         aan.onchange = ()=>{ const w = aan.checked; wijzig(aan, ()=>settingsSetPersoon(name, w), ()=>"De boodschap voor " + name + " staat " + (w ? "aan" : "uit") + "."); };
-        const cam = vinkje(r, "Alleen als aanwezig op de campus", campusNodig(name, BOODSCHAP.campus), !mag, uitleg); cam.dataset.veld = "campus"; cam.dataset.naam = name;
+        const cam = vinkje(r, "Alleen als aanwezig op de campus", campusNodig(name, BOODSCHAP.campus), !eigenMag, uitleg); cam.dataset.veld = "campus"; cam.dataset.naam = name;
         cam.onchange = ()=>{ const w = cam.checked; wijzig(cam, ()=>settingsSetCampus(name, w), ()=>"Compliment voor " + name + (w ? ": alleen als aanwezig op de campus." : ": ook als niet aanwezig op de campus.")); };
       }
-      const mon = vinkje(r, "Monitorfunctie", monitorAan(name, BOODSCHAP.monitor), !mag, uitleg); mon.dataset.veld = "monitor"; mon.dataset.naam = name;
+      const mon = vinkje(r, "Monitorfunctie", monitorAan(name, BOODSCHAP.monitor), !eigenMag, uitleg); mon.dataset.veld = "monitor"; mon.dataset.naam = name;
       mon.onchange = ()=>{ const w = mon.checked; wijzig(mon, ()=>settingsSetMonitor(name, w), ()=>"Monitorfunctie voor " + name + " staat " + (w ? "aan" : "uit") + "."); };
       if(isTeam){
         const nu = complimentTalenVoor(name, BOODSCHAP.talen);
         complimentTalenBeschikbaar().forEach(code=>{
-          const t = vinkje(r2, complimentTaalNaam(code), nu.includes(code), !mag, uitleg); t.dataset.veld = "taal"; t.dataset.taal = code; t.dataset.naam = name;
+          const t = vinkje(r2, complimentTaalNaam(code), nu.includes(code), !eigenMag, uitleg); t.dataset.veld = "taal"; t.dataset.taal = code; t.dataset.naam = name;
           t.onchange = ()=>{ const lijst = t.checked ? nu.filter(c=>c !== code).concat(code) : nu.filter(c=>c !== code); if(!lijst.length){ t.checked = true; setMsg("Minstens één taal moet aan blijven voor " + name + ".", false); return; } wijzig(t, ()=>settingsSetTalen(name, lijst), res=>"Talen van " + name + ": " + res.tekst + "."); };
         });
       }
