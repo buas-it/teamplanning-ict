@@ -228,7 +228,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 126</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 127</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -1416,26 +1416,27 @@ function openWhoMenu(){
   item("menu-pw", "🔑 Wachtwoord wijzigen", "", ()=>showChangePassword());
   item("menu-logout", "↪ Uitloggen", "out", ()=>lock());
   const verEl = document.getElementById("app-version"); if(verEl){ const v = document.createElement("div"); v.className = "ver"; v.id = "menu-version"; v.textContent = verEl.textContent; m.appendChild(v); }
-  { const a = document.createElement("div"); a.className = "ver"; a.id = "menu-admins"; a.style.color = "rgba(255,255,255,0.5)"; a.textContent = "Administrators: " + (groupsReady ? ADMINISTRATORS.join(", ") : "…"); a.title = "Administrators hebben alle rechten. Neem contact op met een van hen voor een wijziging in de rechten."; m.appendChild(a); }   // voor iedereen zichtbaar, om wijzigingen door te kunnen geven
   sep();
   item("menu-maand", "📅 Maand", "c-maand", cmd("btn-maand"));
   item("menu-periode", "📆 Periode", "c-periode", cmd("btn-periode"));
   if(!canSeeAdmin()) item("menu-accounts", "👤 Mijn account", "", ()=>showUsersModal());   // wie geen Admin heeft: het eigen account (groep, wachtwoord en standaardbezetting); bij Admin staat het als Accounts
-  if(canSeeAdmin()){   // Admin: alleen ICT-Systeembeheer en ICT-Management
-    const kop = t => { const d = document.createElement("div"); d.className = "hd"; d.textContent = t; d.setAttribute("role", "presentation"); m.appendChild(d); };   // een kopje in het menu (geen knop)
     {   // de map Info: ICT-Systeembeheer ziet Audit, Status, Statistics en Geen Beheer; ICT-Management alleen Geen Beheer
       // Info: een map onder de ingelogde gebruiker die uitklapt naar Audit, Status en Statistics (alleen kijken); klappen blijft het menu openhouden
       sep();
       const infoTab = document.createElement("button"); infoTab.type = "button"; infoTab.id = "menu-info"; infoTab.className = "c-status";
       infoTab.setAttribute("role", "menuitem"); infoTab.setAttribute("aria-haspopup", "true"); infoTab.setAttribute("aria-expanded", "false"); infoTab.textContent = "ℹ️ Info ▸";
       m.appendChild(infoTab);
+      { const a = document.createElement("div"); a.id = "menu-admins"; a.setAttribute("role", "presentation"); a.title = "Administrators hebben alle rechten. Neem contact op met een van hen voor een wijziging in de rechten.";   // voor iedereen zichtbaar, om wijzigingen door te kunnen geven
+        a.style.cssText = "padding:4px 10px 6px 28px;font-size:11px;line-height:1.5;color:rgba(255,255,255,0.65);white-space:normal;text-align:left;"; a.textContent = "🛡️ Administrators: " + (groupsReady ? ADMINISTRATORS.join(", ") : "…"); m.appendChild(a); }
       if(canSeeInfo()) item("menu-audit", "📜 Audit", "c-admin sub", cmd("btn-admin"));
       if(canSeeInfo()) item("menu-status", "📊 Status", "c-status sub", ()=>showStatusWindow());
       if(canSeeInfo()) item("menu-stats", "📈 Statistics", "c-status sub", ()=>showStatsWindow());
-      item("menu-geenbeheer", "⚠ Geen Beheer", "c-geenbeheer sub", cmd("btn-geen-beheer"));
-      const infoSubs = ["#menu-audit", "#menu-status", "#menu-stats", "#menu-geenbeheer"].map(s=>m.querySelector(s)).filter(Boolean); infoSubs.forEach(x=>{ x.hidden = true; });
+      if(canSeeAdmin()) item("menu-geenbeheer", "⚠ Geen Beheer", "c-geenbeheer sub", cmd("btn-geen-beheer"));
+      const infoSubs = ["#menu-admins", "#menu-audit", "#menu-status", "#menu-stats", "#menu-geenbeheer"].map(s=>m.querySelector(s)).filter(Boolean); infoSubs.forEach(x=>{ x.hidden = true; });
       infoTab.onclick = ()=>{ const open = infoTab.getAttribute("aria-expanded") !== "true"; infoTab.setAttribute("aria-expanded", String(open)); infoTab.textContent = "ℹ️ Info " + (open ? "▾" : "▸"); infoSubs.forEach(x=>{ x.hidden = !open; }); };
     }
+  if(canSeeAdmin()){   // Admin: alleen ICT-Systeembeheer en ICT-Management
+    const kop = t => { const d = document.createElement("div"); d.className = "hd"; d.textContent = t; d.setAttribute("role", "presentation"); m.appendChild(d); };   // een kopje in het menu (geen knop)
     sep();
     const adminTab = document.createElement("button"); adminTab.type = "button"; adminTab.id = "menu-admin"; adminTab.className = "c-admin";   // Admin: een map zoals Info, dicht tot je hem uitklapt
     adminTab.setAttribute("role", "menuitem"); adminTab.setAttribute("aria-haspopup", "true"); adminTab.setAttribute("aria-expanded", "false"); adminTab.textContent = "⚙️ Admin ▸";
