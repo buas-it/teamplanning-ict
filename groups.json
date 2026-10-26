@@ -1,31 +1,7 @@
 {
  "v": 1,
- "groups": {
-  "ICT-Support": [
-   "Wim",
-   "Wouter",
-   "Annies",
-   "Bas"
-  ],
-  "ICT-Systeembeheer": [
-   "Bram",
-   "Marco",
-   "Hans",
-   "Ted",
-   "Sercan"
-  ],
-  "ICT-Management": [
-   "Sam"
-  ],
-  "ICT-Monitoring": [
-   "Monitor"
-  ]
- },
  "administrators": [
   "Hans",
-  "Marco",
-  "Bram",
-  "Sercan",
   "Monitor"
  ]
 }
