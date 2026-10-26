@@ -133,7 +133,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 #who-menu { max-height:calc(100vh - 90px); overflow-y:auto; }
 #who-menu button[aria-disabled="true"] { opacity:0.45; cursor:not-allowed; }
 #who-menu button[hidden] { display:none; }
-#who-menu button.sub { padding-left:28px; }
+#who-menu button.sub { padding-left:28px; } #who-menu button.sub2 { padding-left:46px; }
 #who-menu .hd { padding:6px 10px 2px; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,0.35); }
 #who-menu .sep { height:1px; margin:5px 4px; background:rgba(255,255,255,0.08); }
 #who-menu .ver { padding:6px 10px 2px; font-size:10px; color:rgba(255,255,255,0.3); }
@@ -229,7 +229,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 114</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 25 okt 2026 · 116</span>
   </div>
   <div class="legend" id="legend"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -1297,17 +1297,22 @@ function openWhoMenu(){
       const infoSubs = ["#menu-audit", "#menu-status", "#menu-stats", "#menu-geenbeheer"].map(s=>m.querySelector(s)).filter(Boolean); infoSubs.forEach(x=>{ x.hidden = true; });
       infoTab.onclick = ()=>{ const open = infoTab.getAttribute("aria-expanded") !== "true"; infoTab.setAttribute("aria-expanded", String(open)); infoTab.textContent = "ℹ️ Info " + (open ? "▾" : "▸"); infoSubs.forEach(x=>{ x.hidden = !open; }); };
     }
-    sep(); kop("Admin");
-    item("menu-accounts", "👤 Accounts", "c-admin", ()=>showUsersModal());
-    item("menu-boodschap", "💬 Boodschap", "c-admin", ()=>showBoodschapModal());
+    sep();
+    const adminTab = document.createElement("button"); adminTab.type = "button"; adminTab.id = "menu-admin"; adminTab.className = "c-admin";   // Admin: een map zoals Info, dicht tot je hem uitklapt
+    adminTab.setAttribute("role", "menuitem"); adminTab.setAttribute("aria-haspopup", "true"); adminTab.setAttribute("aria-expanded", "false"); adminTab.textContent = "⚙️ Admin ▸";
+    m.appendChild(adminTab);
+    item("menu-accounts", "👤 Accounts", "c-admin sub", ()=>showUsersModal());
+    item("menu-boodschap", "💬 Boodschap", "c-admin sub", ()=>showBoodschapModal());
     // Backup/Restore: een tabblad onder Admin dat uitklapt naar Backup en Restore (klappen blijft het menu openhouden)
-    const bkTab = document.createElement("button"); bkTab.type = "button"; bkTab.id = "menu-backuprestore"; bkTab.className = "c-admin";
+    const bkTab = document.createElement("button"); bkTab.type = "button"; bkTab.id = "menu-backuprestore"; bkTab.className = "c-admin sub";
     bkTab.setAttribute("role", "menuitem"); bkTab.setAttribute("aria-haspopup", "true"); bkTab.setAttribute("aria-expanded", "false"); bkTab.textContent = "🗄 Backup/Restore ▸";
     m.appendChild(bkTab);
-    item("menu-backup-maken", "💾 Backup", "c-admin sub", ()=>makeManualBackup());
-    item("menu-backup-terugzetten", "⟳ Restore", "c-admin sub", ()=>{ if(!canRestore()){ denyRestore(); return; } cmd("btn-restore-backup")(); });
+    item("menu-backup-maken", "💾 Backup", "c-admin sub sub2", ()=>makeManualBackup());
+    item("menu-backup-terugzetten", "⟳ Restore", "c-admin sub sub2", ()=>{ if(!canRestore()){ denyRestore(); return; } cmd("btn-restore-backup")(); });
     const bkSubs = [m.querySelector("#menu-backup-maken"), m.querySelector("#menu-backup-terugzetten")]; bkSubs.forEach(x=>{ x.hidden = true; });
     bkTab.onclick = ()=>{ const open = bkTab.getAttribute("aria-expanded") !== "true"; bkTab.setAttribute("aria-expanded", String(open)); bkTab.textContent = "🗄 Backup/Restore " + (open ? "▾" : "▸"); bkSubs.forEach(x=>{ x.hidden = !open; }); };
+    const adminSubs = ["#menu-accounts", "#menu-boodschap", "#menu-backuprestore"].map(s=>m.querySelector(s)).filter(Boolean); adminSubs.forEach(x=>{ x.hidden = true; });
+    adminTab.onclick = ()=>{ const open = adminTab.getAttribute("aria-expanded") !== "true"; adminTab.setAttribute("aria-expanded", String(open)); adminTab.textContent = "⚙️ Admin " + (open ? "▾" : "▸"); adminSubs.forEach(x=>{ x.hidden = !open; }); if(!open){ bkSubs.forEach(x=>{ x.hidden = true; }); bkTab.setAttribute("aria-expanded", "false"); bkTab.textContent = bkTab.textContent.replace(/[▾▸]\s*$/, "▸"); } };   // inklappen sluit ook Backup/Restore
     if(!canRestore()){ const t = m.querySelector("#menu-backup-terugzetten"); t.setAttribute("aria-disabled", "true"); t.title = "Een backup terugzetten mag alleen " + RESTORE_GROUP; }
     if(!editUnlocked){   // Admin werkt alleen als bewerken aan staat: een klik op een onderdeel geeft eerst de vraag om bewerken aan te zetten (bewuste tussenstap)
       ["menu-accounts", "menu-boodschap", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{   // Audit, Status en Statistics zijn alleen kijken: zonder vraag
@@ -1317,7 +1322,7 @@ function openWhoMenu(){
         x.title = "Eerst volgt de vraag om bewerken aan te zetten";
       });
       const tab = m.querySelector("#menu-backuprestore");   // het tabblad zelf opent niets: eerst de vraag, dan het menu opnieuw met het tabblad uitgeklapt
-      if(tab) tab.onclick = async ()=>{ closeWhoMenu(); if(await requireUnlock({ admin: true })){ openWhoMenu(); const t = document.getElementById("menu-backuprestore"); if(t) t.click(); } };
+      if(tab) tab.onclick = async ()=>{ closeWhoMenu(); if(await requireUnlock({ admin: true })){ openWhoMenu(); const a = document.getElementById("menu-admin"); if(a) a.click(); const t = document.getElementById("menu-backuprestore"); if(t) t.click(); } };
     }
   }
   sep();
@@ -1740,7 +1745,6 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
   const BTN = "border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;";
   overlay.innerHTML = `<div style="background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:780px;max-width:98vw;font-family:'Courier New',monospace;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;padding-right:40px;"><div id="usr-titel" style="font-size:14px;font-weight:700;color:#80cbc4;"></div></div>
-    <div id="usr-tabs" style="display:none;gap:8px;margin:0 0 12px;flex-wrap:wrap;"></div>
     <div id="usr-hint" style="font-size:10px;color:#777;margin-bottom:12px;line-height:1.5;"></div>
     <div id="usr-list" style="font-size:12px;color:rgba(255,255,255,0.75);">Laden...</div>
     <div id="usr-msg" style="font-size:11px;min-height:16px;margin:12px 0 8px;"></div>
@@ -1770,78 +1774,20 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
       auditEvent("wachtwoord gereset: " + name); return true;
     }catch(e){ alert("Reset mislukt: " + e.message); return false; }
   };
-  const maakTabs = actief=>{   // twee tabbladen voor ICT-Systeembeheer en ICT-Management: Accounts en Groepen
-    const t = q("#usr-tabs"); t.innerHTML = ""; if(!beheer){ t.style.display = "none"; return; } t.style.display = "flex";
-    [["accounts", "👤 Accounts"], ["groepen", "👥 Groepen"]].forEach(([id, label])=>{
-      const aan = id === actief || (id === "accounts" && actief === "pagina"), b = document.createElement("button"); b.type = "button"; b.id = "usr-tab-" + id; b.textContent = label; b.setAttribute("aria-pressed", String(aan));
-      b.style.cssText = "border-radius:8px;padding:6px 14px;font-size:12px;font-family:inherit;cursor:pointer;border:1px solid " + (aan ? "rgba(128,203,196,0.6)" : "rgba(255,255,255,0.15)") + ";background:" + (aan ? "rgba(128,203,196,0.15)" : "transparent") + ";color:" + (aan ? "#80cbc4" : "#aaa") + ";font-weight:" + (aan ? "700" : "400") + ";";
-      b.onclick = ()=>{ if(id === actief) return; delete msg.dataset.keep; if(id === "groepen") renderGroepen(); else renderList(); };
-      t.appendChild(b);
-    });
+  const moves = ()=>[...list.querySelectorAll("select.usr-groep-sel")].map(s=>({ name: s.dataset.naam, from: curGroup(s.dataset.naam), to: s.value })).filter(m=>m.from !== m.to);   // wat er gewijzigd is: per account de oude en de nieuwe groep
+  const result = ms=>{ const g = {}; GROUP_NAMES.forEach(x=>{ g[x] = gcur.groups[x].slice(); }); ms.forEach(m=>{ GROUP_NAMES.forEach(x=>{ g[x] = g[x].filter(n=>n !== m.name); }); if(m.to) g[m.to].push(m.name); }); return g; };
+  const check = ()=>{   // 'Groepen opslaan' is er pas als er iets gewijzigd is en het mag: iedereen heeft een groep en ICT-Systeembeheer houdt minstens één lid
+    const save = q("#usr-groepen-opslaan"); if(!save) return;
+    const ms = moves(), zonder = [...list.querySelectorAll("select.usr-groep-sel")].filter(s=>!s.value).length; let bad = "";
+    if(zonder) bad = "Kies voor iedereen een groep (nog " + zonder + " zonder).";
+    else if(ms.length && result(ms)[GROUP_ADMIN].filter(n=>TEAM.includes(n)).length < 1) bad = GROUP_ADMIN + " moet minstens één lid houden.";
+    save.disabled = !ms.length || !!bad; save.style.opacity = save.disabled ? "0.5" : "";
+    if(bad) setMsg(bad, false); else if(!msg.dataset.keep) setMsg("");
   };
-  async function renderGroepen(melding){   // de groepen: per groep kies je de leden; een account zit in precies één groep (een account in een andere groep aanvinken verplaatst het); alleen een lid van ICT-Systeembeheer kan wijzigen
-    maakTabs("groepen"); q("#usr-titel").textContent = "👥 Groepen";
-    list.innerHTML = ""; acties.innerHTML = ""; setMsg("");
-    try{ const c = await groupsFetch(); applyGroups(c.groups); groupsSha = c.sha; groupsReady = true; groupsError = null; gcur = c; }
-    catch(e){ gcur = null; hint.textContent = ""; list.textContent = "De groepen konden niet worden opgehaald. Er kan nu niets worden aangepast."; return; }
-    const me = currentIdentity && currentIdentity.user, editable = !!(me && gcur.groups[GROUP_ADMIN].includes(me)), namen = loginNames();
-    hint.textContent = "Klap een groep open om de leden te kiezen. Een account zit in precies één groep: een account in een andere groep aanvinken verplaatst het." + (editable ? " Jezelf uit " + GROUP_ADMIN + " halen kan niet." : " Alleen een lid van " + GROUP_ADMIN + " kan de groepen aanpassen.");
-    const zonder0 = namen.filter(n=>!curGroup(n));
-    if(zonder0.length){ const z = document.createElement("div"); z.id = "usr-zonder-groep"; z.style.cssText = "font-size:11px;color:#ffcc80;margin:0 0 10px;"; z.textContent = "Zonder groep: " + zonder0.join(", ") + ". Vink ze aan bij een groep."; list.appendChild(z); }
-    const vakjes = {}; GROUP_NAMES.forEach(g=>{ vakjes[g] = {}; });
-    const tel = ()=>GROUP_NAMES.forEach(g=>{ const k = list.querySelector('.usr-kaart[data-groep="' + g + '"] .usr-n'); if(k){ const leden = Object.keys(vakjes[g]).filter(n=>vakjes[g][n].checked), aantal = leden.length; k.textContent = String(aantal); const e = k.parentElement.querySelector(".usr-eenh"); if(e) e.textContent = aantal === 1 ? "lid" : "leden"; const t = list.querySelector('.usr-kaart[data-groep="' + g + '"] .usr-leden-tekst'); if(t) t.textContent = leden.join(", ") || "Geen leden"; } });
-    const moves = ()=>namen.map(n=>({ name: n, from: curGroup(n), to: GROUP_NAMES.find(g=>vakjes[g][n].checked) || "" })).filter(m=>m.from !== m.to);
-    const check = ()=>{
-      const save = q("#usr-groepen-opslaan"); if(!save) return;
-      const ms = moves(), zonder = namen.filter(n=>!GROUP_NAMES.some(g=>vakjes[g][n].checked)).length; let bad = "";
-      if(zonder) bad = "Kies voor iedereen een groep (nog " + zonder + " zonder).";
-      else if(ms.length){ const g2 = {}; GROUP_NAMES.forEach(x=>{ g2[x] = gcur.groups[x].slice(); }); ms.forEach(m=>{ GROUP_NAMES.forEach(x=>{ g2[x] = g2[x].filter(n=>n !== m.name); }); if(m.to) g2[m.to].push(m.name); }); if(g2[GROUP_ADMIN].filter(n=>TEAM.includes(n)).length < 1) bad = GROUP_ADMIN + " moet minstens één lid houden."; }
-      save.disabled = !ms.length || !!bad; save.style.opacity = save.disabled ? "0.5" : "";
-      if(bad) setMsg(bad, false); else if(!msg.dataset.keep) setMsg("");
-    };
-    const zetOpen = (g, aan)=>{ GROUP_NAMES.forEach(x=>{ const k = list.querySelector('.usr-kaart[data-groep="' + x + '"]'); if(!k) return; const w = aan && x === g; k.querySelector(".usr-pull").setAttribute("aria-expanded", String(w)); k.querySelector(".usr-pull-paneel").style.display = w ? "grid" : "none"; k.querySelector(".usr-pijl").textContent = w ? "▴" : "▾"; }); };   // één pulldown tegelijk open
-    GROUP_NAMES.forEach(g=>{   // per groep een pulldown: de knop toont de groep en het aantal leden, het uitklapmenu laat per account kiezen of hij lid is
-      const kaart = document.createElement("div"); kaart.className = "usr-kaart"; kaart.dataset.groep = g;
-      const kop = document.createElement("button"); kop.type = "button"; kop.className = "usr-pull"; kop.setAttribute("aria-expanded", "false"); kop.setAttribute("aria-controls", "usr-paneel-" + g.replace(/[^A-Za-z]/g, ""));
-      kop.style.cssText = "display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;background:transparent;border:0;padding:0;cursor:pointer;font-family:inherit;text-align:left;color:inherit;";
-      const gn = document.createElement("span"); gn.className = "usr-gnaam"; gn.style.cssText = "font-size:12px;font-weight:700;color:#80cbc4;"; gn.textContent = g;
-      const rechts = document.createElement("span"); rechts.style.cssText = "font-size:11px;color:#aaa;display:inline-flex;align-items:center;gap:6px;"; const n0 = document.createElement("span"); n0.className = "usr-n"; const eh = document.createElement("span"); eh.className = "usr-eenh"; const pijl = document.createElement("span"); pijl.className = "usr-pijl"; pijl.textContent = "▾"; pijl.style.cssText = "font-size:12px;color:#80cbc4;"; rechts.append(n0, " ", eh, " ", pijl); kop.append(gn, rechts);
-      const tekst = document.createElement("div"); tekst.className = "usr-leden-tekst"; tekst.style.cssText = "font-size:11px;color:#aaa;margin-top:6px;line-height:1.5;";
-      const paneel = document.createElement("div"); paneel.className = "usr-leden usr-pull-paneel"; paneel.id = "usr-paneel-" + g.replace(/[^A-Za-z]/g, ""); paneel.style.display = "none"; paneel.setAttribute("role", "group"); paneel.setAttribute("aria-label", "Leden van " + g);
-      namen.forEach(n=>{
-        const vast = !editable || (n === me && curGroup(me) === GROUP_ADMIN);   // jezelf uit ICT-Systeembeheer halen kan niet
-        const lbl = document.createElement("label"), inp = document.createElement("input"), sp = document.createElement("span");
-        lbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:12px;color:" + (vast ? "#888" : "#ddd") + ";cursor:" + (vast ? "not-allowed" : "pointer") + ";";
-        inp.type = "checkbox"; inp.className = "usr-lid-vink"; inp.dataset.groep = g; inp.dataset.naam = n; inp.checked = curGroup(n) === g; inp.disabled = vast; inp.style.cssText = "width:17px;height:17px;margin:0;accent-color:#80cbc4;cursor:inherit;";
-        sp.textContent = n + (n === me ? " (jij)" : ""); lbl.title = vast ? (editable ? "Jezelf uit " + GROUP_ADMIN + " halen kan niet; vraag een collega." : "Alleen een lid van " + GROUP_ADMIN + " kan de groepen aanpassen.") : "";
-        inp.onchange = ()=>{
-          if(!inp.checked){ inp.checked = true; return; }   // een account zit altijd in een groep: je vinkt hem bij een andere groep aan, je zet hem hier niet uit
-          GROUP_NAMES.forEach(x=>{ if(x !== g) vakjes[x][n].checked = false; });
-          delete msg.dataset.keep; tel(); check();
-        };
-        vakjes[g][n] = inp; lbl.append(inp, sp); paneel.appendChild(lbl);
-      });
-      kop.onclick = ()=>zetOpen(g, kop.getAttribute("aria-expanded") !== "true");
-      kaart.append(kop, tekst, paneel); list.appendChild(kaart);
-    });
-    tel();
-    if(editable){
-      const save = document.createElement("button"); save.id = "usr-groepen-opslaan"; save.textContent = "Groepen opslaan";
-      save.style.cssText = "background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;" + BTN; save.disabled = true; save.style.opacity = "0.5";
-      save.onclick = async ()=>{
-        const ms = moves(); if(!ms.length) return; save.disabled = true; setMsg("Opslaan...", true);
-        let res; try{ res = await groepenOpslaan(ms); }catch(e){ res = { error: "Opslaan mislukt (" + ((e && e.message) || e) + "). Probeer het opnieuw." }; }
-        msg.dataset.keep = "1"; await renderGroepen(res.error ? { t: res.error, ok: false } : { t: "✓ Opgeslagen", ok: true });
-      };
-      acties.appendChild(save); check();
-    }
-    if(melding) setMsg(melding.t, melding.ok);
-  }
   async function renderAccount(name, melding){   // de pagina van één werknemer: groep, wachtwoord, werkweek, boodschap-instellingen en zichtbaarheid; ICT-Systeembeheer wijzigt van iedereen, iedere andere gebruiker alleen zijn eigen gegevens
     let reg; try{ reg = await usersLoad(); }catch(e){ list.textContent = "Laden mislukt: " + e.message; return; }
     try{ const c = await groupsFetch(); applyGroups(c.groups); groupsSha = c.sha; groupsReady = true; groupsError = null; gcur = c; }catch(e){ gcur = null; }
     try{ applySettings(await settingsFetch()); }catch(e){}   // de nieuwste boodschap-instellingen
-    maakTabs("pagina");
     const me = currentIdentity && currentIdentity.user, mij = me === name, isTeam = TEAM.includes(name), isLogin = loginNames().includes(name), rec = reg.users[name];
     const adminNu = !!(gcur && me && gcur.groups[GROUP_ADMIN].includes(me)), mag = adminNu;   // adminNu: ICT-Systeembeheer volgens de nieuwste indeling; de boodschap-instellingen wijzigt alleen ICT-Systeembeheer
     q("#usr-titel").textContent = (!beheer && mij) ? "👤 Mijn account" : "👤 Account van " + name + (mij ? " (jij)" : "");
@@ -1903,13 +1849,14 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
     if(melding) setMsg(melding.t, melding.ok);
   }
   async function renderList(){
-    maakTabs("accounts"); q("#usr-titel").textContent = beheer ? "👤 Accounts" : "👤 Mijn account";
+    q("#usr-titel").textContent = beheer ? "👤 Accounts" : "👤 Mijn account";
     let reg; try{ reg = await usersLoad(); }catch(e){ list.textContent = "Laden mislukt: " + e.message; return; }
     try{ const c = await groupsFetch(); applyGroups(c.groups); groupsSha = c.sha; groupsReady = true; groupsError = null; gcur = c; }catch(e){ gcur = null; }   // lukt het ophalen niet, dan blijft de laatst bekende indeling gelden (en is er niets te wijzigen)
-    const me = currentIdentity && currentIdentity.user, canReset = canResetPasswords();
+    const me = currentIdentity && currentIdentity.user, canReset = canResetPasswords(), editable = !!(beheer && gcur && me && gcur.groups[GROUP_ADMIN].includes(me));
     hint.textContent = beheer
       ? "Alle accounts met hun groep, eigen wachtwoord en werkweek. Vink 'Eigen wachtwoord' uit om het te resetten: die persoon kiest dan opnieuw een eigen wachtwoord, met het startwachtwoord." + (canReset ? "" : (groupsReady ? " Alleen leden van " + GROUP_ADMIN + " kunnen een reset doen." : " De groepen zijn nog niet opgehaald, dus resetten kan nu niet."))
       : "Je eigen account: je groep, je wachtwoord en je eigen werkweek.";
+    if(beheer && editable) hint.textContent += " Kies de groep van een account met de pulldown en bewaar met 'Groepen opslaan'.";
     list.innerHTML = ""; acties.innerHTML = "";
     const kop = document.createElement("div"); kop.className = "usr-kop"; kop.style.cssText = "padding:4px 4px 6px;border-bottom:1px solid rgba(255,255,255,0.15);font-size:10px;font-weight:700;color:#999;";
     ["Account", "Groep", "Eigen wachtwoord", ""].forEach(t=>{ const c = document.createElement("div"); c.textContent = t; kop.appendChild(c); }); list.appendChild(kop);
@@ -1921,7 +1868,18 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
       const nm = document.createElement("span"); nm.className = "usr-naam"; nm.style.cssText = "color:#fff;cursor:pointer;text-decoration:underline dotted rgba(255,255,255,0.35);text-underline-offset:3px;"; nm.textContent = name + (TEAM.includes(name) ? "" : (EXTRA_LOGINS.includes(name) ? " (geen teamlid)" : " (niet in team)")) + (mij ? " (jij)" : "");
       nm.setAttribute("role", "button"); nm.tabIndex = 0; nm.title = "Alle gegevens van " + name; nm.onclick = ()=>renderAccount(name); nm.onkeydown = e=>{ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); renderAccount(name); } };   // de pagina van deze werknemer
       row.appendChild(nm);
-      const gr = document.createElement("span"); gr.className = "usr-groep"; gr.style.cssText = "font-size:12px;color:rgba(255,255,255,0.7);"; gr.textContent = isLogin ? (groupsReady ? (curGroup(name) || "—") : "…") : ""; row.appendChild(gr);   // de groep staat hier alleen als tekst: de leden kies je bij Groepen
+      const gr = document.createElement("span"); gr.className = "usr-groep"; gr.style.cssText = "font-size:12px;color:rgba(255,255,255,0.7);";
+      if(editable && isLogin){   // ICT-Systeembeheer kiest de groep van een account met een pulldown
+        const s = document.createElement("select"); s.className = "usr-groep-sel"; s.dataset.naam = name; s.setAttribute("aria-label", "Groep van " + name);
+        s.style.cssText = "background:#1a1a2e;border:1px solid rgba(255,255,255,0.15);color:#eee;border-radius:8px;padding:4px 6px;font-family:inherit;font-size:11px;max-width:100%;";
+        if(!curGroup(name)){ const ph = document.createElement("option"); ph.value = ""; ph.disabled = true; ph.textContent = "— kies een groep —"; s.appendChild(ph); }
+        GROUP_NAMES.forEach(g=>{ const o = document.createElement("option"); o.value = g; o.textContent = g; s.appendChild(o); });
+        s.value = curGroup(name);
+        if(mij && curGroup(name) === GROUP_ADMIN){ s.disabled = true; s.title = "Jezelf uit " + GROUP_ADMIN + " halen kan niet; vraag een collega."; }   // niet jezelf buitensluiten
+        s.onchange = ()=>{ delete msg.dataset.keep; check(); };
+        gr.appendChild(s);
+      } else gr.textContent = isLogin ? (groupsReady ? (curGroup(name) || "—") : "…") : "";
+      row.appendChild(gr);
       const pwTitel = rec ? "Eigen wachtwoord sinds " + fmt(rec.set) + (canReset && !mij ? ". Uitvinken zet het terug naar het startwachtwoord." : "") : "Nog geen eigen wachtwoord: het startwachtwoord geldt.";
       const [pwCel, pw] = vinkCel("usr-p", "Eigen wachtwoord van " + name, !!rec, !(rec && canReset && !mij), pwTitel, "Eigen wachtwoord" + (rec ? " sinds " + fmt(rec.set).slice(0, 10) : " (nog niet)"));
       pw.className = "usr-pw"; pw.dataset.naam = name;
@@ -1942,8 +1900,19 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
       const alle = document.createElement("button"); alle.type = "button"; alle.id = "usr-alle-standaard"; alle.textContent = "Alle werkweken";
       alle.style.cssText = "background:rgba(96,176,255,0.12);border:1px solid rgba(96,176,255,0.4);color:#60b0ff;" + BTN; alle.onclick = ()=>openStandaard(null); acties.appendChild(alle);
     }
+    if(editable){
+      const save = document.createElement("button"); save.id = "usr-groepen-opslaan"; save.textContent = "Groepen opslaan";
+      save.style.cssText = "background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;" + BTN; save.disabled = true; save.style.opacity = "0.5";
+      save.onclick = async ()=>{
+        const ms = moves(); if(!ms.length) return; save.disabled = true; setMsg("Opslaan...", true);
+        let res; try{ res = await groepenOpslaan(ms); }catch(e){ res = { error: "Opslaan mislukt (" + ((e && e.message) || e) + "). Probeer het opnieuw." }; }
+        msg.dataset.keep = "1"; await renderList(); if(res.error) setMsg(res.error, false); else setMsg("✓ Opgeslagen", true);
+      };
+      acties.appendChild(save);
+    }
+    check();
   }
-  if(beheer){ if(start === "groepen") renderGroepen(); else renderList(); } else renderAccount(currentIdentity.user);   // wie geen Admin heeft opent direct zijn eigen pagina
+  if(beheer) renderList(); else renderAccount(currentIdentity.user);   // wie geen Admin heeft opent direct zijn eigen pagina
 }
 
 
