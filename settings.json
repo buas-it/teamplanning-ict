@@ -25,21 +25,7 @@
   "by": "Hans",
   "at": "2026-10-27T14:38:55.317Z"
  },
- "persoonlijk": {
-  "__algemeen__": [
-   {
-    "id": "m5c75a03",
-    "t": "Hoi Frederique, welkom weer “thuis”",
-    "van": null,
-    "tot": null,
-    "jaarlijks": null,
-    "doel": null,
-    "emoji": null,
-    "by": "Hans",
-    "at": "2026-10-27T14:39:27.222Z"
-   }
-  ]
- },
+ "persoonlijk": {},
  "campus": {},
  "verjaardagen": false
 }
