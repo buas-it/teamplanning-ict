@@ -232,7 +232,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 28 okt 2026 · 137</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 28 okt 2026 · 138</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -5617,20 +5617,19 @@ setInterval(()=>{ sessionStorage.setItem('tp_baseMonday',baseMonday.getTime()); 
     const t = e.touches[0]; let mx = maxL(); if(mx > 4) mxLaatst = mx; else mx = mxLaatst;   // terwijl het rooster net wordt opgebouwd is de breedte even 0: dan geldt de laatst bekende
     if(!(mx > 4 && t.clientX > 24 && t.clientX < (window.innerWidth - 24) && uitleg(e.target))) return;   // alleen als het rooster zijwaarts scrolt (smal scherm); niet vanaf de schermrand (terug-gebaar van iOS)
     if(performance.now() > animEind && maxL() > 4) pos = (w.scrollLeft >= mx - 3) ? 1 : 0;   // geen schuifbeweging bezig: lees de echte stand; anders geldt het doel van de vorige veeg
-    anim++;   // een lopende schuifbeweging stopt zodra je weer aanraakt
-    st = { x: t.clientX, y: t.clientY, s0: w.scrollLeft, pos0: pos, mode: null, mx: mx, lx: t.clientX, lt: performance.now(), px: t.clientX, pt: performance.now() };
+    st = { x: t.clientX, y: t.clientY, s0: w.scrollLeft, pos0: pos, mode: null, mx: mx, lx: t.clientX, lt: performance.now(), px: t.clientX, pt: performance.now(), cur: w.scrollLeft, glijdt: performance.now() < animEind };   // een tik breekt de lopende beweging niet af; pas een echte veeg neemt het over
   }, { passive:true, capture:true });
   document.addEventListener("touchmove", e=>{
     if(!st || !e.touches || !e.touches[0]) return;
     const t = e.touches[0], dx = t.clientX - st.x, dy = t.clientY - st.y, nu = performance.now();
-    if(st.mode === null){ if(Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) st.mode = "h"; else if(Math.abs(dy) > 8) st.mode = "v"; }
+    if(st.mode === null){ if(Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2){ st.mode = "h"; anim++; if(st.glijdt){ st.s0 = w.scrollLeft; st.x = t.clientX; st.y = t.clientY; st.px = st.lx = t.clientX; st.pt = st.lt = nu; return; } } else if(Math.abs(dy) > 8) st.mode = "v"; }   // de vinger neemt het over (een lopende beweging stopt); liep er nog een beweging, dan telt de vinger vanaf dit punt, anders vanaf het begin van de aanraking
     if(st.mode !== "h") return;
     st.px = st.lx; st.pt = st.lt; st.lx = t.clientX; st.lt = nu;
-    w.scrollLeft = Math.max(0, Math.min(st.mx, st.s0 - dx));   // de vinger naar links = het rooster naar links; aan de randen blijft het staan
+    st.cur = Math.max(0, Math.min(st.mx, st.s0 - dx)); w.scrollLeft = st.cur;   // de vinger naar links = het rooster naar links; aan de randen blijft het staan
   }, { passive:true, capture:true });
   const klaar = e=>{
     if(!st) return; const g = st; st = null;
-    if(g.mode !== "h") return;
+    if(g.mode !== "h"){ settle(); return; }
     const t = (e.changedTouches && e.changedTouches[0]); const ex = t ? t.clientX : g.lx, dx = ex - g.x;
     const dt = Math.max(8, g.lt - g.pt), v = (g.lx - g.px) / dt;   // snelheid van de laatste beweging (px per ms)
     const voor = dx < 0, wil = Math.abs(dx) >= 50 || (Math.abs(v) >= 0.5 && Math.abs(dx) >= 35);   // een veeg van 50 px, of een korte snelle veeg (flick) van minstens 35 px
@@ -5638,6 +5637,18 @@ setInterval(()=>{ sessionStorage.setItem('tp_baseMonday',baseMonday.getTime()); 
     if(voor){ if(g.pos0 === 0){ pos = 1; schuifNaar(g.mx, 240); } else naarWeek(+1); }         // naar links: de andere week van het paar, of een week verder
     else    { if(g.pos0 === 1){ pos = 0; schuifNaar(0, 240); } else naarWeek(-1); }            // naar rechts: de andere week van het paar, of een week terug
   };
+  function settle(){   // staat het rooster stil halverwege twee weken, dan naar de week waar je naartoe wilde
+    const mx = maxL(); if(mx <= 4 || st || performance.now() < animEind) return;
+    const s = w.scrollLeft; if(s <= 2){ pos = 0; return; } if(s >= mx - 2){ pos = 1; return; }
+    schuifNaar(pos ? mx : 0, 180);
+  }
+  setInterval(()=>{ if(st && st.mode === "h" && performance.now() - st.lt > 450) klaar({}); else settle(); }, 150);   // waakhond: gaat het loslaten verloren (de aanraking verdwijnt, bijvoorbeeld door een nieuwe weergave), dan wordt de veeg na een halve seconde afgerond
+  try{ const grid = document.getElementById("main-grid"); if(grid) new MutationObserver(()=>{   // na elke herbouw van het rooster (verversen, week wisselen) komt het scherm weer op de goede plek
+    if(maxL() <= 4) return;
+    if(st && st.mode === "h"){ w.scrollLeft = st.cur; return; }
+    if(performance.now() < animEind) return;
+    w.scrollLeft = pos ? maxL() : 0;
+  }).observe(grid, { childList: true }); }catch(e){}
   document.addEventListener("touchend", klaar, { passive:true, capture:true });
   document.addEventListener("touchcancel", klaar, { passive:true, capture:true });
 }catch(e){} })();
