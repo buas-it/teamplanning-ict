@@ -194,7 +194,6 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
   .usr-cel { justify-content:flex-start; } .usr-cap { display:inline; }
   .usr-leden { grid-template-columns:repeat(2,1fr); }
 }
-.sw-anim .week-panel, .sw-anim .divider { transition:transform .18s ease-out, opacity .18s ease-out; }   /* korte overgang bij het wisselen van week (swipe) */
 </style>
 </head>
 <body>
@@ -233,7 +232,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 28 okt 2026 · 136</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 28 okt 2026 · 137</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -5587,14 +5586,13 @@ setInterval(()=>{ sessionStorage.setItem('tp_baseMonday',baseMonday.getTime()); 
 // de namenkolom blijft zichtbaar bij zijwaarts scrollen: de klasse 'gescrold' geeft de kolom pas een dekkende achtergrond als er echt is gescrold
 (function(){ try{ const w = document.querySelector(".scroll-wrap"); if(!w) return; const f = ()=>w.classList.toggle("gescrold", w.scrollLeft > 2); w.addEventListener("scroll", f, { passive:true }); window.addEventListener("resize", f); f(); }catch(e){} })();
 // Swipe door de weken (telefoon): het rooster volgt je vinger. Veeg naar links voor de volgende week en naar rechts voor de vorige; vanaf de hele pagina, maar niet in een venster, een menu of een keuzelijst.
-// Het rooster toont twee weken naast elkaar: de eerste veeg schuift naar de andere week van het paar, de volgende veeg gaat een hele week verder (of terug), met een korte schuifbeweging.
+// Het rooster toont twee weken naast elkaar: de eerste veeg schuift naar de andere week van het paar, de volgende veeg gaat een hele week verder (of terug).
 // De browser scrolt zijwaarts niet zelf (touch-action: pan-y) en klikt ook niet vast: de pagina volgt de vinger en bepaalt na het loslaten zelf waar het scherm blijft, op elke telefoon op dezelfde manier.
+// Er wordt bewust niets vervaagd of verschoven met animaties: de weekblokken zijn groot en een telefoon tekent die tijdens een animatie traag (dan blijft een deel even leeg).
 (function(){ try{
   const w = document.querySelector(".scroll-wrap"); if(!w) return;
-  const maxL = ()=>{ const g = document.getElementById("main-grid"); return (g ? g.offsetWidth : w.scrollWidth) - w.clientWidth; };   // uit de breedte van het rooster zelf: een tijdelijke schuifbeweging van de weken telt niet mee
+  const maxL = ()=>{ const g = document.getElementById("main-grid"); return (g ? g.offsetWidth : w.scrollWidth) - w.clientWidth; };   // uit de breedte van het rooster zelf
   let st = null, pos = 0, anim = 0, animEind = 0, mxLaatst = 0;   // pos: 0 = eerste week van het paar in beeld (of onderweg), 1 = tweede week
-  const panelen = ()=> Array.from(w.querySelectorAll(".week-panel, .divider"));
-  const zetPan = (px, op)=>{ panelen().forEach(el=>{ el.style.transform = px ? "translateX(" + px + "px)" : ""; el.style.opacity = (op == null) ? "" : op; }); };
   const uitleg = el=>{   // niet in een venster, menu, keuzelijst of invoerveld
     if(document.getElementById("who-menu") || document.querySelector(".popup")) return false;   // zolang een menu of keuzelijst open staat, is een veeg geen weekwissel
     for(let n = el; n && n !== document.documentElement; n = n.parentElement){
@@ -5608,17 +5606,11 @@ setInterval(()=>{ sessionStorage.setItem('tp_baseMonday',baseMonday.getTime()); 
     const van = w.scrollLeft, t0 = performance.now(), id = ++anim; animEind = t0 + ms;
     (function stap(nu){ if(id !== anim) return; const p = Math.min(1, Math.max(0, (nu - t0) / ms)); w.scrollLeft = van + (doel - van) * ease(p); if(p < 1) requestAnimationFrame(stap); })(t0 + 1);
   }
-  function naarWeek(r){   // een hele week verder (+1) of terug (-1): de weken schuiven uit beeld, de nieuwe week schuift erin
+  function naarWeek(r){   // een hele week verder (+1) of terug (-1)
     const knop = document.getElementById(r > 0 ? "btn-next1" : "btn-prev1"); if(!knop) return;
-    document.body.classList.add("sw-anim"); zetPan(r > 0 ? -80 : 80, 0);
-    setTimeout(()=>{
-      document.body.classList.remove("sw-anim"); knop.click();   // de nieuwe weken worden opgebouwd
-      const zet = ()=>{ w.scrollLeft = r > 0 ? maxL() : 0; };    // de nieuwe week blijft in beeld: bij vooruit de tweede, bij terug de eerste
-      zet(); pos = r > 0 ? 1 : 0; animEind = 0;
-      zetPan(r > 0 ? 80 : -80, 0); void w.offsetWidth;            // de nieuwe weken beginnen net buiten beeld
-      document.body.classList.add("sw-anim"); zetPan(0, null);
-      requestAnimationFrame(zet); setTimeout(()=>{ document.body.classList.remove("sw-anim"); zet(); }, 220);
-    }, 150);
+    anim++; knop.click();   // de nieuwe weken worden opgebouwd
+    const zet = ()=>{ w.scrollLeft = r > 0 ? maxL() : 0; };   // de nieuwe week blijft in beeld: bij vooruit de tweede, bij terug de eerste
+    pos = r > 0 ? 1 : 0; animEind = 0; zet(); requestAnimationFrame(zet); setTimeout(zet, 80); setTimeout(zet, 250);   // ook als het opbouwen even duurt
   }
   document.addEventListener("touchstart", e=>{
     st = null; if(!e.touches || e.touches.length !== 1) return;
@@ -5634,10 +5626,7 @@ setInterval(()=>{ sessionStorage.setItem('tp_baseMonday',baseMonday.getTime()); 
     if(st.mode === null){ if(Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) st.mode = "h"; else if(Math.abs(dy) > 8) st.mode = "v"; }
     if(st.mode !== "h") return;
     st.px = st.lx; st.pt = st.lt; st.lx = t.clientX; st.lt = nu;
-    const s = st.s0 - dx;   // de vinger naar links = het rooster naar links = verder scrollen
-    if(s < 0){ w.scrollLeft = 0; zetPan(Math.min(60, -s * 0.4), null); st.rubber = true; }                       // voorbij de eerste week: lichte tegenbeweging
-    else if(s > st.mx){ w.scrollLeft = st.mx; zetPan(-Math.min(60, (s - st.mx) * 0.4), null); st.rubber = true; } // voorbij de tweede week
-    else { w.scrollLeft = s; if(st.rubber){ zetPan(0, null); st.rubber = false; } }
+    w.scrollLeft = Math.max(0, Math.min(st.mx, st.s0 - dx));   // de vinger naar links = het rooster naar links; aan de randen blijft het staan
   }, { passive:true, capture:true });
   const klaar = e=>{
     if(!st) return; const g = st; st = null;
@@ -5645,7 +5634,6 @@ setInterval(()=>{ sessionStorage.setItem('tp_baseMonday',baseMonday.getTime()); 
     const t = (e.changedTouches && e.changedTouches[0]); const ex = t ? t.clientX : g.lx, dx = ex - g.x;
     const dt = Math.max(8, g.lt - g.pt), v = (g.lx - g.px) / dt;   // snelheid van de laatste beweging (px per ms)
     const voor = dx < 0, wil = Math.abs(dx) >= 50 || (Math.abs(v) >= 0.5 && Math.abs(dx) >= 35);   // een veeg van 50 px, of een korte snelle veeg (flick) van minstens 35 px
-    document.body.classList.add("sw-anim"); zetPan(0, null); setTimeout(()=>document.body.classList.remove("sw-anim"), 220);
     if(!wil){ schuifNaar(g.pos0 ? g.mx : 0, 200); pos = g.pos0; return; }                      // te kort: terug naar waar je was
     if(voor){ if(g.pos0 === 0){ pos = 1; schuifNaar(g.mx, 240); } else naarWeek(+1); }         // naar links: de andere week van het paar, of een week verder
     else    { if(g.pos0 === 1){ pos = 0; schuifNaar(0, 240); } else naarWeek(-1); }            // naar rechts: de andere week van het paar, of een week terug
