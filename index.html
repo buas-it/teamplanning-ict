@@ -21,8 +21,7 @@ button { font-family:inherit; cursor:pointer; }
 .scroll-wrap { overflow-x:auto; scroll-snap-type:x mandatory; scroll-padding-left:131px; -webkit-overflow-scrolling:touch; }   /* smal scherm: het scherm klikt vast op een week, direct rechts van de namen (nooit half onder de namen) */
 .grid-layout { min-width:640px; max-width:1100px; margin:0 auto; display:flex; gap:10px; }
 .name-col { width:110px; flex-shrink:0; position:sticky; left:0; z-index:12; }   /* bij zijwaarts scrollen (smal scherm) blijft de kolom met de namen links staan, boven het gele kader van vandaag (laag 10) */
-@media (max-width:640px) { .scroll-wrap { touch-action:pan-y; scroll-snap-type:none; }   /* zijwaarts vegen regelt de pagina zelf (zelfde gedrag op elke telefoon); de browser doet alleen het verticale scrollen */
-  #main-grid { min-width:0; width:max-content; } #main-grid .week-panel { flex:0 0 calc(100vw - 163px); } }   /* smal scherm: elke week is precies zo breed als er naast de namen past (scherm min 2x16 marge, de namenkolom en de tussenruimte), zodat bij het vastklikken geen strookje van de andere week overblijft */
+@media (max-width:640px) { #main-grid { min-width:0; width:max-content; } #main-grid .week-panel { flex:0 0 calc(100vw - 163px); } }   /* smal scherm: elke week is precies zo breed als er naast de namen past (scherm min 2x16 marge, de namenkolom en de tussenruimte), zodat bij het vastklikken geen strookje van de andere week overblijft */
 .scroll-wrap.gescrold .name-col { background:linear-gradient(180deg,#0f111e 0%,#111521 50%,#121826 100%); box-shadow:1px 0 0 rgba(255,255,255,0.06), 5px 0 8px -4px rgba(0,0,0,0.5); }   /* alleen zolang er is gescrold: dekkend (kleur van de pagina), zodat de weken er netjes onderdoor schuiven; zonder scrollen blijft alles zoals het was */
 .name-spacer { height:86px; }
 .name-row { height:38px; margin-bottom:3px; display:flex; align-items:center; gap:7px; padding:2px 4px; border-radius:6px; }
@@ -232,7 +231,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 28 okt 2026 · 138</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 28 okt 2026 · 134</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -5585,15 +5584,12 @@ setInterval(()=>{ sessionStorage.setItem('tp_baseMonday',baseMonday.getTime()); 
 <script>
 // de namenkolom blijft zichtbaar bij zijwaarts scrollen: de klasse 'gescrold' geeft de kolom pas een dekkende achtergrond als er echt is gescrold
 (function(){ try{ const w = document.querySelector(".scroll-wrap"); if(!w) return; const f = ()=>w.classList.toggle("gescrold", w.scrollLeft > 2); w.addEventListener("scroll", f, { passive:true }); window.addEventListener("resize", f); f(); }catch(e){} })();
-// Swipe door de weken (telefoon): het rooster volgt je vinger. Veeg naar links voor de volgende week en naar rechts voor de vorige; vanaf de hele pagina, maar niet in een venster, een menu of een keuzelijst.
-// Het rooster toont twee weken naast elkaar: de eerste veeg schuift naar de andere week van het paar, de volgende veeg gaat een hele week verder (of terug).
-// De browser scrolt zijwaarts niet zelf (touch-action: pan-y) en klikt ook niet vast: de pagina volgt de vinger en bepaalt na het loslaten zelf waar het scherm blijft, op elke telefoon op dezelfde manier.
-// Er wordt bewust niets vervaagd of verschoven met animaties: de weekblokken zijn groot en een telefoon tekent die tijdens een animatie traag (dan blijft een deel even leeg).
+// Swipe door de weken (telefoon): veeg naar links voor de volgende week en naar rechts voor de vorige. Dat werkt vanaf de hele pagina (titel, pijltjesbalk, rooster, legenda), maar niet in een venster, een menu of een keuzelijst.
+// Op het rooster zelf schuift een veeg eerst naar de andere week van de twee die in beeld staan; pas daarna (of als je buiten het rooster veegt) gaat het een hele week verder.
 (function(){ try{
   const w = document.querySelector(".scroll-wrap"); if(!w) return;
-  const maxL = ()=>{ const g = document.getElementById("main-grid"); return (g ? g.offsetWidth : w.scrollWidth) - w.clientWidth; };   // uit de breedte van het rooster zelf
-  let st = null, pos = 0, anim = 0, animEind = 0, mxLaatst = 0;   // pos: 0 = eerste week van het paar in beeld (of onderweg), 1 = tweede week
-  const uitleg = el=>{   // niet in een venster, menu, keuzelijst of invoerveld
+  let sx = 0, sy = 0, lx = 0, ly = 0, s0 = 0, max0 = 0, binnenRooster = false, actief = false;
+  const toegestaan = el=>{   // niet in een venster, menu, keuzelijst of invoerveld
     if(document.getElementById("who-menu") || document.querySelector(".popup")) return false;   // zolang een menu of keuzelijst open staat, is een veeg geen weekwissel
     for(let n = el; n && n !== document.documentElement; n = n.parentElement){
       if(n.nodeType !== 1) continue;
@@ -5601,56 +5597,33 @@ setInterval(()=>{ sessionStorage.setItem('tp_baseMonday',baseMonday.getTime()); 
       if(getComputedStyle(n).position === "fixed") return false;
     } return true;
   };
-  const ease = t=> 1 - Math.pow(1 - t, 3);
-  function schuifNaar(doel, ms){   // vloeiend naar een positie van het paar (0 of het maximum)
-    const van = w.scrollLeft, t0 = performance.now(), id = ++anim; animEind = t0 + ms;
-    (function stap(nu){ if(id !== anim) return; const p = Math.min(1, Math.max(0, (nu - t0) / ms)); w.scrollLeft = van + (doel - van) * ease(p); if(p < 1) requestAnimationFrame(stap); })(t0 + 1);
-  }
-  function naarWeek(r){   // een hele week verder (+1) of terug (-1)
-    const knop = document.getElementById(r > 0 ? "btn-next1" : "btn-prev1"); if(!knop) return;
-    anim++; knop.click();   // de nieuwe weken worden opgebouwd
-    const zet = ()=>{ w.scrollLeft = r > 0 ? maxL() : 0; };   // de nieuwe week blijft in beeld: bij vooruit de tweede, bij terug de eerste
-    pos = r > 0 ? 1 : 0; animEind = 0; zet(); requestAnimationFrame(zet); setTimeout(zet, 80); setTimeout(zet, 250);   // ook als het opbouwen even duurt
-  }
   document.addEventListener("touchstart", e=>{
-    st = null; if(!e.touches || e.touches.length !== 1) return;
-    const t = e.touches[0]; let mx = maxL(); if(mx > 4) mxLaatst = mx; else mx = mxLaatst;   // terwijl het rooster net wordt opgebouwd is de breedte even 0: dan geldt de laatst bekende
-    if(!(mx > 4 && t.clientX > 24 && t.clientX < (window.innerWidth - 24) && uitleg(e.target))) return;   // alleen als het rooster zijwaarts scrolt (smal scherm); niet vanaf de schermrand (terug-gebaar van iOS)
-    if(performance.now() > animEind && maxL() > 4) pos = (w.scrollLeft >= mx - 3) ? 1 : 0;   // geen schuifbeweging bezig: lees de echte stand; anders geldt het doel van de vorige veeg
-    st = { x: t.clientX, y: t.clientY, s0: w.scrollLeft, pos0: pos, mode: null, mx: mx, lx: t.clientX, lt: performance.now(), px: t.clientX, pt: performance.now(), cur: w.scrollLeft, glijdt: performance.now() < animEind };   // een tik breekt de lopende beweging niet af; pas een echte veeg neemt het over
+    actief = false; if(!e.touches || e.touches.length !== 1) return;
+    const t = e.touches[0]; sx = lx = t.clientX; sy = ly = t.clientY; s0 = w.scrollLeft; max0 = w.scrollWidth - w.clientWidth;
+    binnenRooster = w.contains(e.target);
+    actief = max0 > 4 && sx > 24 && sx < (window.innerWidth - 24) && toegestaan(e.target);   // alleen als het rooster zijwaarts scrolt (smal scherm); niet vanaf de schermrand (terug-gebaar van iOS)
   }, { passive:true, capture:true });
-  document.addEventListener("touchmove", e=>{
-    if(!st || !e.touches || !e.touches[0]) return;
-    const t = e.touches[0], dx = t.clientX - st.x, dy = t.clientY - st.y, nu = performance.now();
-    if(st.mode === null){ if(Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2){ st.mode = "h"; anim++; if(st.glijdt){ st.s0 = w.scrollLeft; st.x = t.clientX; st.y = t.clientY; st.px = st.lx = t.clientX; st.pt = st.lt = nu; return; } } else if(Math.abs(dy) > 8) st.mode = "v"; }   // de vinger neemt het over (een lopende beweging stopt); liep er nog een beweging, dan telt de vinger vanaf dit punt, anders vanaf het begin van de aanraking
-    if(st.mode !== "h") return;
-    st.px = st.lx; st.pt = st.lt; st.lx = t.clientX; st.lt = nu;
-    st.cur = Math.max(0, Math.min(st.mx, st.s0 - dx)); w.scrollLeft = st.cur;   // de vinger naar links = het rooster naar links; aan de randen blijft het staan
-  }, { passive:true, capture:true });
+  document.addEventListener("touchmove", e=>{ if(actief && e.touches && e.touches[0]){ lx = e.touches[0].clientX; ly = e.touches[0].clientY; } }, { passive:true, capture:true });
   const klaar = e=>{
-    if(!st) return; const g = st; st = null;
-    if(g.mode !== "h"){ settle(); return; }
-    const t = (e.changedTouches && e.changedTouches[0]); const ex = t ? t.clientX : g.lx, dx = ex - g.x;
-    const dt = Math.max(8, g.lt - g.pt), v = (g.lx - g.px) / dt;   // snelheid van de laatste beweging (px per ms)
-    const voor = dx < 0, wil = Math.abs(dx) >= 50 || (Math.abs(v) >= 0.5 && Math.abs(dx) >= 35);   // een veeg van 50 px, of een korte snelle veeg (flick) van minstens 35 px
-    if(!wil){ schuifNaar(g.pos0 ? g.mx : 0, 200); pos = g.pos0; return; }                      // te kort: terug naar waar je was
-    if(voor){ if(g.pos0 === 0){ pos = 1; schuifNaar(g.mx, 240); } else naarWeek(+1); }         // naar links: de andere week van het paar, of een week verder
-    else    { if(g.pos0 === 1){ pos = 0; schuifNaar(0, 240); } else naarWeek(-1); }            // naar rechts: de andere week van het paar, of een week terug
+    if(!actief) return; actief = false;
+    const t = (e.changedTouches && e.changedTouches[0]); const ex = t ? t.clientX : lx, ey = t ? t.clientY : ly;   // een afgebroken aanraking (touchcancel) telt met de laatste plek
+    const dx = ex - sx, dy = ey - sy;
+    if(Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;   // een echte horizontale veeg, geen tik of schuin scrollen
+    const naarLinks = dx < 0, nu = w.scrollLeft;
+    if(binnenRooster){   // op het rooster: de browser schuift zelf tussen de twee weken; alleen vanaf de rand gaat het een week verder
+      if(naarLinks && s0 >= max0 - 3) naarWeek(+1); else if(!naarLinks && s0 <= 3) naarWeek(-1);
+    } else {             // buiten het rooster: eerst naar de andere week van het paar, daarna een week verder
+      if(naarLinks){ if(nu < max0 - 3) w.scrollTo({ left: max0, behavior: "smooth" }); else naarWeek(+1); }
+      else { if(nu > 3) w.scrollTo({ left: 0, behavior: "smooth" }); else naarWeek(-1); }
+    }
   };
-  function settle(){   // staat het rooster stil halverwege twee weken, dan naar de week waar je naartoe wilde
-    const mx = maxL(); if(mx <= 4 || st || performance.now() < animEind) return;
-    const s = w.scrollLeft; if(s <= 2){ pos = 0; return; } if(s >= mx - 2){ pos = 1; return; }
-    schuifNaar(pos ? mx : 0, 180);
-  }
-  setInterval(()=>{ if(st && st.mode === "h" && performance.now() - st.lt > 450) klaar({}); else settle(); }, 150);   // waakhond: gaat het loslaten verloren (de aanraking verdwijnt, bijvoorbeeld door een nieuwe weergave), dan wordt de veeg na een halve seconde afgerond
-  try{ const grid = document.getElementById("main-grid"); if(grid) new MutationObserver(()=>{   // na elke herbouw van het rooster (verversen, week wisselen) komt het scherm weer op de goede plek
-    if(maxL() <= 4) return;
-    if(st && st.mode === "h"){ w.scrollLeft = st.cur; return; }
-    if(performance.now() < animEind) return;
-    w.scrollLeft = pos ? maxL() : 0;
-  }).observe(grid, { childList: true }); }catch(e){}
   document.addEventListener("touchend", klaar, { passive:true, capture:true });
   document.addEventListener("touchcancel", klaar, { passive:true, capture:true });
+  function naarWeek(r){
+    const knop = document.getElementById(r > 0 ? "btn-next1" : "btn-prev1"); if(!knop) return; knop.click();
+    const zet = ()=>{ w.scrollLeft = r > 0 ? (w.scrollWidth - w.clientWidth) : 0; };   // de nieuwe week blijft in beeld: bij vooruit de tweede, bij terug de eerste
+    zet(); requestAnimationFrame(()=>{ zet(); setTimeout(zet, 60); });
+  }
 }catch(e){} })();
 </script>
 </body></html>
