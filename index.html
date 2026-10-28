@@ -231,7 +231,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 27 okt 2026 · 133</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 28 okt 2026 · 134</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -5584,28 +5584,46 @@ setInterval(()=>{ sessionStorage.setItem('tp_baseMonday',baseMonday.getTime()); 
 <script>
 // de namenkolom blijft zichtbaar bij zijwaarts scrollen: de klasse 'gescrold' geeft de kolom pas een dekkende achtergrond als er echt is gescrold
 (function(){ try{ const w = document.querySelector(".scroll-wrap"); if(!w) return; const f = ()=>w.classList.toggle("gescrold", w.scrollLeft > 2); w.addEventListener("scroll", f, { passive:true }); window.addEventListener("resize", f); f(); }catch(e){} })();
-// Swipe door de weken (telefoon): staat het scherm op de tweede week en veeg je verder naar links, dan gaat het een week vooruit; staat het op de eerste week en veeg je naar rechts, dan een week terug. Zo hoef je de pijltjes niet te gebruiken.
+// Swipe door de weken (telefoon): veeg naar links voor de volgende week en naar rechts voor de vorige. Dat werkt vanaf de hele pagina (titel, pijltjesbalk, rooster, legenda), maar niet in een venster, een menu of een keuzelijst.
+// Op het rooster zelf schuift een veeg eerst naar de andere week van de twee die in beeld staan; pas daarna (of als je buiten het rooster veegt) gaat het een hele week verder.
 (function(){ try{
   const w = document.querySelector(".scroll-wrap"); if(!w) return;
-  let sx = 0, sy = 0, s0 = 0, max0 = 0, actief = false;
-  w.addEventListener("touchstart", e=>{
-    if(!e.touches || e.touches.length !== 1){ actief = false; return; }
-    const t = e.touches[0]; sx = t.clientX; sy = t.clientY; s0 = w.scrollLeft; max0 = w.scrollWidth - w.clientWidth;
-    actief = max0 > 4 && sx > 24 && sx < (window.innerWidth - 24);   // alleen als het rooster zijwaarts scrolt (smal scherm); niet vanaf de schermrand (terug-gebaar van iOS)
-  }, { passive:true });
-  w.addEventListener("touchend", e=>{
+  let sx = 0, sy = 0, lx = 0, ly = 0, s0 = 0, max0 = 0, binnenRooster = false, actief = false;
+  const toegestaan = el=>{   // niet in een venster, menu, keuzelijst of invoerveld
+    if(document.getElementById("who-menu") || document.querySelector(".popup")) return false;   // zolang een menu of keuzelijst open staat, is een veeg geen weekwissel
+    for(let n = el; n && n !== document.documentElement; n = n.parentElement){
+      if(n.nodeType !== 1) continue;
+      if(n.matches && n.matches("input,select,textarea,.popup,#who-menu,[role=dialog]")) return false;
+      if(getComputedStyle(n).position === "fixed") return false;
+    } return true;
+  };
+  document.addEventListener("touchstart", e=>{
+    actief = false; if(!e.touches || e.touches.length !== 1) return;
+    const t = e.touches[0]; sx = lx = t.clientX; sy = ly = t.clientY; s0 = w.scrollLeft; max0 = w.scrollWidth - w.clientWidth;
+    binnenRooster = w.contains(e.target);
+    actief = max0 > 4 && sx > 24 && sx < (window.innerWidth - 24) && toegestaan(e.target);   // alleen als het rooster zijwaarts scrolt (smal scherm); niet vanaf de schermrand (terug-gebaar van iOS)
+  }, { passive:true, capture:true });
+  document.addEventListener("touchmove", e=>{ if(actief && e.touches && e.touches[0]){ lx = e.touches[0].clientX; ly = e.touches[0].clientY; } }, { passive:true, capture:true });
+  const klaar = e=>{
     if(!actief) return; actief = false;
-    const t = (e.changedTouches && e.changedTouches[0]); if(!t) return;
-    const dx = t.clientX - sx, dy = t.clientY - sy;
+    const t = (e.changedTouches && e.changedTouches[0]); const ex = t ? t.clientX : lx, ey = t ? t.clientY : ly;   // een afgebroken aanraking (touchcancel) telt met de laatste plek
+    const dx = ex - sx, dy = ey - sy;
     if(Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;   // een echte horizontale veeg, geen tik of schuin scrollen
-    let knop = null, naarEinde = false;
-    if(dx < 0 && s0 >= max0 - 3){ knop = document.getElementById("btn-next1"); naarEinde = true; }      // op de tweede week verder naar links: volgende week
-    else if(dx > 0 && s0 <= 3){ knop = document.getElementById("btn-prev1"); }                          // op de eerste week naar rechts: vorige week
-    if(!knop) return;
-    knop.click();
-    const zet = ()=>{ w.scrollLeft = naarEinde ? (w.scrollWidth - w.clientWidth) : 0; };   // de nieuwe week blijft in beeld: bij vooruit de tweede, bij terug de eerste
+    const naarLinks = dx < 0, nu = w.scrollLeft;
+    if(binnenRooster){   // op het rooster: de browser schuift zelf tussen de twee weken; alleen vanaf de rand gaat het een week verder
+      if(naarLinks && s0 >= max0 - 3) naarWeek(+1); else if(!naarLinks && s0 <= 3) naarWeek(-1);
+    } else {             // buiten het rooster: eerst naar de andere week van het paar, daarna een week verder
+      if(naarLinks){ if(nu < max0 - 3) w.scrollTo({ left: max0, behavior: "smooth" }); else naarWeek(+1); }
+      else { if(nu > 3) w.scrollTo({ left: 0, behavior: "smooth" }); else naarWeek(-1); }
+    }
+  };
+  document.addEventListener("touchend", klaar, { passive:true, capture:true });
+  document.addEventListener("touchcancel", klaar, { passive:true, capture:true });
+  function naarWeek(r){
+    const knop = document.getElementById(r > 0 ? "btn-next1" : "btn-prev1"); if(!knop) return; knop.click();
+    const zet = ()=>{ w.scrollLeft = r > 0 ? (w.scrollWidth - w.clientWidth) : 0; };   // de nieuwe week blijft in beeld: bij vooruit de tweede, bij terug de eerste
     zet(); requestAnimationFrame(()=>{ zet(); setTimeout(zet, 60); });
-  }, { passive:true });
+  }
 }catch(e){} })();
 </script>
 </body></html>
