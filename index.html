@@ -231,7 +231,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 3 nov 2026 · 137</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 3 nov 2026 · 138</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -1505,9 +1505,10 @@ function openWhoMenu(){
         a.style.cssText = "padding:4px 10px 6px 28px;font-size:11px;line-height:1.5;color:rgba(255,255,255,0.65);white-space:normal;text-align:left;"; a.textContent = "🛡️ Administrators: " + (groupsReady ? ADMINISTRATORS.join(", ") : "…"); m.appendChild(a); }
       if(canSeeInfo()) item("menu-audit", "📜 Audit", "c-admin sub", cmd("btn-admin"));
       if(canSeeInfo()) item("menu-status", "📊 Status", "c-status sub", ()=>showStatusWindow());
+      if(canSeeInfo()) item("menu-checks", "✅ Checks" + checksMenuSuffix(), "c-status sub", ()=>showChecksWindow());
       if(canSeeInfo()) item("menu-stats", "📈 Statistics", "c-status sub", ()=>showStatsWindow());
       if(canSeeAdmin()) item("menu-geenbeheer", "⚠ Geen Beheer", "c-geenbeheer sub", cmd("btn-geen-beheer"));
-      const infoSubs = ["#menu-admins", "#menu-audit", "#menu-status", "#menu-stats", "#menu-geenbeheer"].map(s=>m.querySelector(s)).filter(Boolean); infoSubs.forEach(x=>{ x.hidden = true; });
+      const infoSubs = ["#menu-admins", "#menu-audit", "#menu-status", "#menu-checks", "#menu-stats", "#menu-geenbeheer"].map(s=>m.querySelector(s)).filter(Boolean); infoSubs.forEach(x=>{ x.hidden = true; });
       infoTab.onclick = ()=>{ const open = infoTab.getAttribute("aria-expanded") !== "true"; infoTab.setAttribute("aria-expanded", String(open)); infoTab.textContent = "ℹ️ Info " + (open ? "▾" : "▸"); infoSubs.forEach(x=>{ x.hidden = !open; }); };
     }
   if(canSeeAdmin()){   // Admin: alleen ICT-Systeembeheer en ICT-Management
@@ -2195,6 +2196,7 @@ async function loadFromGitHub(usePrefetch=false){
     ghSha = d.sha;
     const text = atob(d.content.replace(/\n/g,""));
     const data = JSON.parse(text);
+    const stempelProbleem = (data && data.store && Array.isArray(data.team)) ? integriteitBeoordeel(data) : null;   // vóórdat verwijderde namen eruit gaan: het controlegetal hoort bij de planning zoals die op GitHub staat
     if(data && data.store && data.team && data.team.length > 0){
       HEALTH.github = "ok"; HEALTH.data = "ok";
       HEALTH.lastSync = Date.now(); HEALTH.lastSyncOk = true;
@@ -2211,6 +2213,7 @@ async function loadFromGitHub(usePrefetch=false){
         if(nVerwijderd > 0){ healRemoved = true; console.warn("Verwijderde namen op GitHub aangetroffen (" + nVerwijderd + " vermeldingen); worden hersteld"); setTimeout(()=>{ if(stateTrusted && !ghSaving) saveToGitHub(); }, 1500); }
       }
       hideReadOnlyBanner(); hideNoDataOverlay();
+      if(stempelProbleem) toonIntegriteitBanner(stempelProbleem); else verbergIntegriteitBanner();
       applyState(data); auditRebase();
       if(!savePending && !ghSaving) setBaseline();   // vanaf nu: alleen wijzigingen ten opzichte van deze stand worden opgeslagen
       if(wasUntrusted && firstLoadSettled){   // terug na een mislukte eerste poging: het hoofdscherm alsnog tonen
@@ -2343,6 +2346,7 @@ function applyOps(R, ops){
   const h = new Set(R.hidden); ops.hidAdd.forEach(p=>h.add(p)); ops.hidDel.forEach(p=>h.delete(p)); R.hidden = [...h].filter(p=>R.team.includes(p));
   Object.keys(R.store).forEach(wk=>{ Object.keys(R.store[wk]).forEach(p=>{ if(!R.team.includes(p)) delete R.store[wk][p]; }); });
   Object.keys(R.template).forEach(p=>{ if(!R.team.includes(p)) delete R.template[p]; });
+  Object.keys(R.manuallyEdited).forEach(wk=>{ R.manuallyEdited[wk] = (R.manuallyEdited[wk] || []).filter(k=>{ const [p, d] = splitKey(k); return R.team.includes(p) && DAYS.includes(d); }); });   // markeringen voor iemand of een dag die niet bestaat gaan mee eruit
   return R;
 }
 function verdachtWeken(n){   // zijn dit opeens veel minder weken dan de laatst bekende goede planning?
@@ -2369,6 +2373,102 @@ function verwijderdeNamenRegel(){
   if(gev > 0) return HEALTH.verwijderdHersteld ? `✅ Verwijderde namen (${lijst}): ${gev} vermeldingen op GitHub aangetroffen en hersteld` : `⚠️ Verwijderde namen (${lijst}): ${gev} vermeldingen op GitHub aangetroffen; worden hersteld`;
   return `✅ Verwijderde namen (${lijst}): niet aanwezig`;
 }
+// ── Controlegetal en controle na het opslaan ─────────────────────────────────────────
+// Elke opslag legt in state.json een controlegetal vast (integriteit: {n, h, t, door, bev}) over team, planning, werkweek, handmatige dagen en verborgen personen.
+// - Na het opslaan leest de pagina de planning terug en vergelijkt die met wat is opgeslagen: er mag niets verdwenen zijn en het controlegetal moet kloppen; anders gaat de pagina op slot.
+// - Bij elke keer laden klopt het controlegetal met de planning, of er komt een rode melding (een oude pagina of een ander programma heeft de planning geschreven zonder het bij te werken).
+function canonJSON(v){
+  if(Array.isArray(v)) return "[" + v.map(canonJSON).join(",") + "]";
+  if(v && typeof v === "object") return "{" + Object.keys(v).sort().map(k=>JSON.stringify(k) + ":" + canonJSON(v[k])).join(",") + "}";
+  return JSON.stringify(v);
+}
+function cyrb53(str){
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for(let i = 0; i < str.length; i++){ const ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+function canonKern(s){ return canonJSON({ team: s.team || [], store: s.store || {}, template: s.template || {}, manuallyEdited: s.manuallyEdited || {}, hidden: s.hidden || [] }); }
+function planningHash(s){ return cyrb53(canonKern(s)).toString(16).padStart(14, "0"); }
+function stempel(M, n, door, bev){ M.integriteit = { n: n, h: planningHash(M), t: new Date().toISOString(), door: door || "", bev: bev | 0 }; return M; }
+function stempelStatus(s){ const i = s && s.integriteit; if(!i || typeof i.h !== "string") return "geen"; return planningHash(s) === i.h ? "ok" : "fout"; }
+const STEMPEL_KEY = "tp_stempel_n", STEMPEL_BEV_KEY = "tp_stempel_bev";
+function integriteitBeoordeel(data){   // geeft een tekst terug als er iets niet klopt, anders null; onthoudt per apparaat het hoogste volgnummer dat is gezien
+  const st = stempelStatus(data), i = data.integriteit || {}, n = i.n | 0, bev = i.bev | 0;
+  let gezien = 0, gezienBev = 0; try{ gezien = parseInt(localStorage.getItem(STEMPEL_KEY) || "0", 10) || 0; gezienBev = parseInt(localStorage.getItem(STEMPEL_BEV_KEY) || "0", 10) || 0; }catch(e){}
+  const wie = i.door ? " door " + i.door : "";
+  let probleem = null;
+  if(st === "fout") probleem = "het controlegetal van de planning klopt niet (laatste opslag nr. " + n + wie + "). De planning is gewijzigd zonder dat de pagina dat heeft vastgelegd: door een oude pagina of een ander programma.";
+  else if(st === "geen" && gezien > 0) probleem = "het controlegetal van de planning ontbreekt, terwijl dit apparaat het eerder wel zag. De planning is geschreven door een oude pagina of een ander programma.";
+  else if(st === "ok" && n < gezien && bev <= gezienBev) probleem = "het volgnummer van de planning (" + n + ") is lager dan eerder gezien (" + gezien + "): er is een oudere stand teruggezet buiten de app om.";
+  HEALTH.integriteit = { status: st, n: n, door: i.door || "", t: i.t || "", probleem: probleem };
+  if(!probleem && st === "ok"){ try{ localStorage.setItem(STEMPEL_KEY, String(bev > gezienBev ? n : Math.max(n, gezien))); localStorage.setItem(STEMPEL_BEV_KEY, String(Math.max(bev, gezienBev))); }catch(e){} }
+  return probleem;
+}
+function integriteitRegel(){
+  const i = HEALTH.integriteit; if(!i) return "\u2014 Controlegetal: nog niet gecontroleerd";
+  const wanneer = i.t ? new Date(i.t).toLocaleString("nl-NL", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}) : "";
+  if(i.status === "ok" && !i.probleem) return "\u2713 Controlegetal: klopt (opslag " + i.n + (i.door ? " door " + i.door : "") + (wanneer ? ", " + wanneer : "") + ")";
+  if(i.status === "geen" && !i.probleem) return "\u2014 Controlegetal: nog niet vastgelegd (de eerstvolgende opslag doet dat)";
+  return "\u2717 Controlegetal: " + (i.probleem || "klopt niet");
+}
+function toonIntegriteitBanner(tekst){
+  let b = document.getElementById("integriteit-banner"); if(!b){ b = document.createElement("div"); b.id = "integriteit-banner"; document.body.appendChild(b); }
+  b.innerHTML = "<b>Let op:</b> " + tekst.replace(/</g, "&lt;") + " " + (canRestore() ? "<button id=\"integriteit-ok\" style=\"margin-left:8px;padding:3px 10px;border-radius:6px;border:1px solid #fff;background:transparent;color:#fff;font:inherit;cursor:pointer;\">Bevestigen als juist</button>" : "Meld dit bij een Administrator.");
+  b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:965;background:#b71c1c;color:#fff;padding:10px 16px;font:13px 'Courier New',monospace;text-align:center;box-shadow:0 4px 20px rgba(183,28,28,0.6);";
+  b.dataset.admin = canRestore() ? "1" : "0";
+  const k = document.getElementById("integriteit-ok"); if(k) k.onclick = bevestigIntegriteit;
+}
+function verbergIntegriteitBanner(){ const b = document.getElementById("integriteit-banner"); if(b) b.remove(); }
+setInterval(()=>{ const b = document.getElementById("integriteit-banner"); if(b && HEALTH.integriteit && HEALTH.integriteit.probleem && b.dataset.admin !== (canRestore() ? "1" : "0")) toonIntegriteitBanner(HEALTH.integriteit.probleem); }, 1500);   // de rechten (Administrator of niet) zijn pas een paar seconden na het openen bekend: de balk past zich dan aan
+async function bevestigIntegriteit(){   // een Administrator die de planning heeft gecontroleerd legt het controlegetal opnieuw vast
+  if(!canRestore()){ alert("Alleen een Administrator kan dit bevestigen."); return; }
+  if(!await requireUnlock()) return;
+  if(!confirm("Heb je gecontroleerd dat de planning klopt?\nHet controlegetal wordt dan opnieuw vastgelegd op de planning zoals die nu op GitHub staat.")) return;
+  await saveToGitHub({ forceStamp: true });
+}
+function bevatVerwijderd(T){
+  const namen = new Set(VERWIJDERDE_NAMEN), p = new Set([...(T.team || []), ...(T.hidden || []), ...Object.keys(T.template || {})]);
+  Object.values(T.store || {}).forEach(w=>Object.keys(w).forEach(x=>p.add(x)));
+  Object.values(T.manuallyEdited || {}).forEach(l=>(l || []).forEach(k=>p.add(splitKey(k)[0])));
+  return [...p].some(x=>namen.has(x));
+}
+async function verifieerNaOpslaan(R0, M, opts, ops){   // leest de planning terug en vergelijkt die met wat is opgeslagen
+  const url = `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`, hdr = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
+  try{
+    let T = null;
+    for(let p = 0; p < 2; p++){
+      const cr = await fetch(`${url}?ref=${GH_BRANCH}&t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2), {headers: hdr});
+      if(!cr.ok) return { ok: true, onbekend: true };   // teruglezen lukt niet: geen oordeel; de volgende synchronisatie controleert het ook
+      T = JSON.parse(auditDecode((await cr.json()).content));
+      const verouderd = !T.integriteit || (T.integriteit.n | 0) < (M.integriteit.n | 0);   // GitHub toont nog de vorige versie (zonder of met een lager volgnummer): even wachten
+      if(!verouderd) break;
+      T = null; await new Promise(res=>setTimeout(res, 1500));
+    }
+    if(!T) return { ok: true, onbekend: true };
+    const fouten = [], later = !!(T.integriteit && M.integriteit && (T.integriteit.n | 0) > (M.integriteit.n | 0));   // later: een ander heeft er direct na ons nog iets op gezet
+    if(!stateGeldig(T)) fouten.push("de opgeslagen planning is onleesbaar of leeg");
+    if(stempelStatus(T) !== "ok") fouten.push("het controlegetal van de opgeslagen planning klopt niet");
+    if(!later && canonKern(T) !== canonKern(M)) fouten.push("wat er op GitHub staat wijkt af van wat is opgeslagen");
+    if(R0 && !opts.replace && !later){
+      const weg = Object.keys(R0.store || {}).filter(w=>!(w in (T.store || {})));
+      if(weg.length) fouten.push(weg.length + (weg.length === 1 ? " week is" : " weken zijn") + " verdwenen (" + weg.slice(0, 3).join(", ") + ")");
+      const teamWeg = (R0.team || []).filter(p=>!(T.team || []).includes(p) && !((ops && ops.teamDel) || []).includes(p));
+      if(teamWeg.length) fouten.push("teamlid verdwenen: " + teamWeg.join(", "));
+    }
+    if(bevatVerwijderd(T)) fouten.push("een verwijderde naam staat in de opgeslagen planning");
+    return fouten.length ? { ok: false, fouten: fouten } : { ok: true };
+  }catch(e){ return { ok: true, onbekend: true }; }
+}
+function verificatieMislukt(fouten){   // de pagina gaat op slot (alleen lezen) tot de planning opnieuw is geladen en meldt het
+  stateTrusted = false; HEALTH.verificatie = { t: Date.now(), fouten: fouten };
+  let b = document.getElementById("verify-banner"); if(!b){ b = document.createElement("div"); b.id = "verify-banner"; document.body.appendChild(b); }
+  b.innerHTML = "<b>De controle na het opslaan klopt niet:</b> " + fouten.join("; ").replace(/</g, "&lt;") + ". Er wordt niets meer opgeslagen tot de planning opnieuw is geladen. Meld dit bij een Administrator." + " <button id=\"verify-sluit\" style=\"margin-left:8px;padding:2px 8px;border-radius:6px;border:1px solid #fff;background:transparent;color:#fff;font:inherit;cursor:pointer;\">Sluiten</button>";
+  b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:980;background:#b71c1c;color:#fff;padding:10px 16px;font:13px 'Courier New',monospace;text-align:center;box-shadow:0 4px 20px rgba(183,28,28,0.6);";
+  const k = document.getElementById("verify-sluit"); if(k) k.onclick = ()=>b.remove();
+  try{ auditEvent("controle na opslaan mislukt: " + fouten.join("; ")); }catch(e){}
+}
 function showCorruptBanner(nu, eerder){
   let b = document.getElementById("corrupt-banner");
   if(!b){ b = document.createElement("div"); b.id = "corrupt-banner"; document.body.appendChild(b); }
@@ -2376,14 +2476,10 @@ function showCorruptBanner(nu, eerder){
   b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:970;background:#b71c1c;color:#fff;padding:10px 16px;font:13px 'Courier New',monospace;text-align:center;box-shadow:0 4px 20px rgba(183,28,28,0.6);";
 }
 function hideCorruptBanner(){ const b = document.getElementById("corrupt-banner"); if(b) b.remove(); }
-function checkStale(){   // een scherm dat al een tijd niet met GitHub heeft kunnen praten, zegt dat zelf
-  const stale = stateTrusted && HEALTH.lastSync && (Date.now() - HEALTH.lastSync > 180000);
-  let b = document.getElementById("stale-banner");
-  if(!stale){ if(b) b.remove(); return; }
-  if(!b){ b = document.createElement("div"); b.id = "stale-banner"; document.body.appendChild(b); }
-  const t = new Date(HEALTH.lastSync).toLocaleTimeString("nl-NL", {hour:"2-digit", minute:"2-digit"});
-  b.innerHTML = `<b>Let op:</b> de planning is voor het laatst om ${t} met GitHub gesynchroniseerd. Je ziet mogelijk niet de nieuwste versie; de pagina probeert het elke minuut opnieuw.`;
-  b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:960;background:#e65100;color:#fff;padding:8px 16px;font:13px 'Courier New',monospace;text-align:center;";
+function checkStale(){   // geen waarschuwing meer: een pagina die even stil lag (bijvoorbeeld een telefoon op de achtergrond) ververst zichzelf
+  const oud = document.getElementById("stale-banner"); if(oud) oud.remove();
+  const stale = stateTrusted && HEALTH.lastSync && (Date.now() - HEALTH.lastSync > 120000);
+  if(stale && !document.hidden && typeof syncNu === "function" && Date.now() - (window.__laatsteStaleSync || 0) > 20000){ window.__laatsteStaleSync = Date.now(); try{ syncNu(); }catch(e){} }
 }
 setInterval(checkStale, 30000);
 
@@ -2531,16 +2627,19 @@ async function saveToGitHub(opts){
       if(!stateGeldig(R)){ showSaveStatus("error: de planning op GitHub is onleesbaar; er is niets overschreven"); return; }
       ghSha = cd.sha;
       const nR = stripVerwijderd(R);   // een verwijderde naam die op GitHub staat verdwijnt bij deze opslag
+      const R0 = JSON.parse(JSON.stringify(R));   // de planning op GitHub zoals die was voordat jouw wijzigingen erop komen (voor de controle na het opslaan)
       // 2. jouw wijzigingen bovenop de actuele planning
-      let M;
+      let M, ops = null;
       if(opts.replace){ M = L; }
       else {
-        const ops = diffOps(baselineState || L, L);
-        if(opsCount(ops) === 0 && !nR && !healRemoved){ baselineState = L; HEALTH.github = "ok"; HEALTH.lastSync = Date.now(); HEALTH.lastSyncOk = true; updateHealthBar(); showSaveStatus("ok"); lastSavedJson = JSON.stringify(R); return; }
+        ops = diffOps(baselineState || L, L);
+        if(opsCount(ops) === 0 && !nR && !healRemoved && !opts.forceStamp && !opts.opschonen){ baselineState = L; HEALTH.github = "ok"; HEALTH.lastSync = Date.now(); HEALTH.lastSyncOk = true; updateHealthBar(); showSaveStatus("ok"); lastSavedJson = JSON.stringify(R); return; }
         M = applyOps(R, ops);
         if(Object.keys(M.store).length < Object.keys(R.store).length){ showSaveStatus("error: de opslag zou weken verliezen; er is niets overschreven"); return; }   // vangnet: kan niet voorkomen
       }
       stripVerwijderd(M);
+      const prevI = R.integriteit || {};   // het controlegetal: volgnummer en vingerafdruk van de planning die nu wordt weggeschreven
+      stempel(M, (prevI.n | 0) + 1, currentIdentity && currentIdentity.user, (prevI.bev | 0) + (opts.forceStamp ? 1 : 0));
       const json = JSON.stringify(M);
       const body = {message: commitMessage(nR ? "Verwijderde namen hersteld" : "Update planning"), content: encodeBase64(json), sha: cd.sha, branch: GH_BRANCH};
       const r = await ghWriteFetch(url, {method:"PUT", headers:{...hdr, "Content-Type":"application/json"}, body: JSON.stringify(body)});
@@ -2552,6 +2651,10 @@ async function saveToGitHub(opts){
         updateHealthBar();
         showSaveStatus("ok");
         lastSavedJson = json; saveOkCount++;
+        if(opts.forceStamp){ try{ localStorage.setItem(STEMPEL_KEY, String(M.integriteit.n)); localStorage.setItem(STEMPEL_BEV_KEY, String(M.integriteit.bev)); }catch(e){} verbergIntegriteitBanner(); }
+        const ver = await verifieerNaOpslaan(R0, M, opts, ops);   // teruglezen en vergelijken: is er echt opgeslagen wat de bedoeling was?
+        if(!ver.ok){ verificatieMislukt(ver.fouten); auditAfterSave(L); return; }
+        if(M.integriteit){ HEALTH.integriteit = { status: "ok", n: M.integriteit.n, door: M.integriteit.door, t: M.integriteit.t, probleem: null }; try{ localStorage.setItem(STEMPEL_KEY, String(Math.max(M.integriteit.n, opts.forceStamp ? 0 : (parseInt(localStorage.getItem(STEMPEL_KEY) || "0", 10) || 0)))); }catch(e){} }
         if(!verdachtWeken(Object.keys(M.store).length)) lastGoodSave(json, ghSha);
         maybeBackup(json);
         auditAfterSave(L);   // audit: wat is er veranderd, door wie
@@ -2742,7 +2845,7 @@ function updateHealthBar(){
       const teamleden = (TEAM||[]).length;
       showHealthPopup("Data integriteit",
         HEALTH.data==="ok"
-          ? [`✅ Data geldig`,`👥 Team: ${teamleden} leden (${(TEAM||[]).join(", ")})`,verwijderdeNamenRegel(),`📅 Weken geladen: ${weken}`,`📍 Eerste week: ${Object.keys(store||{}).sort()[0]||"-"}`,`📍 Laatste week: ${Object.keys(store||{}).sort().slice(-1)[0]||"-"}`]
+          ? [`✅ Data geldig`,`👥 Team: ${teamleden} leden (${(TEAM||[]).join(", ")})`,verwijderdeNamenRegel(),integriteitRegel(),`📅 Weken geladen: ${weken}`,`📍 Eerste week: ${Object.keys(store||{}).sort()[0]||"-"}`,`📍 Laatste week: ${Object.keys(store||{}).sort().slice(-1)[0]||"-"}`]
           : ["❌ Data leeg of ongeldig","⚠️ Kan geen data laden van GitHub"]);
     };
   }
@@ -3105,7 +3208,7 @@ async function checkForNewVersion(){
     fallbackUsed = await loadFallbackState();
     try{   // oude gegevens van het apparaat opruimen, maar de laatst bekende planning bewaren
       const keep = {};
-      ["tp_device","tp_ws","tp_audit_queue","tp_last_user","tp_unlocked","tp_user","tp_pwtries","tp_lastgood"].forEach(k=>{ const v = localStorage.getItem(k); if(v !== null) keep[k] = v; });
+      ["tp_device","tp_ws","tp_audit_queue","tp_last_user","tp_unlocked","tp_user","tp_pwtries","tp_lastgood","tp_stempel_n","tp_stempel_bev"].forEach(k=>{ const v = localStorage.getItem(k); if(v !== null) keep[k] = v; });
       localStorage.clear();
       Object.keys(keep).forEach(k=>localStorage.setItem(k, keep[k]));
     }catch(e){}
@@ -3140,6 +3243,7 @@ async function checkForNewVersion(){
       auditCleanup();   // oude dagbestanden van het logboek opruimen (hooguit eens per 6 uur, alleen voor wie Admin heeft)
     }finally{ syncBusy = false; }
   }
+  window.syncNu = backgroundSync;   // ook de checks gebruiken dit om de planning meteen te verversen
   setInterval(backgroundSync, 60000);
   setInterval(()=>{ if(!stateTrusted) backgroundSync(); }, 15000);   // zolang GitHub niet is geladen: elke 15 seconden opnieuw proberen
   const wake = ()=>{ if(!document.hidden && Date.now() - lastSyncRun > 10000) backgroundSync(); };   // hooguit eens per 10 seconden
@@ -5135,6 +5239,243 @@ async function showStatsWindow(){
   regels.forEach(t=>{ const d = document.createElement("div"); d.textContent = t; foot.appendChild(d); });
 }
 
+// ── Checks: alle controles op één plek, met status en automatisch herstel ─────────────────────────────
+// Onder Info ▸ Checks (alleen Administrators). Elke check geeft ok (✓), info (ℹ), let op (⚠) of fout (✗). Wat veilig kan, herstelt zichzelf; de rest blijft staan met uitleg.
+// De lichte checks lopen elke 2 minuten, de zware (die GitHub bevragen) elke 30 minuten, op de pagina van elke Administrator. Een herstel wordt hooguit 3 keer per uur geprobeerd en komt in het logboek.
+const CHECK_GROEPEN = ["Verbinding en versie", "Planning", "Team, accounts en rechten", "Backups en logboek"];
+const GELDIGE_STATUSSEN = new Set(STATUSES.map(s=>s.key));
+const JS_FOUTEN = [];
+window.addEventListener("error", e=>{ JS_FOUTEN.push({ t: Date.now(), tekst: String(e.message || e.error || "fout").slice(0, 160) }); if(JS_FOUTEN.length > 30) JS_FOUTEN.shift(); });
+window.addEventListener("unhandledrejection", e=>{ JS_FOUTEN.push({ t: Date.now(), tekst: "belofte: " + String((e.reason && e.reason.message) || e.reason || "").slice(0, 150) }); if(JS_FOUTEN.length > 30) JS_FOUTEN.shift(); });
+const CHECK_RESULT = {}, CHECK_FIX = {}; let checkBusy = false, CHECK_RUN_AT = 0, CHECK_ZWAAR_AT = 0;
+const ck_ok = t=>({ s: "ok", t }), ck_info = t=>({ s: "info", t }), ck_let = (t, fix)=>({ s: "let", t, fix }), ck_fout = (t, fix)=>({ s: "fout", t, fix });
+function ckAgo(sec){ return sec < 90 ? sec + " s" : sec < 5400 ? Math.round(sec / 60) + " min" : Math.round(sec / 3600) + " uur"; }
+const CHK = { net: null, netT: 0 };
+function ckHdr(){ return {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}; }
+async function ckLees(pad){   // een JSON-bestand op de data-branch; { bestaat:false } als het er niet is, { fout } als het niet lukt
+  try{
+    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${pad}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers: ckHdr()});
+    if(r.status === 404) return { bestaat: false };
+    if(!r.ok) return { fout: "HTTP " + r.status };
+    const d = await r.json(); return { bestaat: true, sha: d.sha, data: JSON.parse(auditDecode(d.content)) };
+  }catch(e){ return { fout: String((e && e.message) || e) }; }
+}
+async function chkNet(){   // de gedeelde bestanden, de backuplijst en de rechten van het token: één keer per ronde ophalen
+  if(CHK.net && Date.now() - CHK.netT < 20000) return CHK.net;
+  const [users, groups, settings] = await Promise.all([ckLees(USERS_PATH), ckLees(GROUPS_PATH), ckLees(SETTINGS_PATH)]);
+  let lijst = null, limiet = null, rechten = null;
+  try{
+    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups?ref=${GH_BRANCH}&t=${Date.now()}`, {headers: ckHdr()});
+    if(r.ok){ lijst = (await r.json()).filter(f=>/\.json$/.test(f.name)).sort((a, b)=>a.name < b.name ? -1 : 1); limiet = { rest: r.headers.get("x-ratelimit-remaining"), max: r.headers.get("x-ratelimit-limit") }; }
+    else lijst = { fout: "HTTP " + r.status };
+  }catch(e){ lijst = { fout: String((e && e.message) || e) }; }
+  try{ const r = await fetch(`https://api.github.com/repos/${GH_REPO}`, {headers: ckHdr()}); if(r.ok) rechten = (await r.json()).permissions || null; }catch(e){}
+  CHK.net = { users, groups, settings, lijst, limiet, rechten }; CHK.netT = Date.now(); return CHK.net;
+}
+async function ckBackupLees(naam){ const r = await ckLees("backups/" + naam); return r; }
+async function ckMaakBackup(){ return maybeBackup(JSON.stringify(serializeState()), { always: true, force: true, label: "Auto-backup (check)", attempts: 3 }); }
+async function ckStatusOpschonen(){   // onbekende statuswaarden uit cellen halen (alleen de onbekende; wat geldig is blijft) en vastleggen
+  let n = 0;
+  Object.keys(store).forEach(wk=>Object.keys(store[wk]).forEach(p=>DAYS.forEach(d=>{
+    const v = (store[wk][p] || {})[d]; if(!Array.isArray(v) || v.every(k=>GELDIGE_STATUSSEN.has(k))) return;
+    const schoon = v.filter(k=>GELDIGE_STATUSSEN.has(k)); if(!schoon.length) return;
+    store[wk][p][d] = schoon; if(!manuallyEdited[wk]) manuallyEdited[wk] = new Set(); manuallyEdited[wk].add(p + "-" + d); n++;
+  })));
+  Object.keys(template).forEach(p=>DAYS.forEach(d=>{ const v = (template[p] || {})[d]; if(!Array.isArray(v) || v.every(k=>GELDIGE_STATUSSEN.has(k))) return; const schoon = v.filter(k=>GELDIGE_STATUSSEN.has(k)); if(schoon.length){ template[p][d] = schoon; n++; } }));
+  if(n){ saveState(); await ckWachtOpstaan(); }
+}
+async function ckWachtOpHerstel(){ for(let i = 0; i < 45 && (healRemoved || ghSaving || savePending); i++) await new Promise(r=>setTimeout(r, 300)); }
+async function ckWachtOpstaan(){ for(let i = 0; i < 40 && (savePending || ghSaving); i++) await new Promise(r=>setTimeout(r, 250)); }
+function ckManueelTelling(){   // markeringen die naar een onbekende week, persoon of dag verwijzen: in dit scherm én in de laatst geladen planning van GitHub
+  let n = 0;
+  Object.keys(manuallyEdited).forEach(wk=>{ if(!store[wk]){ n += manuallyEdited[wk].size || 1; return; } manuallyEdited[wk].forEach(k=>{ const [p, d] = splitKey(k); if(!TEAM.includes(p) || !DAYS.includes(d)) n++; }); });
+  const lg = lastGoodLoad();
+  if(lg){ let m = 0; Object.keys(lg.data.manuallyEdited || {}).forEach(wk=>(lg.data.manuallyEdited[wk] || []).forEach(k=>{ const [p, d] = splitKey(k); if(!(lg.data.team || []).includes(p) || !DAYS.includes(d)) m++; })); n = Math.max(n, m); }
+  return n;
+}
+async function ckManueelOpschonen(){
+  Object.keys(manuallyEdited).forEach(wk=>{ if(!store[wk]){ delete manuallyEdited[wk]; return; } [...manuallyEdited[wk]].forEach(k=>{ const [p, d] = splitKey(k); if(!TEAM.includes(p) || !DAYS.includes(d)) manuallyEdited[wk].delete(k); }); });
+  await saveToGitHub({ opschonen: true });   // het opslaan ruimt de verweesde markeringen ook op GitHub op
+}
+async function ckVreemdOpschonen(){
+  Object.keys(store).forEach(wk=>Object.keys(store[wk]).forEach(p=>{ if(!TEAM.includes(p)) delete store[wk][p]; }));
+  Object.keys(template).forEach(p=>{ if(!TEAM.includes(p)) delete template[p]; });
+  await saveToGitHub({ opschonen: true });
+}
+async function ckVerwijderBackups(namen){
+  for(const n of namen){
+    const g = await ckLees("backups/" + n); if(!g.sha) continue;
+    await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/backups/${n}`, { method: "DELETE", headers: {...ckHdr(), "Content-Type": "application/json"}, body: JSON.stringify({ message: "Beschadigde backup verwijderd (check): " + n, sha: g.sha, branch: GH_BRANCH }) });
+  }
+  CHK.net = null;
+}
+const CHECKS = [
+  // ── Verbinding en versie ──
+  { id: "github", groep: 0, naam: "GitHub bereikbaar", run: ()=> HEALTH.github === "ok" ? ck_ok("verbonden") : HEALTH.github === "unknown" ? ck_let("nog niet gecontroleerd", ()=>syncNu()) : ck_fout("geen verbinding of geen toegang (" + HEALTH.github + ")", ()=>syncNu()) },
+  { id: "online", groep: 0, naam: "Apparaat is online", run: ()=> navigator.onLine === false ? ck_fout("dit apparaat meldt dat het offline is") : ck_ok("online") },
+  { id: "sync", groep: 0, naam: "Planning is actueel", run: ()=>{
+      if(!HEALTH.lastSync) return ck_let("nog niet gesynchroniseerd", ()=>syncNu());
+      const sec = Math.round((Date.now() - HEALTH.lastSync) / 1000);
+      if(document.hidden) return ck_ok("laatste synchronisatie " + ckAgo(sec) + " geleden (pagina staat op de achtergrond)");
+      return sec > 180 ? ck_let("laatste synchronisatie " + ckAgo(sec) + " geleden", ()=>syncNu()) : ck_ok("laatste synchronisatie " + ckAgo(sec) + " geleden"); } },
+  { id: "rechten", groep: 0, zwaar: true, naam: "Rechten op de repository", run: async ()=>{ const n = await chkNet(); if(!n.rechten) return ck_info("GitHub gaf de rechten niet door"); return n.rechten.push ? ck_ok("GitHub meldt dat deze gebruiker mag lezen en schrijven; of het token zelf mag schrijven blijkt bij elke opslag (daarna wordt teruggelezen)") : ck_fout("GitHub meldt dat deze gebruiker niet mag schrijven: wijzigingen worden niet opgeslagen"); } },
+  { id: "limiet", groep: 0, zwaar: true, naam: "Ruimte in de API-limiet", run: async ()=>{ const n = await chkNet(); const rest = n.limiet && n.limiet.rest != null ? parseInt(n.limiet.rest, 10) : null; if(rest == null || isNaN(rest)) return ck_info("niet gemeten"); return rest < 300 ? ck_let("nog maar " + rest + " verzoeken per uur over") : ck_ok(rest + " van " + n.limiet.max + " verzoeken over"); } },
+  { id: "versie", groep: 0, zwaar: true, naam: "Pagina is de nieuwste versie", run: async ()=>{
+      if(location.protocol === "file:" || !RUNNING_VERSION) return ck_info("lokaal bestand");
+      const r = await fetch("index.html?v=" + Date.now() + "&r=" + Math.random().toString(36).slice(2), { cache: "no-store" }); if(!r.ok) return ck_let("de nieuwste versie kon niet worden opgehaald");
+      const m = (await r.text()).match(/id="app-version"[^>]*>\s*(versie [^<]+?)\s*</); if(!m) return ck_let("het versielabel van de nieuwste versie is niet te lezen");
+      return m[1].trim() === RUNNING_VERSION ? ck_ok(RUNNING_VERSION) : ck_let("er is een nieuwere versie (" + m[1].trim() + "); deze pagina ververst zichzelf zodra dat veilig kan", ()=>checkForNewVersion()); } },
+  { id: "fouten", groep: 0, naam: "Geen fouten in de pagina", run: ()=> JS_FOUTEN.length ? ck_let(JS_FOUTEN.length + " fout" + (JS_FOUTEN.length === 1 ? "" : "en") + " sinds het openen; laatste: " + JS_FOUTEN[JS_FOUTEN.length - 1].tekst) : ck_ok("geen") },
+  { id: "opslag", groep: 0, naam: "Geheugen van dit apparaat werkt", run: ()=>{ try{ localStorage.setItem("tp_chk", "1"); localStorage.removeItem("tp_chk"); return ck_ok("werkt"); }catch(e){ return ck_fout("localStorage werkt niet: de laatst bekende planning kan niet worden bewaard"); } } },
+  // ── Planning ──
+  { id: "geladen", groep: 1, naam: "Planning geladen van GitHub", run: ()=> stateTrusted && stateSource === "github" ? ck_ok(TEAM.length + " teamleden, " + Object.keys(store).length + " weken") : ck_fout("alleen lezen: de planning is niet van GitHub geladen", ()=>syncNu()) },
+  { id: "stempel", groep: 1, naam: "Controlegetal", run: ()=>{ const i = HEALTH.integriteit; if(!i) return ck_let("nog niet gecontroleerd"); if(i.probleem) return ck_fout(i.probleem); if(i.status === "geen") return ck_let("nog niet vastgelegd", ()=>saveToGitHub({ opschonen: true })); return ck_ok("klopt (opslag " + i.n + (i.door ? " door " + i.door : "") + ")"); } },
+  { id: "remote", groep: 1, zwaar: true, naam: "Planning op GitHub (nu opgehaald)", run: async ()=>{
+      const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers: ckHdr()});
+      if(!r.ok) return ck_fout("niet op te halen (HTTP " + r.status + ")", ()=>syncNu());
+      let T; try{ T = JSON.parse(auditDecode((await r.json()).content)); }catch(e){ return ck_fout("onleesbaar"); }
+      if(!stateGeldig(T)) return ck_fout("leeg of ongeldig");
+      if(bevatVerwijderd(T)) return ck_fout("bevat een verwijderde naam", async ()=>{ healRemoved = true; await loadFromGitHub(); await ckWachtOpHerstel(); });
+      if(stempelStatus(T) === "fout") return ck_fout("het controlegetal klopt niet (opslag " + ((T.integriteit || {}).n | 0) + ")");
+      const nT = Object.keys(T.store).length, nL = Object.keys(store).length;
+      if(nL >= 10 && nT < nL * 0.5) return ck_fout("veel minder weken dan op dit scherm (" + nT + " tegen " + nL + ")");
+      if(savePending || ghSaving) return ck_ok("wijzigingen van dit scherm worden net opgeslagen");
+      if(opsCount(diffOps(T, serializeState())) > 0) return ck_let("wijkt af van wat dit scherm toont; het scherm wordt zo bijgewerkt", ()=>syncNu());
+      return ck_ok(nT + " weken, " + (T.team || []).length + " teamleden" + (stempelStatus(T) === "geen" ? "; nog geen controlegetal" : "; controlegetal klopt")); } },
+  { id: "weken", groep: 1, naam: "Aantal weken in de planning", run: ()=>{ const ks = Object.keys(store).sort(); if(!ks.length) return ck_fout("geen enkele week"); if(verdachtWeken(ks.length)) return ck_fout("opeens veel minder weken (" + ks.length + ") dan eerder: mogelijk beschadigd"); return ck_ok(ks.length + " weken, " + ks[0] + " t/m " + ks[ks.length - 1]); } },
+  { id: "namen", groep: 1, naam: "Verwijderde namen zijn weg", run: ()=> (verwijderdAanwezig() || HEALTH.verwijderdGevonden > 0) ? ck_fout("een verwijderde naam is aangetroffen en wordt hersteld", async ()=>{ healRemoved = true; await loadFromGitHub(); await ckWachtOpHerstel(); HEALTH.verwijderdGevonden = 0; }) : ck_ok(VERWIJDERDE_NAMEN.join(", ") + " komen nergens voor") },
+  { id: "team", groep: 1, naam: "Team en werkweken", run: ()=>{
+      const f = []; if(!TEAM.length) f.push("het team is leeg");
+      const dub = TEAM.filter((p, i)=>TEAM.indexOf(p) !== i); if(dub.length) f.push("dubbele namen: " + dub.join(", "));
+      const zonder = TEAM.filter(p=>!template[p] || DAYS.some(d=>!Array.isArray(template[p][d]))); if(zonder.length) f.push("geen volledige werkweek voor " + zonder.join(", "));
+      const verb = [...HIDDEN].filter(p=>!TEAM.includes(p)); if(verb.length) f.push("verborgen maar geen teamlid: " + verb.join(", "));
+      return f.length ? ck_fout(f.join("; ")) : ck_ok(TEAM.length + " personen, iedereen heeft een werkweek" + (HIDDEN.size ? "; " + HIDDEN.size + " verborgen" : "")); } },
+  { id: "vreemd", groep: 1, naam: "Geen planning voor niet-teamleden", run: ()=>{
+      const v = new Set(); Object.values(store).forEach(w=>Object.keys(w).forEach(p=>{ if(!TEAM.includes(p)) v.add(p); })); Object.keys(template).forEach(p=>{ if(!TEAM.includes(p)) v.add(p); });
+      const lg = lastGoodLoad(); if(lg) Object.values(lg.data.store || {}).forEach(w=>Object.keys(w).forEach(p=>{ if(!(lg.data.team || []).includes(p)) v.add(p); }));
+      return v.size ? ck_let("planning of werkweek van " + [...v].join(", ") + ", die niet in het team staan", ()=>ckVreemdOpschonen()) : ck_ok("alleen het team"); } },
+  { id: "statussen", groep: 1, naam: "Alle statussen zijn geldig", run: ()=>{
+      const slecht = [], leeg = []; Object.keys(store).forEach(wk=>Object.keys(store[wk]).forEach(p=>DAYS.forEach(d=>{ const v = (store[wk][p] || {})[d]; if(Array.isArray(v) && v.some(k=>!GELDIGE_STATUSSEN.has(k))){ (v.some(k=>GELDIGE_STATUSSEN.has(k)) ? slecht : leeg).push(wk + " " + p + " " + d); } })));
+      Object.keys(template).forEach(p=>DAYS.forEach(d=>{ const v = (template[p] || {})[d]; if(Array.isArray(v) && v.some(k=>!GELDIGE_STATUSSEN.has(k))) slecht.push("werkweek " + p + " " + d); }));
+      if(slecht.length) return ck_let(slecht.length + " cel" + (slecht.length === 1 ? "" : "len") + " met een onbekende status (bijv. " + slecht.slice(0, 2).join(", ") + ")", ()=>ckStatusOpschonen());
+      return leeg.length ? ck_let(leeg.length + " cellen bestaan alleen uit een onbekende status (bijv. " + leeg[0] + ")") : ck_ok("alle cellen hebben een geldige status"); } },
+  { id: "manueel", groep: 1, naam: "Handmatige markeringen kloppen", run: ()=>{
+      const n = ckManueelTelling();
+      return n ? ck_let(n + " markering" + (n === 1 ? "" : "en") + " verwijst naar een week, persoon of dag die niet bestaat", ()=>ckManueelOpschonen()) : ck_ok("alle markeringen verwijzen naar bestaande dagen"); } },
+  { id: "verplicht", groep: 1, naam: "Verplichte vrije dagen staan op Vrij", run: ()=>{
+      let fout = 0, dagen = 0; Object.keys(store).forEach(wk=>DAYS.forEach(d=>{ if(!LOCKED_DAYS.has(wk + "-" + d)) return; dagen++; TEAM.forEach(p=>{ const v = (store[wk][p] || {})[d]; if(!(Array.isArray(v) && v.length === 1 && v[0] === "vrij")) fout++; }); }));
+      return fout ? ck_let(fout + " cellen op een verplichte vrije dag staan niet op Vrij", ()=>{ verplichtVrijAlles(); renderAndSync(); }) : ck_ok(dagen + " verplichte vrije dagen in de planning, voor iedereen Vrij"); } },
+  { id: "halvedag", groep: 1, naam: "Halve dagen zijn aangevuld", run: ()=>{
+      const wie = TEAM.map(p=>[p, ontbrekendeDagdelen(p).length]).filter(x=>x[1]).map(x=>x[0] + " (" + x[1] + ")");
+      return wie.length ? ck_let("nog niet aangevuld: " + wie.join(", ") + ". Zij krijgen de vraag zodra ze de pagina openen") : ck_ok("alle halve dagen zijn aangevuld"); } },
+  // ── Team, accounts en rechten ──
+  { id: "groups", groep: 2, zwaar: true, naam: "Administrators", run: async ()=>{
+      const g = (await chkNet()).groups; if(g.fout) return ck_fout("groups.json niet leesbaar (" + g.fout + ")");
+      const lijst = (g.bestaat && g.data && g.data.administrators) || []; const echte = lijst.filter(a=>TEAM.includes(a)), vreemd = lijst.filter(a=>!TEAM.includes(a) && a !== MONITOR_ACCOUNT);
+      if(!echte.length) return ck_fout("geen enkele Administrator die teamlid is");
+      if(vreemd.length) return ck_let("Administrators die niet in het team staan: " + vreemd.join(", "));
+      if(!lijst.includes(MONITOR_ACCOUNT)) return ck_let("het Monitor-account staat niet als Administrator in de lijst");
+      return echte.length < 2 ? ck_let("maar één Administrator (" + echte[0] + "): bij uitval kan niemand beheren") : ck_ok(echte.length + " Administrators (" + echte.join(", ") + ") en het Monitor-account"); } },
+  { id: "accounts", groep: 2, zwaar: true, naam: "Accounts", run: async ()=>{
+      const u = (await chkNet()).users; if(u.fout) return ck_fout("users.json niet leesbaar (" + u.fout + ")");
+      const acc = u.bestaat ? Object.keys((u.data && u.data.users) || {}) : []; const weg = acc.filter(a=>VERWIJDERDE_NAMEN.includes(a)), vreemd = acc.filter(a=>!TEAM.includes(a) && a !== MONITOR_ACCOUNT && !VERWIJDERDE_NAMEN.includes(a));
+      if(weg.length) return ck_fout("account van een verwijderde naam: " + weg.join(", "), async ()=>{ await usersMutate(us=>{ weg.forEach(n=>delete us[n]); return false; }, "Account van verwijderde naam verwijderd (check)"); CHK.net = null; });
+      return vreemd.length ? ck_let("accounts van mensen die niet in het team staan: " + vreemd.join(", ")) : ck_ok(acc.length + " accounts, allemaal van teamleden of het Monitor-account"); } },
+  { id: "wachtwoorden", groep: 2, zwaar: true, naam: "Eigen wachtwoorden", run: async ()=>{
+      const u = (await chkNet()).users; if(u.fout) return ck_let("niet te controleren"); const acc = u.bestaat ? Object.keys((u.data && u.data.users) || {}) : []; const zonder = TEAM.filter(p=>!acc.includes(p));
+      return zonder.length ? ck_info("nog het startwachtwoord: " + zonder.join(", ")) : ck_ok("iedereen heeft een eigen wachtwoord"); } },
+  { id: "instellingen", groep: 2, zwaar: true, naam: "Instellingen (boodschap en talen)", run: async ()=>{
+      const s = (await chkNet()).settings; if(s.fout) return ck_fout("settings.json niet leesbaar (" + s.fout + ")"); if(!s.bestaat) return ck_ok("nog niet aangemaakt: standaardwaarden gelden");
+      const d = s.data || {}, sl = new Set(); ["talen", "personen", "campus", "monitor", "persoonlijk"].forEach(k=>Object.keys(d[k] || {}).forEach(p=>sl.add(p)));
+      const weg = [...sl].filter(p=>VERWIJDERDE_NAMEN.includes(p)); if(weg.length) return ck_let("instellingen van een verwijderde naam: " + weg.join(", "));
+      const vreemd = [...sl].filter(p=>!TEAM.includes(p) && p !== MONITOR_ACCOUNT); return vreemd.length ? ck_let("instellingen voor mensen die niet in het team staan: " + vreemd.join(", ")) : ck_ok("leesbaar en alleen voor het team"); } },
+  { id: "verjaardagen", groep: 2, naam: "Verjaardag bekend voor iedereen", run: ()=>{ const zonder = TEAM.filter(p=>!VERJAARDAGEN[p]); return zonder.length ? ck_let("geen verjaardag bekend voor " + zonder.join(", ")) : ck_ok("alle " + TEAM.length + " teamleden"); } },
+  // ── Backups en logboek ──
+  { id: "backups", groep: 3, zwaar: true, naam: "Backups aanwezig", run: async ()=>{
+      const l = (await chkNet()).lijst; if(!l || l.fout) return ck_let("de backuplijst kon niet worden opgehaald" + (l && l.fout ? " (" + l.fout + ")" : "")); if(!l.length) return ck_fout("er zijn geen backups", ()=>ckMaakBackup());
+      return ck_ok(l.length + " backups, de nieuwste van " + l[l.length - 1].name.replace(".json", "").replace("_", " ").replace(/-(\d\d)$/, ":$1")); } },
+  { id: "backup_actueel", groep: 3, zwaar: true, naam: "Laatste backup bevat de laatste opslag", run: async ()=>{
+      const l = (await chkNet()).lijst; if(!l || l.fout || !l.length) return ck_info("geen backups om mee te vergelijken");
+      const b = await ckBackupLees(l[l.length - 1].name); if(!b.data) return ck_let("de nieuwste backup is niet leesbaar", ()=>ckMaakBackup());
+      if(planningHash(b.data) === planningHash(serializeState())) return ck_ok("gelijk aan de huidige planning");
+      const t = HEALTH.integriteit && HEALTH.integriteit.t ? Date.parse(HEALTH.integriteit.t) : 0;
+      return (t && Date.now() - t < 30 * 60000) || savePending || ghSaving ? ck_ok("loopt iets achter op de laatste opslag (normaal: een backup volgt binnen 10 minuten)") : ck_let("de planning is gewijzigd sinds de nieuwste backup", ()=>ckMaakBackup()); } },
+  { id: "backup_geldig", groep: 3, zwaar: true, naam: "Nieuwste backups zijn in orde", run: async ()=>{
+      const l = (await chkNet()).lijst; if(!l || l.fout || !l.length) return ck_info("geen backups om te controleren");
+      const recent = l.slice(-3), slecht = [], nu = Object.keys(store).length;
+      for(const f of recent){
+        const b = await ckBackupLees(f.name); let reden = null;
+        if(!b.data) reden = "niet leesbaar"; else if(!stateGeldig(b.data)) reden = "leeg of ongeldig"; else if(bevatVerwijderd(b.data)) reden = "bevat een verwijderde naam"; else if(nu >= 10 && Object.keys(b.data.store).length < nu * 0.5) reden = "veel minder weken dan de planning";
+        if(reden) slecht.push({ naam: f.name, reden });
+      }
+      if(!slecht.length) return ck_ok("de " + recent.length + " nieuwste backups zijn leesbaar en volledig");
+      const goed = l.length - slecht.length; const tekst = slecht.map(x=>x.naam.replace(".json", "") + " (" + x.reden + ")").join("; ");
+      return ck_fout("beschadigd: " + tekst, goed >= 5 ? ()=>ckVerwijderBackups(slecht.map(x=>x.naam)) : null); } },
+  { id: "audit", groep: 3, naam: "Logboek schrijft", run: ()=> auditQueue.length ? ck_let(auditQueue.length + " regel" + (auditQueue.length === 1 ? "" : "s") + " wacht" + (auditQueue.length === 1 ? "" : "en") + " nog op GitHub", ()=>auditFlush()) : ck_ok("geen wachtrij") },
+];
+function checkSchrijvenMag(id){   // zolang er een rode melding staat over de planning (beschadigd, controlegetal of controle na opslaan) schrijft er geen enkel automatisch herstel: alleen verversen mag
+  if(!document.getElementById("corrupt-banner") && !document.getElementById("verify-banner") && !document.getElementById("integriteit-banner")) return true;
+  return ["github", "sync", "geladen", "versie"].includes(id);
+}
+function checkMagHerstellen(id){ return !ghSaving && checkSchrijvenMag(id) && ((CHECK_FIX[id] || []).filter(t=>Date.now() - t < 3600000).length < 3); }
+async function runChecks(opts){
+  opts = opts || {}; if(checkBusy) return; checkBusy = true; CHK.net = opts.zwaar ? null : CHK.net;
+  try{
+    for(const c of CHECKS){
+      if(c.zwaar && !opts.zwaar) continue;
+      let r; try{ r = await c.run(); }catch(e){ r = ck_fout("de controle zelf is mislukt: " + ((e && e.message) || e)); }
+      let hersteld = null;
+      if(opts.repair && r.fix && (r.s === "let" || r.s === "fout") && checkMagHerstellen(c.id)){
+        (CHECK_FIX[c.id] = (CHECK_FIX[c.id] || []).filter(t=>Date.now() - t < 3600000)).push(Date.now());
+        const voor = r.t;
+        try{ await r.fix(); CHK.net = null; await new Promise(res=>setTimeout(res, 700)); const r2 = await c.run(); hersteld = { t: Date.now(), van: voor, gelukt: r2.s === "ok" || r2.s === "info" }; r = r2; }
+        catch(e){ hersteld = { t: Date.now(), van: voor, gelukt: false, fout: String((e && e.message) || e) }; }
+        try{ auditEvent("check-reparatie: " + c.naam + (hersteld.gelukt ? " hersteld" : " niet gelukt") + " (" + voor + ")"); }catch(e){}
+      }
+      const vorig = CHECK_RESULT[c.id];
+      CHECK_RESULT[c.id] = { s: r.s, t: r.t, at: Date.now(), hersteld: hersteld || (vorig && vorig.hersteld && Date.now() - vorig.hersteld.t < 6 * 3600000 ? vorig.hersteld : null), kanHerstellen: !!r.fix };
+    }
+  } finally { checkBusy = false; CHECK_RUN_AT = Date.now(); if(opts.zwaar) CHECK_ZWAAR_AT = Date.now(); }
+}
+function checkTelling(){ const t = { ok: 0, info: 0, let: 0, fout: 0, hersteld: 0, nog: 0 }; CHECKS.forEach(c=>{ const r = CHECK_RESULT[c.id]; if(!r){ t.nog++; return; } t[r.s]++; if(r.hersteld && r.hersteld.gelukt) t.hersteld++; }); return t; }
+function checksMenuSuffix(){ if(!CHECK_RUN_AT) return ""; const t = checkTelling(); return t.fout ? " \u2717" + t.fout : t.let ? " \u26A0" + t.let : " \u2713"; }
+async function showChecksWindow(){
+  if(!canSeeInfo()) return;
+  const old = document.getElementById("checks-overlay"); if(old) old.remove();
+  const overlay = document.createElement("div"); overlay.className = "tp-overlay"; overlay.id = "checks-overlay";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:860;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:60px 10px 20px;";
+  const box = document.createElement("div"); box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:640px;max-width:98vw;font-family:'Courier New',monospace;";
+  box.innerHTML = `<div style="font-size:14px;font-weight:700;color:#80cbc4;margin-bottom:6px;padding-right:40px;">\u2705 Checks</div><div id="ck-sum" style="font-size:12px;margin-bottom:10px;color:#fff;"></div><button id="ck-run" type="button" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(128,203,196,0.5);background:rgba(128,203,196,0.12);color:#80cbc4;font:inherit;font-size:12px;cursor:pointer;margin-bottom:12px;">Nu controleren</button><div id="ck-list"></div><div style="margin-top:12px;font-size:10px;color:rgba(255,255,255,0.4);line-height:1.5;">De checks lopen vanzelf: de lichte elke 2 minuten, de zware (die GitHub bevragen) elke 30 minuten, op de pagina van elke Administrator. Wat veilig kan, wordt automatisch hersteld (hooguit 3 keer per uur per check) en komt in het logboek.</div>`;
+  overlay.appendChild(box); document.body.appendChild(overlay); addWinX(box, ()=>overlay.remove(), "checks-close");
+  const kleur = { ok: "#4caf50", info: "#64b5f6", let: "#ffb74d", fout: "#ef5350" }, icoon = { ok: "\u2713", info: "\u2139", let: "\u26A0", fout: "\u2717" };
+  const sum = box.querySelector("#ck-sum"), lijst = box.querySelector("#ck-list"), knop = box.querySelector("#ck-run");
+  const teken = ()=>{
+    const t = checkTelling(); sum.style.color = t.fout ? kleur.fout : t.let ? kleur.let : "#fff";
+    sum.textContent = (!CHECK_RUN_AT ? "Bezig met controleren\u2026" : t.fout ? "\u2717 " + t.fout + " fout" + (t.fout === 1 ? "" : "en") + (t.let ? " en " + t.let + " aandachtspunt" + (t.let === 1 ? "" : "en") : "") : t.let ? "\u26A0 " + t.let + " aandachtspunt" + (t.let === 1 ? "" : "en") : "\u2713 Alles in orde") + "  \u00B7  " + (CHECKS.length - t.nog) + " van " + CHECKS.length + " gecontroleerd" + (t.hersteld ? "  \u00B7  " + t.hersteld + " automatisch hersteld" : "") + (CHECK_RUN_AT ? "  \u00B7  laatste ronde " + ckAgo(Math.round((Date.now() - CHECK_RUN_AT) / 1000)) + " geleden" : "");
+    lijst.innerHTML = "";
+    CHECK_GROEPEN.forEach((g, gi)=>{
+      const kop = document.createElement("div"); kop.style.cssText = "font-size:11px;font-weight:700;color:#80cbc4;letter-spacing:1px;text-transform:uppercase;margin:12px 0 4px;"; kop.textContent = g; lijst.appendChild(kop);
+      CHECKS.filter(c=>c.groep === gi).forEach(c=>{
+        const r = CHECK_RESULT[c.id], rij = document.createElement("div"); rij.dataset.check = c.id; rij.dataset.status = r ? r.s : "nog";
+        rij.style.cssText = "display:flex;gap:10px;align-items:flex-start;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.06);font-size:12px;";
+        const ic = document.createElement("span"); ic.style.cssText = "min-width:16px;font-weight:700;color:" + (r ? kleur[r.s] : "rgba(255,255,255,0.3)") + ";"; ic.textContent = r ? icoon[r.s] : "\u2026";
+        const nm = document.createElement("span"); nm.style.cssText = "min-width:190px;max-width:190px;color:#fff;font-weight:700;"; nm.textContent = c.naam;
+        const tx = document.createElement("span"); tx.style.cssText = "flex:1;color:rgba(255,255,255,0.65);line-height:1.4;"; tx.textContent = r ? r.t : "nog niet gecontroleerd" + (c.zwaar ? " (zware check)" : "");
+        rij.append(ic, nm, tx);
+        if(r && r.hersteld){ const h = document.createElement("div"); h.style.cssText = "flex-basis:100%;margin-left:26px;font-size:10px;color:" + (r.hersteld.gelukt ? "#4caf50" : "#ffb74d") + ";"; h.textContent = (r.hersteld.gelukt ? "\u2713 automatisch hersteld om " : "herstel niet gelukt om ") + new Date(r.hersteld.t).toLocaleTimeString("nl-NL", {hour: "2-digit", minute: "2-digit"}) + " (was: " + r.hersteld.van + ")"; rij.style.flexWrap = "wrap"; rij.appendChild(h); }
+        lijst.appendChild(rij);
+      });
+    });
+  };
+  teken();
+  knop.onclick = async ()=>{ knop.disabled = true; knop.textContent = "Bezig\u2026"; try{ await runChecks({ zwaar: true, repair: true }); }finally{ knop.disabled = false; knop.textContent = "Nu controleren"; teken(); } };
+  if(!CHECK_ZWAAR_AT || Date.now() - CHECK_ZWAAR_AT > 300000) knop.onclick();
+  const tmr = setInterval(()=>{ if(!document.body.contains(overlay)){ clearInterval(tmr); return; } teken(); }, 1000);
+}
+let checkTick = 0;   // de checks lopen vanzelf op de pagina van elke Administrator: licht elke 2 minuten, zwaar elke 30 minuten
+setInterval(()=>{ if(!(canSeeInfo() && stateTrusted) || document.hidden) return; checkTick++; runChecks({ zwaar: checkTick % 15 === 1, repair: true }); }, 120000);
+setTimeout(()=>{ if(canSeeInfo() && stateTrusted && !document.hidden) runChecks({ zwaar: true, repair: true }); }, 25000);
+
 async function showStatusWindow(){
   if(!canSeeInfo()) return;   // Status staat onder Admin en is alleen kijken: geen vraag om bewerken aan te zetten
   const old = document.getElementById("status-overlay"); if(old) old.remove();
@@ -5277,6 +5618,8 @@ async function restoreFromBackup(filename, sha){
     const sr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
       {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
     const sd = await sr.json();
+    let nVorig = 0, bevVorig = 0; try{ const s0 = JSON.parse(auditDecode(sd.content)); nVorig = (s0.integriteit && s0.integriteit.n) | 0; bevVorig = (s0.integriteit && s0.integriteit.bev) | 0; }catch(e){}
+    stempel(backupState, nVorig + 1, currentIdentity && currentIdentity.user, bevVorig);   // ook een teruggezette backup krijgt een controlegetal
     const wr = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`,{
       method:"PUT",
       headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
@@ -5285,6 +5628,7 @@ async function restoreFromBackup(filename, sha){
     if(wr.ok){
       touchEditTimer();
       const written = JSON.parse(JSON.stringify(backupState));   // wat er echt is weggeschreven (voordat applyState de data aanpast)
+      { const ver1 = await verifieerNaOpslaan(null, written, { replace: true }, null); if(!ver1.ok) verificatieMislukt(ver1.fouten); else { try{ localStorage.setItem(STEMPEL_KEY, String(written.integriteit.n)); }catch(e){} } }
       document.querySelectorAll(".z-index-800, [style*='z-index:800']").forEach(el=>el.remove());
       applyState(backupState, true);
       propagateTemplateToAll();
