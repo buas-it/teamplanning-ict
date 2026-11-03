@@ -5,7 +5,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TeamPlanning ICT</title><!-- cache-bust: 1791972423 -->
+<title>TeamPlanning ICT</title><!-- cache-bust: 1793714500 -->
 <style>
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
 body { min-height:100vh; background:linear-gradient(160deg,#0d0d1a 0%,#111827 60%,#0a1628 100%); font-family:'Courier New',monospace; color:#e8e8f0; padding:20px 16px; }
@@ -231,7 +231,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 28 okt 2026 · 136</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 3 nov 2026 · 137</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -264,7 +264,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 <script>
 let HIDDEN  = new Set();   // wie verborgen is: blijft bestaan (planning, standaardweek, berichten) maar staat nergens in beeld
 function visibleTeam(){ return TEAM.filter(p=>!HIDDEN.has(p)); }
-let TEAM    = ["Wim","Wouter","Annies","Bas","Frederique","Bram","Ivor","Sercan","Hans","Marco","Dave"];
+let TEAM    = [];   // het team komt uitsluitend uit state.json op GitHub; hier staan bewust geen namen
 const DAYS    = ["MA","DI","WO","DO","VR"];
 const DAY_LABELS = {MA:"Maandag",DI:"Dinsdag",WO:"Woensdag",DO:"Donderdag",VR:"Vrijdag"};
 const AVATARS = ["#7c5cbf","#3a8a82","#c47a2e","#b54d6a","#8a4db5","#3a7a5c","#5c7ab5","#b54d4d","#FF6C00","#4d7a3a","#5c4d8a"];
@@ -312,7 +312,13 @@ function verplichtVrij(wk){   // zet voor deze week (sleutel) alle verplichte vr
   }catch(e){} return aangepast;
 }
 function verplichtVrijAlles(){ Object.keys(store).forEach(verplichtVrij); }
-function applyState(data){
+function applyState(data, replace){
+  if(data) stripVerwijderd(data);   // verwijderde medewerkers komen via geen enkele weg terug
+  if(replace){   // een backup terugzetten vervangt de hele planning; geen samenvoeging met wat er al in het geheugen stond
+    Object.keys(store).forEach(k=>{ delete store[k]; });
+    Object.keys(template).forEach(p=>{ delete template[p]; });
+    Object.keys(manuallyEdited).forEach(k=>{ delete manuallyEdited[k]; });
+  }
   if(data.team) TEAM = data.team.filter(p => p !== "__divider__");
   HIDDEN = new Set(Array.isArray(data.hidden) ? data.hidden.filter(n=>TEAM.includes(n)) : []);
 
@@ -363,6 +369,30 @@ let unlockTimer = null;
 let editDirty = false;      // er is gewijzigd sinds bewerken aanging (voor de backup bij 'bewerken uit')
 let saveOkCount = 0;        // teller: hoe vaak er in deze sessie met succes is opgeslagen
 let savePending = false;    // een wijziging wacht nog om naar GitHub te worden geschreven
+// ── Verwijderde medewerkers ──────────────────────────────────────
+// Deze namen zijn uit het team gehaald en mogen nooit meer terugkomen: niet in het team, de planning, het standaardrooster, een geladen planning,
+// een teruggezette backup of een opslag. Wat er toch nog staat wordt bij het laden verwijderd en op GitHub hersteld. Past het team ooit weer
+// een medewerker met zo'n naam toe, haal de naam dan hier weg.
+const VERWIJDERDE_NAMEN = ["Frederique", "Ivor", "Dave"];
+function stripVerwijderd(d){   // haalt die namen overal uit een planning-object; geeft het aantal verwijderde vermeldingen terug
+  if(!d) return 0; let n = 0;
+  const weg = p => VERWIJDERDE_NAMEN.includes(p);
+  if(Array.isArray(d.team)){ const v = d.team.length; d.team = d.team.filter(p=>!weg(p)); n += v - d.team.length; }
+  if(Array.isArray(d.hidden)){ const v = d.hidden.length; d.hidden = d.hidden.filter(p=>!weg(p)); n += v - d.hidden.length; }
+  if(d.store) Object.keys(d.store).forEach(wk=>{ Object.keys(d.store[wk] || {}).forEach(p=>{ if(weg(p)){ delete d.store[wk][p]; n++; } }); });
+  if(d.template) Object.keys(d.template).forEach(p=>{ if(weg(p)){ delete d.template[p]; n++; } });
+  if(d.manuallyEdited) Object.keys(d.manuallyEdited).forEach(wk=>{
+    const a = d.manuallyEdited[wk], arr = Array.isArray(a) ? a : (a instanceof Set ? [...a] : []);
+    const f = arr.filter(k=>!weg(k.slice(0, k.lastIndexOf("-"))));
+    if(f.length !== arr.length){ n += arr.length - f.length; d.manuallyEdited[wk] = Array.isArray(a) ? f : new Set(f); }
+  });
+  return n;
+}
+let healRemoved = false;   // op GitHub stond een verwijderde naam: bij de eerstvolgende opslag wordt dat hersteld
+let stateTrusted = false;   // true zodra de planning in deze sessie met succes van GitHub is geladen; alleen dan mag er worden opgeslagen, een backup gemaakt of iets teruggezet
+let stateSource = "";       // "github" | "raw" (laatste kopie op GitHub) | "browser" (laatste planning die dit apparaat kende) | "" (niets bekend)
+let lastGoodTime = 0;       // moment waarop de planning uit de browserkopie voor het laatst van GitHub kwam
+const LASTGOOD_KEY = "tp_lastgood";   // de laatst bekende planning, alleen om te LEZEN als GitHub niet bereikbaar is; nooit om op te slaan
 let lastSavedJson = null;   // de staat die als laatste naar GitHub is geschreven
 const EDIT_IDLE_MS = 10 * 60 * 1000;     // bewerken gaat uit na 10 minuten zonder wijziging
 let lastEditAt = 0;               // tijdstip van het aanzetten van bewerken of de laatste wijziging; ook bewaard op het apparaat (tp_edit), zodat de 10 minuten gelden zonder dat de pagina hoeft te draaien
@@ -1590,6 +1620,7 @@ function lock(){   // uitloggen: terug naar de toegangspoort
 }
 function enableEditing(){   // bewerken aanzetten (alleen als je bent ingelogd); de 10 minuten beginnen nu
   if(!currentIdentity || editUnlocked) return;
+  if(!stateTrusted){ showReadOnlyBanner(true); return; }   // alleen lezen zolang de planning niet van GitHub is geladen
   editUnlocked = true; editDirty = false;
   touchEditTimer();
   document.dispatchEvent(new CustomEvent("tp-lock-changed"));
@@ -2168,7 +2199,26 @@ async function loadFromGitHub(usePrefetch=false){
       HEALTH.github = "ok"; HEALTH.data = "ok";
       HEALTH.lastSync = Date.now(); HEALTH.lastSyncOk = true;
       updateHealthBar();
-      applyState(data); auditRebase(); return true;
+      const wasUntrusted = !stateTrusted;
+      stateTrusted = true; stateSource = "github";
+      const nVerwijderd = stripVerwijderd(data);   // staat er op GitHub een verwijderde naam, dan gaat die er hier uit en wordt GitHub zo hersteld
+      HEALTH.verwijderdGevonden = nVerwijderd;
+      const lgOud = lastGoodLoad();   // een planning die opeens veel kleiner is dan de laatst bekende goede: melden, niet automatisch herstellen en niet als goede kopie bewaren
+      const wekenNu = Object.keys(data.store).length, wekenEerder = lgOud ? Object.keys(lgOud.data.store).length : 0;
+      if(verdachtWeken(wekenNu)){ showCorruptBanner(wekenNu, wekenEerder); }
+      else {
+        hideCorruptBanner(); lastGoodSave(JSON.stringify(data), d.sha);
+        if(nVerwijderd > 0){ healRemoved = true; console.warn("Verwijderde namen op GitHub aangetroffen (" + nVerwijderd + " vermeldingen); worden hersteld"); setTimeout(()=>{ if(stateTrusted && !ghSaving) saveToGitHub(); }, 1500); }
+      }
+      hideReadOnlyBanner(); hideNoDataOverlay();
+      applyState(data); auditRebase();
+      if(!savePending && !ghSaving) setBaseline();   // vanaf nu: alleen wijzigingen ten opzichte van deze stand worden opgeslagen
+      if(wasUntrusted && firstLoadSettled){   // terug na een mislukte eerste poging: het hoofdscherm alsnog tonen
+        try{ propagateTemplateToAll(); }catch(e){}
+        const g = document.getElementById("main-grid"); if(g) g.style.visibility = "visible";
+        const l = document.getElementById("legend"); if(l) l.style.visibility = "visible";
+      }
+      return true;
     } else {
       HEALTH.github = "ok"; HEALTH.data = "error";
       updateHealthBar();
@@ -2181,6 +2231,161 @@ async function loadFromGitHub(usePrefetch=false){
   }
   return false;
 }
+
+// ── Laatst bekende planning ───────────────────────────────────────
+// Lukt het laden van GitHub niet, dan tonen we NOOIT de ingebouwde standaardlijst, maar de laatst bekende planning, alleen om te lezen:
+//  1. de laatste kopie op GitHub zelf (publiek leesbaar, zonder token), 2. de laatste planning die dit apparaat van GitHub kreeg.
+// Opslaan, een backup maken en terugzetten kan pas als de planning met succes van GitHub is geladen (stateTrusted).
+function lastGoodSave(text, sha){
+  try{ localStorage.setItem(LASTGOOD_KEY, JSON.stringify({t: Date.now(), sha: sha || "", text: String(text)})); }catch(e){}
+}
+function lastGoodLoad(){
+  try{
+    const o = JSON.parse(localStorage.getItem(LASTGOOD_KEY) || "null");
+    if(!o || !o.text) return null;
+    const data = JSON.parse(o.text);
+    return stateGeldig(data) ? {t: o.t || 0, data} : null;
+  }catch(e){ return null; }
+}
+function stateGeldig(d){ return !!(d && d.store && Array.isArray(d.team) && d.team.length > 0 && Object.keys(d.store).length > 0); }
+async function loadFallbackState(){   // geeft "raw", "browser" of "" terug
+  try{
+    const r = await fetch(`https://raw.githubusercontent.com/${GH_REPO}/${GH_BRANCH}/${GH_FILE}?t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2), {cache:"no-store"});
+    if(r.ok){
+      const data = JSON.parse(await r.text());
+      if(stateGeldig(data)){ stateSource = "raw"; applyState(data); showReadOnlyBanner(false); return "raw"; }
+    }
+  }catch(e){ console.warn("Laatste kopie op GitHub niet bereikbaar:", e); }
+  const lg = lastGoodLoad();
+  if(lg){ stateSource = "browser"; lastGoodTime = lg.t; applyState(lg.data); showReadOnlyBanner(false); return "browser"; }
+  return "";
+}
+function showReadOnlyBanner(blocked){
+  let b = document.getElementById("readonly-banner");
+  if(!b){ b = document.createElement("div"); b.id = "readonly-banner"; document.body.appendChild(b); }
+  let bron = "de laatst bekende planning";
+  if(stateSource === "raw") bron = "de laatste kopie van de planning op GitHub";
+  else if(stateSource === "browser"){ const d = lastGoodTime ? new Date(lastGoodTime) : null; bron = "de laatste planning die dit apparaat kende" + (d ? " (" + d.toLocaleString("nl-NL", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}) + ")" : ""); }
+  b.innerHTML = `<b>Alleen lezen.</b> De verbinding met GitHub lukt niet; je ziet ${bron}. ${blocked ? "Je wijziging is <b>niet</b> opgeslagen. " : ""}Wijzigen kan weer zodra de verbinding terug is; de pagina probeert het elke 15 seconden.`;
+  b.style.cssText = "position:fixed;bottom:0;left:0;right:0;z-index:950;background:#e65100;color:#fff;padding:10px 16px;font:13px 'Courier New',monospace;text-align:center;box-shadow:0 -4px 20px rgba(230,81,0,0.5);";
+}
+function hideReadOnlyBanner(){ const b = document.getElementById("readonly-banner"); if(b) b.remove(); }
+function showNoDataOverlay(){
+  let o = document.getElementById("nodata-overlay");
+  if(!o){ o = document.createElement("div"); o.id = "nodata-overlay"; document.body.appendChild(o); }
+  o.innerHTML = `<div style="max-width:520px;text-align:center;"><div style="font-size:34px;">⚠️</div><div style="font-size:18px;font-weight:700;margin:8px 0;">De planning kan niet worden geladen</div><div style="font-size:13px;opacity:.85;">De verbinding met GitHub lukt niet en er is geen eerder geladen versie beschikbaar. Er wordt niets getoond en niets opgeslagen. De pagina probeert het elke 15 seconden opnieuw.</div></div>`;
+  o.style.cssText = "position:fixed;inset:0;z-index:940;background:#0d1b2a;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Courier New',monospace;padding:24px;";
+}
+function hideNoDataOverlay(){ const o = document.getElementById("nodata-overlay"); if(o) o.remove(); }
+
+
+// ── Veilig opslaan: alleen JOUW wijzigingen, bovenop de actuele planning op GitHub ──────────────────────
+// Een pagina schrijft nooit meer haar hele geheugen weg. Bij elke opslag wordt de actuele planning van GitHub opgehaald en worden alleen de
+// wijzigingen van deze pagina (sinds ze voor het laatst met GitHub gelijk liep) daarbovenop gezet. Zo kan een verouderde of foute pagina
+// nooit de planning van anderen overschrijven, en verdwijnt er geen week of persoon doordat een pagina iets niet wist.
+let baselineState = null;   // de planning zoals deze pagina die voor het laatst met GitHub gelijk had (geladen of weggeschreven)
+function snapState(){ return JSON.parse(JSON.stringify(serializeState())); }
+function setBaseline(){ baselineState = snapState(); }
+function deq(a, b){ return JSON.stringify(a) === JSON.stringify(b); }
+function splitKey(k){ const i = k.lastIndexOf("-"); return [k.slice(0, i), k.slice(i + 1)]; }
+function diffOps(B, L){
+  const ops = {cells:[], tmpl:[], medAdd:[], medDel:[], teamAdd:[], teamDel:[], teamOrder:null, hidAdd:[], hidDel:[]};
+  const bm = B.manuallyEdited || {}, lm = L.manuallyEdited || {};
+  Object.keys(lm).forEach(wk=>{ (lm[wk] || []).forEach(k=>{
+    const [p, d] = splitKey(k);
+    const nv = ((L.store[wk] || {})[p] || {})[d];
+    const ov = (((B.store || {})[wk] || {})[p] || {})[d];
+    const was = (bm[wk] || []).includes(k);
+    if(nv !== undefined && (!was || !deq(nv, ov))) ops.cells.push([wk, p, d, nv]);
+    if(!was) ops.medAdd.push([wk, k]);
+  }); });
+  Object.keys(bm).forEach(wk=>{ (bm[wk] || []).forEach(k=>{
+    if((lm[wk] || []).includes(k)) return;
+    const [p, d] = splitKey(k);
+    ops.medDel.push([wk, k, ((L.store[wk] || {})[p] || {})[d]]);
+  }); });
+  Object.keys(L.template || {}).forEach(p=>{ Object.keys(L.template[p]).forEach(d=>{
+    const nv = L.template[p][d], ov = ((B.template || {})[p] || {})[d];
+    if(!deq(nv, ov)) ops.tmpl.push([p, d, nv]);
+  }); });
+  const tb = B.team || [], tl = L.team || [];
+  tl.forEach(p=>{ if(!tb.includes(p)) ops.teamAdd.push(p); });
+  tb.forEach(p=>{ if(!tl.includes(p)) ops.teamDel.push(p); });
+  if(!ops.teamAdd.length && !ops.teamDel.length && !deq(tb, tl)) ops.teamOrder = tl.slice();
+  (L.hidden || []).forEach(p=>{ if(!(B.hidden || []).includes(p)) ops.hidAdd.push(p); });
+  (B.hidden || []).forEach(p=>{ if(!(L.hidden || []).includes(p)) ops.hidDel.push(p); });
+  return ops;
+}
+function opsCount(o){ return o.cells.length + o.tmpl.length + o.medAdd.length + o.medDel.length + o.teamAdd.length + o.teamDel.length + (o.teamOrder ? 1 : 0) + o.hidAdd.length + o.hidDel.length; }
+function applyOps(R, ops){
+  R.store = R.store || {}; R.template = R.template || {}; R.manuallyEdited = R.manuallyEdited || {}; R.team = R.team || []; R.hidden = R.hidden || [];
+  ops.teamAdd.forEach(p=>{ if(!R.team.includes(p)) R.team.push(p); });
+  ops.teamDel.forEach(p=>{ R.team = R.team.filter(x=>x !== p); });
+  if(ops.teamOrder){ const rest = R.team.filter(p=>!ops.teamOrder.includes(p)); R.team = ops.teamOrder.filter(p=>R.team.includes(p)).concat(rest); }
+  ops.medAdd.forEach(([wk, k])=>{ const a = new Set(R.manuallyEdited[wk] || []); a.add(k); R.manuallyEdited[wk] = [...a]; });
+  ops.cells.forEach(([wk, p, d, v])=>{ if(!R.team.includes(p)) return; if(!R.store[wk]) R.store[wk] = {}; if(!R.store[wk][p]) R.store[wk][p] = {}; R.store[wk][p][d] = v; });
+  ops.medDel.forEach(([wk, k, v])=>{
+    const a = new Set(R.manuallyEdited[wk] || []); a.delete(k); R.manuallyEdited[wk] = [...a];
+    const [p, d] = splitKey(k);
+    if(v !== undefined && R.team.includes(p) && R.store[wk]){ if(!R.store[wk][p]) R.store[wk][p] = {}; R.store[wk][p][d] = v; }
+  });
+  ops.tmpl.forEach(([p, d, v])=>{
+    if(!R.team.includes(p)) return;
+    if(!R.template[p]) R.template[p] = {};
+    R.template[p][d] = v;
+    Object.keys(R.store).forEach(wk=>{   // niet handmatig aangepaste dagen volgen het standaardrooster (zoals pushTemplateCell lokaal doet)
+      if(LOCKED_DAYS.has(wk + "-" + d)) return;
+      if((R.manuallyEdited[wk] || []).includes(p + "-" + d)) return;
+      if(!R.store[wk][p]) R.store[wk][p] = {};
+      R.store[wk][p][d] = JSON.parse(JSON.stringify(v));
+    });
+  });
+  const h = new Set(R.hidden); ops.hidAdd.forEach(p=>h.add(p)); ops.hidDel.forEach(p=>h.delete(p)); R.hidden = [...h].filter(p=>R.team.includes(p));
+  Object.keys(R.store).forEach(wk=>{ Object.keys(R.store[wk]).forEach(p=>{ if(!R.team.includes(p)) delete R.store[wk][p]; }); });
+  Object.keys(R.template).forEach(p=>{ if(!R.team.includes(p)) delete R.template[p]; });
+  return R;
+}
+function verdachtWeken(n){   // zijn dit opeens veel minder weken dan de laatst bekende goede planning?
+  const lg = lastGoodLoad(); const e = lg ? Object.keys(lg.data.store || {}).length : 0;
+  return e >= 10 && n < e * 0.5;
+}
+function backupGeldig(json){   // geen backup van een planning die er beschadigd uitziet
+  try{
+    const d = JSON.parse(json); if(!stateGeldig(d)) return false;
+    return !verdachtWeken(Object.keys(d.store).length);
+  }catch(e){ return false; }
+}
+function verwijderdAanwezig(){   // staat er nu nog een verwijderde naam in team, planning, rooster of bewerkte dagen in dit geheugen?
+  const weg = p => VERWIJDERDE_NAMEN.includes(p);
+  if((TEAM || []).some(weg)) return true;
+  if(Object.values(store || {}).some(w=>Object.keys(w || {}).some(weg))) return true;
+  if(Object.keys(template || {}).some(weg)) return true;
+  return Object.values(manuallyEdited || {}).some(set=>[...set].some(k=>weg(k.slice(0, k.lastIndexOf("-")))));
+}
+function verwijderdeNamenRegel(){
+  const lijst = VERWIJDERDE_NAMEN.join(", ");
+  if(verwijderdAanwezig()) return `❌ Verwijderde namen (${lijst}) aangetroffen in de planning`;
+  const gev = HEALTH.verwijderdGevonden || 0;
+  if(gev > 0) return HEALTH.verwijderdHersteld ? `✅ Verwijderde namen (${lijst}): ${gev} vermeldingen op GitHub aangetroffen en hersteld` : `⚠️ Verwijderde namen (${lijst}): ${gev} vermeldingen op GitHub aangetroffen; worden hersteld`;
+  return `✅ Verwijderde namen (${lijst}): niet aanwezig`;
+}
+function showCorruptBanner(nu, eerder){
+  let b = document.getElementById("corrupt-banner");
+  if(!b){ b = document.createElement("div"); b.id = "corrupt-banner"; document.body.appendChild(b); }
+  b.innerHTML = `<b>Let op: de planning op GitHub lijkt beschadigd.</b> Er staan ${nu} weken in, eerder waren het er ${eerder}. Controleer dit en zet zo nodig een goede backup terug (Admin). Er wordt niets automatisch overschreven en er wordt geen backup van gemaakt.`;
+  b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:970;background:#b71c1c;color:#fff;padding:10px 16px;font:13px 'Courier New',monospace;text-align:center;box-shadow:0 4px 20px rgba(183,28,28,0.6);";
+}
+function hideCorruptBanner(){ const b = document.getElementById("corrupt-banner"); if(b) b.remove(); }
+function checkStale(){   // een scherm dat al een tijd niet met GitHub heeft kunnen praten, zegt dat zelf
+  const stale = stateTrusted && HEALTH.lastSync && (Date.now() - HEALTH.lastSync > 180000);
+  let b = document.getElementById("stale-banner");
+  if(!stale){ if(b) b.remove(); return; }
+  if(!b){ b = document.createElement("div"); b.id = "stale-banner"; document.body.appendChild(b); }
+  const t = new Date(HEALTH.lastSync).toLocaleTimeString("nl-NL", {hour:"2-digit", minute:"2-digit"});
+  b.innerHTML = `<b>Let op:</b> de planning is voor het laatst om ${t} met GitHub gesynchroniseerd. Je ziet mogelijk niet de nieuwste versie; de pagina probeert het elke minuut opnieuw.`;
+  b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:960;background:#e65100;color:#fff;padding:8px 16px;font:13px 'Courier New',monospace;text-align:center;";
+}
+setInterval(checkStale, 30000);
 
 // Helper: encode JSON naar base64 (unicode-safe)
 function encodeBase64(str){
@@ -2211,6 +2416,8 @@ const BACKUP_INTERVAL = 10 * 60 * 1000; // 10 minuten
 const BACKUP_RETRY_STATUS = [409, 422, 500, 502, 503, 504];   // conflict of storing: opnieuw; een andere fout (bijv. geen rechten) niet blijven proberen
 
 async function maybeBackup(stateJson, opts = {}){
+  if(!stateTrusted) return null;   // geen backup van een planning die niet van GitHub is geladen
+  if(!backupGeldig(stateJson)){ console.warn("Backup overgeslagen: de planning lijkt beschadigd"); return null; }
   // opts.force: de 10-minutenregel overslaan; opts.always: ook als er niets is gewijzigd (handmatig); opts.label/who: commitbericht; opts.attempts: aantal pogingen
   const now = Date.now();
   if(!opts.always && stateJson === lastBackupJson && !backupPending) return null;                     // niets gewijzigd sinds de laatste geslaagde backup
@@ -2297,76 +2504,83 @@ async function makeManualBackup(){
   if(res && res.ok){ adminNotice("✓ Backup gemaakt: " + res.filename.replace("_", " "), "💾 Backup maken"); auditEvent("backup gemaakt (handmatig): " + res.filename); }
   else adminNotice("✗ Backup mislukt" + (res && res.err ? " (" + res.err + ")" : "") + ". Probeer het zo opnieuw.", "💾 Backup maken");
 }
-function retryPendingBackup(){ if(backupPending && !backupBusy){ try{ maybeBackup(JSON.stringify(serializeState())); }catch(e){} } }   // een mislukte backup wordt elke minuut opnieuw geprobeerd, met de actuele staat
+function retryPendingBackup(){ if(backupPending && !backupBusy){ try{ maybeBackup(lastSavedJson || JSON.stringify(serializeState())); }catch(e){} } }   // een mislukte backup wordt elke minuut opnieuw geprobeerd, met de actuele staat
 setInterval(retryPendingBackup, 60 * 1000);
 
-async function saveToGitHub(){
+async function saveToGitHub(opts){
+  opts = opts || {};   // opts.replace: de hele planning van deze pagina wegschrijven (alleen bij een bewuste terugzetting van een backup)
+  if(!stateTrusted){ savePending = false; showReadOnlyBanner(true); return; }   // de planning is niet van GitHub geladen: nooit opslaan
   if(ghSaving) return;
   ghSaving = true; savePending = false;
+  const url = `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`;
+  const hdr = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
   try{
-    // Haal altijd eerst de actuele SHA op om conflicts te voorkomen
-    const check = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2), {
-      headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}
-    });
-    if(check.ok){ const cd = await check.json(); ghSha = cd.sha; }
-
-    const json = JSON.stringify(serializeState());
-    const content = encodeBase64(json);
-
-    const body = {message:commitMessage("Update planning"), content, sha: ghSha, branch: GH_BRANCH};
-    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`, {
-      method:"PUT",
-      headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"},
-      body: JSON.stringify(body)
-    });
-    if(r.ok){
-      const d = await r.json();
-      ghSha = d.content.sha;
-      HEALTH.github = "ok"; HEALTH.lastSync = Date.now(); HEALTH.lastSyncOk = true;
-      updateHealthBar();
-      showSaveStatus("ok");
-      // Prefetch SHA alvast voor volgende save (tijdens rustige periode)
-      setTimeout(async ()=>{
-        if(!ghSaving){
-          try{
-            const pre = await fetch(
-              `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2),
-              {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}}
-            );
-            if(pre.ok){ const pd = await pre.json(); ghSha = pd.sha; }
-          }catch(e){}
-        }
-      }, 2000);
-      // Backup (silent, na succesvolle save)
-      lastSavedJson = json; saveOkCount++;
-      maybeBackup(json);
-      auditAfterSave(JSON.parse(json));   // audit: wat is er veranderd, door wie
-    } else {
+    for(let poging = 1; poging <= 5; poging++){
+      const L = snapState();
+      // 1. de actuele planning op GitHub (die kan intussen door een ander zijn aangepast)
+      const cr = await fetch(`${url}?ref=${GH_BRANCH}&t=`+Date.now()+`&r=`+Math.random().toString(36).slice(2), {headers: hdr});
+      if(!cr.ok){
+        HEALTH.github = (cr.status === 401 || cr.status === 403) ? "error" : "warn"; updateHealthBar();
+        showSaveStatus("error: actuele planning ophalen mislukt (" + cr.status + ")");
+        savePending = true; clearTimeout(ghSaveTimer); ghSaveTimer = setTimeout(saveToGitHub, 15000);   // niets overschreven; over 15 seconden opnieuw
+        return;
+      }
+      const cd = await cr.json();
+      let R = null;
+      try{ R = JSON.parse(auditDecode(cd.content)); }catch(e){}
+      if(!stateGeldig(R)){ showSaveStatus("error: de planning op GitHub is onleesbaar; er is niets overschreven"); return; }
+      ghSha = cd.sha;
+      const nR = stripVerwijderd(R);   // een verwijderde naam die op GitHub staat verdwijnt bij deze opslag
+      // 2. jouw wijzigingen bovenop de actuele planning
+      let M;
+      if(opts.replace){ M = L; }
+      else {
+        const ops = diffOps(baselineState || L, L);
+        if(opsCount(ops) === 0 && !nR && !healRemoved){ baselineState = L; HEALTH.github = "ok"; HEALTH.lastSync = Date.now(); HEALTH.lastSyncOk = true; updateHealthBar(); showSaveStatus("ok"); lastSavedJson = JSON.stringify(R); return; }
+        M = applyOps(R, ops);
+        if(Object.keys(M.store).length < Object.keys(R.store).length){ showSaveStatus("error: de opslag zou weken verliezen; er is niets overschreven"); return; }   // vangnet: kan niet voorkomen
+      }
+      stripVerwijderd(M);
+      const json = JSON.stringify(M);
+      const body = {message: commitMessage(nR ? "Verwijderde namen hersteld" : "Update planning"), content: encodeBase64(json), sha: cd.sha, branch: GH_BRANCH};
+      const r = await ghWriteFetch(url, {method:"PUT", headers:{...hdr, "Content-Type":"application/json"}, body: JSON.stringify(body)});
+      if(r.ok){
+        const d = await r.json();
+        ghSha = d.content.sha; baselineState = L;
+        if(nR || healRemoved){ healRemoved = false; HEALTH.verwijderdHersteld = Date.now(); }
+        HEALTH.github = "ok"; HEALTH.lastSync = Date.now(); HEALTH.lastSyncOk = true;
+        updateHealthBar();
+        showSaveStatus("ok");
+        lastSavedJson = json; saveOkCount++;
+        if(!verdachtWeken(Object.keys(M.store).length)) lastGoodSave(json, ghSha);
+        maybeBackup(json);
+        auditAfterSave(L);   // audit: wat is er veranderd, door wie
+        return;
+      }
+      if(r.status === 409 || r.status === 422){ await new Promise(res=>setTimeout(res, 300 * poging)); continue; }   // een ander was net eerder: opnieuw, bovenop zijn versie
       const err = await r.json().catch(()=>({}));
       const msg = err.message || err.errors?.[0]?.message || r.status;
       console.error("GitHub opslaan mislukt:", r.status, msg);
       HEALTH.github = r.status === 401 || r.status === 403 ? "error" : "warn";
       HEALTH.lastSync = Date.now(); HEALTH.lastSyncOk = false;
       updateHealthBar();
-      // Bij 409 conflict: SHA ophalen en opnieuw proberen
-      if(r.status === 409){
-        console.warn("SHA conflict, opnieuw proberen...");
-        ghSha = null; savePending = true;
-        ghSaveTimer = setTimeout(saveToGitHub, 2000);
-      } else {
-        showSaveStatus("error: "+msg);
-      }
+      showSaveStatus("error: " + msg);
+      return;
     }
+    showSaveStatus("error: te veel gelijktijdige wijzigingen; probeer het zo opnieuw");
+    savePending = true; clearTimeout(ghSaveTimer); ghSaveTimer = setTimeout(saveToGitHub, 5000);
   }catch(e){
     console.warn("GitHub opslaan fout:", e);
     showSaveStatus("error");
   } finally {
     ghSaving = false;
+    if(savePending && stateTrusted){ clearTimeout(ghSaveTimer); ghSaveTimer = setTimeout(saveToGitHub, 800); }   // intussen is er nog iets gewijzigd
   }
 }
 
 // Alles opslaan
 function saveState(){
+  if(!stateTrusted){ showReadOnlyBanner(true); return; }   // de planning is niet van GitHub geladen: nooit opslaan
   touchEditTimer();   // er is gemuteerd: 10-minutentimer opnieuw starten
   savePending = true; if(editUnlocked) editDirty = true;
   clearTimeout(ghSaveTimer);
@@ -2528,7 +2742,7 @@ function updateHealthBar(){
       const teamleden = (TEAM||[]).length;
       showHealthPopup("Data integriteit",
         HEALTH.data==="ok"
-          ? [`✅ Data geldig`,`👥 Team: ${teamleden} leden (${(TEAM||[]).join(", ")})`,`📅 Weken geladen: ${weken}`,`📍 Eerste week: ${Object.keys(store||{}).sort()[0]||"-"}`,`📍 Laatste week: ${Object.keys(store||{}).sort().slice(-1)[0]||"-"}`]
+          ? [`✅ Data geldig`,`👥 Team: ${teamleden} leden (${(TEAM||[]).join(", ")})`,verwijderdeNamenRegel(),`📅 Weken geladen: ${weken}`,`📍 Eerste week: ${Object.keys(store||{}).sort()[0]||"-"}`,`📍 Laatste week: ${Object.keys(store||{}).sort().slice(-1)[0]||"-"}`]
           : ["❌ Data leeg of ongeldig","⚠️ Kan geen data laden van GitHub"]);
     };
   }
@@ -2577,19 +2791,7 @@ _prefetchBackupList.then(async r=>{
 const template = {};
 TEAM.forEach(p=>{ template[p]={}; DAYS.forEach(d=>{ template[p][d]=[]; }); });
 
-["Wim","Wouter","Annies","Bas","Frederique"].forEach(p=>{ DAYS.forEach(d=>{ template[p][d]=["kantoor"]; }); });
-// Bram: WO thuis, rest kantoor
-template["Bram"]["MA"]=["kantoor"]; template["Bram"]["DI"]=["vrij"]; template["Bram"]["WO"]=["thuis"]; template["Bram"]["DO"]=["kantoor"]; template["Bram"]["VR"]=["kantoor"];
-// Ivor: WO vrij, rest kantoor
-template["Ivor"]["MA"]=["kantoor"]; template["Ivor"]["DI"]=["kantoor"]; template["Ivor"]["WO"]=["vrij"]; template["Ivor"]["DO"]=["kantoor"]; template["Ivor"]["VR"]=["kantoor"];
-// Sercan: DI thuis, VR vrij, rest kantoor
-template["Sercan"]["MA"]=["kantoor"]; template["Sercan"]["DI"]=["thuis"]; template["Sercan"]["WO"]=["kantoor"]; template["Sercan"]["DO"]=["kantoor"]; template["Sercan"]["VR"]=["vrij"];
-// Hans: MA+DO thuis, DI+WO kantoor, VR voormiddag thuis + namiddag vrij
-template["Hans"]["MA"]=["thuis"]; template["Hans"]["DI"]=["kantoor"]; template["Hans"]["WO"]=["kantoor"]; template["Hans"]["DO"]=["thuis"]; template["Hans"]["VR"]=["thuis","nm_vrij"];
-// Marco: MA+DI thuis, rest kantoor
-template["Marco"]["MA"]=["thuis"]; template["Marco"]["DI"]=["thuis"]; template["Marco"]["WO"]=["kantoor"]; template["Marco"]["DO"]=["kantoor"]; template["Marco"]["VR"]=["kantoor"];
-// Dave: altijd kantoor
-DAYS.forEach(d=>{ template["Dave"][d]=["kantoor"]; });
+// Het standaardrooster per persoon komt uit state.json; er staan bewust geen vaste roosters in de code.
 
 function cloneTemplate(){ const g={}; TEAM.forEach(p=>{ if(!template[p]) template[p]={}; g[p]={}; DAYS.forEach(d=>{ g[p][d]=[...(template[p][d]||[])]; }); }); return g; }
 
@@ -2815,24 +3017,6 @@ function toggleStatus(monday,person,day,key,isTemplate){
   }
 }
 
-// ── Prefill week 22 (2026) van whiteboard ────────────────────────
-(function prefill(){
-  function mondayOfWeek(wk,yr){ const jan1=new Date(yr,0,1); const j=jan1.getDay()||7; const m=new Date(jan1); m.setDate(jan1.getDate()+(wk-1)*7-(j-1)); return m; }
-  const m22=mondayOfWeek(22,2026), k22=weekKey(m22), w22=getData(m22);
-  if(!manuallyEdited[k22]) manuallyEdited[k22]=new Set();
-  function setCell(p,d,v){ w22[p][d]=v; manuallyEdited[k22].add(p+"-"+d); }
-  // Iedereen vrij op maandag
-  TEAM.forEach(p=>setCell(p,"MA",["vrij"]));
-  // Wim + Bram hele week vrij
-  ["DI","WO","DO","VR"].forEach(d=>{ setCell("Wim",d,["vrij"]); setCell("Bram",d,["vrij"]); });
-  // Overige dagen week 22
-  setCell("Wouter","DI",["kantoor"]);
-  setCell("Frederique","DI",["thuis"]);
-  setCell("Sercan","DI",["thuis"]); setCell("Sercan","WO",["thuis"]);
-  setCell("Marco","DI",["kantoor"]);
-  setCell("Dave","DI",["kantoor"]);
-})();
-
 // Propageer template naar weken die nog niet handmatig zijn ingesteld
 function propagateTemplateToAll(){
   const thisMonday=mondayOf(today);
@@ -2915,24 +3099,28 @@ async function checkForNewVersion(){
   if(mainGrid) mainGrid.style.visibility = "hidden";
   setTimeout(()=>{ const l = document.getElementById("legend"); if(l && l.style.visibility === "hidden") l.style.visibility = "visible"; }, 15000);   // vangnet: gaat er bij het laden iets mis, dan blijft de legenda niet eeuwig verborgen
   const ghLoaded = await loadFromGitHub(true); // gebruik prefetch
+  let fallbackUsed = "";
   if(!ghLoaded){
-    // Geen localStorage fallback — GitHub is de enige bron van waarheid
-    // Verwijder eventuele oude localStorage data
-    try{
+    // Laden mislukt: nooit de ingebouwde standaardlijst tonen of opslaan, maar de laatst bekende planning (alleen lezen)
+    fallbackUsed = await loadFallbackState();
+    try{   // oude gegevens van het apparaat opruimen, maar de laatst bekende planning bewaren
       const keep = {};
-      ["tp_device","tp_ws","tp_audit_queue","tp_last_user","tp_unlocked","tp_user","tp_pwtries"].forEach(k=>{ const v = localStorage.getItem(k); if(v !== null) keep[k] = v; });
+      ["tp_device","tp_ws","tp_audit_queue","tp_last_user","tp_unlocked","tp_user","tp_pwtries","tp_lastgood"].forEach(k=>{ const v = localStorage.getItem(k); if(v !== null) keep[k] = v; });
       localStorage.clear();
       Object.keys(keep).forEach(k=>localStorage.setItem(k, keep[k]));
     }catch(e){}
+    if(!fallbackUsed){ TEAM = []; showNoDataOverlay(); }   // geen enkele bekende versie: geen standaardnamen tonen
   }
   firstLoadSettled = true; document.dispatchEvent(new CustomEvent("tp-team-changed"));   // eerste laadpoging klaar: het inlogvenster mag de namen tonen
   TEAM = TEAM.filter(p => p !== "__divider__");
-  propagateTemplateToAll();
-  renderAndSync();
-  auditRebase();                 // audit: automatische doorvoering van het standaardrooster bij laden telt niet als gebruikerswijziging
+  if(ghLoaded || fallbackUsed){
+    propagateTemplateToAll();
+    renderAndSync();
+    auditRebase();                 // audit: automatische doorvoering van het standaardrooster bij laden telt niet als gebruikerswijziging
+  }
   if(ghLoaded) auditFlush();     // eventuele eerder niet-geüploade regels alsnog wegschrijven
-  // Toon grid nu state geladen is
-  if(mainGrid) mainGrid.style.visibility = "visible";
+  // Toon grid nu state geladen is (zonder enige bekende planning blijft het verborgen)
+  if(mainGrid && (ghLoaded || fallbackUsed)) mainGrid.style.visibility = "visible";
   const legendaEl = document.getElementById("legend"); if(legendaEl) legendaEl.style.visibility = "visible";   // de legenda komt tegelijk met het hoofdvenster in beeld
   setInterval(hdCheck, 3000);   // een medewerker met een halve dag vrij zonder invulling krijgt bij het openen de vraag dit in te vullen
   // Achtergrond-sync: herlaad van GitHub elke 60 seconden, en meteen als je terugkomt op het tabblad of in de app (timers staan stil zolang een tabblad op de achtergrond staat of de telefoon slaapt)
@@ -2953,6 +3141,7 @@ async function checkForNewVersion(){
     }finally{ syncBusy = false; }
   }
   setInterval(backgroundSync, 60000);
+  setInterval(()=>{ if(!stateTrusted) backgroundSync(); }, 15000);   // zolang GitHub niet is geladen: elke 15 seconden opnieuw proberen
   const wake = ()=>{ if(!document.hidden && Date.now() - lastSyncRun > 10000) backgroundSync(); };   // hooguit eens per 10 seconden
   document.addEventListener("visibilitychange", wake); window.addEventListener("focus", wake); window.addEventListener("pageshow", wake); window.addEventListener("online", wake);
   setTimeout(checkForNewVersion, 5000);   // een pagina die uit de cache kwam, is binnen enkele seconden bij
@@ -5082,6 +5271,8 @@ async function restoreFromBackup(filename, sha){
       {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
     const bd = await br.json();
     const backupState = JSON.parse(atob(bd.content.replace(/\n/g,"")));
+    if(!stateTrusted){ alert("❌ De planning is niet van GitHub geladen; terugzetten kan nu niet."); return; }
+    stripVerwijderd(backupState);   // verwijderde medewerkers komen niet terug, ook niet uit een oude backup
     const lockWhy = teamLockoutReason(backupState.team, "restore"); if(lockWhy){ alert("❌ " + lockWhy); return; }   // niet jezelf buitensluiten
     const sr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=`+Date.now(),
       {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
@@ -5095,8 +5286,9 @@ async function restoreFromBackup(filename, sha){
       touchEditTimer();
       const written = JSON.parse(JSON.stringify(backupState));   // wat er echt is weggeschreven (voordat applyState de data aanpast)
       document.querySelectorAll(".z-index-800, [style*='z-index:800']").forEach(el=>el.remove());
-      applyState(backupState);
+      applyState(backupState, true);
       propagateTemplateToAll();
+      setBaseline();
       const naam1 = filename.replace(".json",""), gelogd1 = auditPushed;
       auditSetHint("backup hersteld: " + naam1);
       auditAfterSave(written);   // logboek: verschil met wat er daarvoor stond
@@ -5585,12 +5777,14 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
         const dr = await fetch(url+"?t="+Date.now());
         const data = await dr.json();
         if(data && data.store){
+          if(!stateTrusted){ alert("❌ De planning is niet van GitHub geladen; terugzetten kan nu niet."); return; }
+          stripVerwijderd(data);   // verwijderde medewerkers komen niet terug, ook niet uit een oude backup
           const lockWhy = teamLockoutReason(data.team, "restore"); if(lockWhy){ alert("❌ " + lockWhy); return; }   // niet jezelf buitensluiten
           const naam2 = decodeURIComponent((url.split("?")[0].split("/").pop() || "")), gelogd2 = auditPushed, opgeslagen2 = saveOkCount;
-          applyState(data);
+          applyState(data, true);
           auditSetHint("backup hersteld: " + naam2);
           touchEditTimer();
-          await saveToGitHub();
+          await saveToGitHub({replace: true});
           if(saveOkCount > opgeslagen2 && auditPushed === gelogd2){ auditHint = null; auditEvent("backup hersteld: " + naam2 + " (geen verschil met de planning die er al stond)"); }   // het opslaan lukte maar er was geen verschil: toch vastleggen
           renderAndSync();
           buildTemplateGrid();
