@@ -1,0 +1,36 @@
+# Serveronderhoud van Bezetting Teams: draait op GitHub (niet in een browser, niet bij een ingelogde Administrator).
+# Verwijdert onder meer roosters ouder dan 2 maanden, ruimt rommel in de planning en backups op en legt het controlegetal vast.
+# Alleen kijken (niets wijzigen): zet {"droog": true} in onderhoud-config.json op de data-branch, of start deze taak handmatig met "droog".
+name: Onderhoud planning
+
+on:
+  schedule:
+    - cron: "11,41 * * * *"      # elk half uur (op :11 en :41, buiten de drukte van het hele uur)
+  workflow_dispatch:
+    inputs:
+      droog:
+        description: "Alleen kijken, niets wijzigen"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: onderhoud-planning
+  cancel-in-progress: false
+
+jobs:
+  onderhoud:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: .github/scripts
+      - name: Onderhoud
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ONDERHOUD_DROOG: ${{ inputs.droog && '1' || '' }}
+        run: python3 .github/scripts/onderhoud.py
