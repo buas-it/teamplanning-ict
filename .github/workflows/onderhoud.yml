@@ -1,0 +1,36 @@
+# Serveronderhoud van Bezetting Teams, versie die start zodra er op de data-branch iets verandert (planning, backups, accounts, instellingen).
+# De timer (elk half uur) staat in het bestand op de main-branch; dit bestand zorgt ervoor dat je niet op die timer hoeft te wachten.
+# Het script zelf staat op main (.github/scripts/onderhoud.py). Alleen kijken: zet {"droog": true} in onderhoud-config.json.
+name: Onderhoud planning (na wijziging)
+
+on:
+  push:
+    branches: [data]
+    paths:
+      - "state.json"
+      - "users.json"
+      - "groups.json"
+      - "settings.json"
+      - "backups/**"
+      - "aanzet/**"      # een wijziging hier start de taak ook (om te testen)
+
+permissions:
+  contents: write
+
+concurrency:
+  group: onderhoud-planning
+  cancel-in-progress: false
+
+jobs:
+  onderhoud:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: .github/scripts
+      - name: Onderhoud
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/onderhoud.py
