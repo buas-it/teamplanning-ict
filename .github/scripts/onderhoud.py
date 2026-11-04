@@ -19,6 +19,9 @@ REPO = os.environ.get("GITHUB_REPOSITORY", "buas-it/teamplanning-ict")
 TOKEN = os.environ.get("GITHUB_TOKEN", "")
 BRANCH = os.environ.get("DATA_BRANCH", "data")
 DROOG = os.environ.get("ONDERHOUD_DROOG", "").lower() in ("1", "true", "ja", "yes")
+ALLEEN_LEZEN = os.environ.get("ONDERHOUD_ALLEEN_LEZEN", "").lower() in ("1", "true", "ja", "yes")   # handmatig meekijken: schrijft echt niets, ook geen statusbestand
+if ALLEEN_LEZEN:
+    DROOG = True
 AMS = ZoneInfo("Europe/Amsterdam")
 NAMEN_WEG = ["Frederique", "Ivor", "Dave"]          # moeten nooit meer terugkomen
 MONITOR = "Monitor"
@@ -289,7 +292,7 @@ def log_regel(tekst):
 
 
 def log_schrijf(regels):
-    if not regels or DROOG:
+    if not regels or DROOG or ALLEEN_LEZEN:
         return
     pad = f"audit/{nu().strftime('%Y-%m-%d')}.jsonl"
     for _ in range(4):
@@ -303,6 +306,8 @@ def log_schrijf(regels):
 
 
 def schrijf_status(acties, problemen, meldingen, extra):
+    if ALLEEN_LEZEN:
+        return
     f = lees("onderhoud.json"); vorig = None
     if f:
         try:
