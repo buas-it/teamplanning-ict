@@ -231,7 +231,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 3 nov 2026 · 138</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 3 nov 2026 · 139</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -5330,18 +5330,6 @@ const CHECKS = [
   // ── Planning ──
   { id: "geladen", groep: 1, naam: "Planning geladen van GitHub", run: ()=> stateTrusted && stateSource === "github" ? ck_ok(TEAM.length + " teamleden, " + Object.keys(store).length + " weken") : ck_fout("alleen lezen: de planning is niet van GitHub geladen", ()=>syncNu()) },
   { id: "stempel", groep: 1, naam: "Controlegetal", run: ()=>{ const i = HEALTH.integriteit; if(!i) return ck_let("nog niet gecontroleerd"); if(i.probleem) return ck_fout(i.probleem); if(i.status === "geen") return ck_let("nog niet vastgelegd", ()=>saveToGitHub({ opschonen: true })); return ck_ok("klopt (opslag " + i.n + (i.door ? " door " + i.door : "") + ")"); } },
-  { id: "remote", groep: 1, zwaar: true, naam: "Planning op GitHub (nu opgehaald)", run: async ()=>{
-      const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers: ckHdr()});
-      if(!r.ok) return ck_fout("niet op te halen (HTTP " + r.status + ")", ()=>syncNu());
-      let T; try{ T = JSON.parse(auditDecode((await r.json()).content)); }catch(e){ return ck_fout("onleesbaar"); }
-      if(!stateGeldig(T)) return ck_fout("leeg of ongeldig");
-      if(bevatVerwijderd(T)) return ck_fout("bevat een verwijderde naam", async ()=>{ healRemoved = true; await loadFromGitHub(); await ckWachtOpHerstel(); });
-      if(stempelStatus(T) === "fout") return ck_fout("het controlegetal klopt niet (opslag " + ((T.integriteit || {}).n | 0) + ")");
-      const nT = Object.keys(T.store).length, nL = Object.keys(store).length;
-      if(nL >= 10 && nT < nL * 0.5) return ck_fout("veel minder weken dan op dit scherm (" + nT + " tegen " + nL + ")");
-      if(savePending || ghSaving) return ck_ok("wijzigingen van dit scherm worden net opgeslagen");
-      if(opsCount(diffOps(T, serializeState())) > 0) return ck_let("wijkt af van wat dit scherm toont; het scherm wordt zo bijgewerkt", ()=>syncNu());
-      return ck_ok(nT + " weken, " + (T.team || []).length + " teamleden" + (stempelStatus(T) === "geen" ? "; nog geen controlegetal" : "; controlegetal klopt")); } },
   { id: "weken", groep: 1, naam: "Aantal weken in de planning", run: ()=>{ const ks = Object.keys(store).sort(); if(!ks.length) return ck_fout("geen enkele week"); if(verdachtWeken(ks.length)) return ck_fout("opeens veel minder weken (" + ks.length + ") dan eerder: mogelijk beschadigd"); return ck_ok(ks.length + " weken, " + ks[0] + " t/m " + ks[ks.length - 1]); } },
   { id: "namen", groep: 1, naam: "Verwijderde namen zijn weg", run: ()=> (verwijderdAanwezig() || HEALTH.verwijderdGevonden > 0) ? ck_fout("een verwijderde naam is aangetroffen en wordt hersteld", async ()=>{ healRemoved = true; await loadFromGitHub(); await ckWachtOpHerstel(); HEALTH.verwijderdGevonden = 0; }) : ck_ok(VERWIJDERDE_NAMEN.join(", ") + " komen nergens voor") },
   { id: "team", groep: 1, naam: "Team en werkweken", run: ()=>{
@@ -5364,10 +5352,22 @@ const CHECKS = [
       return n ? ck_let(n + " markering" + (n === 1 ? "" : "en") + " verwijst naar een week, persoon of dag die niet bestaat", ()=>ckManueelOpschonen()) : ck_ok("alle markeringen verwijzen naar bestaande dagen"); } },
   { id: "verplicht", groep: 1, naam: "Verplichte vrije dagen staan op Vrij", run: ()=>{
       let fout = 0, dagen = 0; Object.keys(store).forEach(wk=>DAYS.forEach(d=>{ if(!LOCKED_DAYS.has(wk + "-" + d)) return; dagen++; TEAM.forEach(p=>{ const v = (store[wk][p] || {})[d]; if(!(Array.isArray(v) && v.length === 1 && v[0] === "vrij")) fout++; }); }));
-      return fout ? ck_let(fout + " cellen op een verplichte vrije dag staan niet op Vrij", ()=>{ verplichtVrijAlles(); renderAndSync(); }) : ck_ok(dagen + " verplichte vrije dagen in de planning, voor iedereen Vrij"); } },
+      return fout ? ck_let(fout + " cellen op een verplichte vrije dag staan niet op Vrij", ()=>{ verplichtVrijAlles(); renderAndSync(); }) : ck_ok(dagen ? dagen + " verplichte vrije dagen in de geladen weken, voor iedereen Vrij" : "geen verplichte vrije dagen in de geladen weken"); } },
   { id: "halvedag", groep: 1, naam: "Halve dagen zijn aangevuld", run: ()=>{
       const wie = TEAM.map(p=>[p, ontbrekendeDagdelen(p).length]).filter(x=>x[1]).map(x=>x[0] + " (" + x[1] + ")");
       return wie.length ? ck_let("nog niet aangevuld: " + wie.join(", ") + ". Zij krijgen de vraag zodra ze de pagina openen") : ck_ok("alle halve dagen zijn aangevuld"); } },
+  { id: "remote", groep: 1, zwaar: true, naam: "Planning op GitHub (nu opgehaald)", run: async ()=>{
+      const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers: ckHdr()});
+      if(!r.ok) return ck_fout("niet op te halen (HTTP " + r.status + ")", ()=>syncNu());
+      let T; try{ T = JSON.parse(auditDecode((await r.json()).content)); }catch(e){ return ck_fout("onleesbaar"); }
+      if(!stateGeldig(T)) return ck_fout("leeg of ongeldig");
+      if(bevatVerwijderd(T)) return ck_fout("bevat een verwijderde naam", async ()=>{ healRemoved = true; await loadFromGitHub(); await ckWachtOpHerstel(); });
+      if(stempelStatus(T) === "fout") return ck_fout("het controlegetal klopt niet (opslag " + ((T.integriteit || {}).n | 0) + ")");
+      const nT = Object.keys(T.store).length, nL = Object.keys(store).length;
+      if(nL >= 10 && nT < nL * 0.5) return ck_fout("veel minder weken dan op dit scherm (" + nT + " tegen " + nL + ")");
+      if(savePending || ghSaving) return ck_ok("wijzigingen van dit scherm worden net opgeslagen");
+      if(opsCount(diffOps(T, serializeState())) > 0) return ck_let("wijkt af van wat dit scherm toont; het scherm wordt zo bijgewerkt", ()=>syncNu());
+      return ck_ok(nT + " weken, " + (T.team || []).length + " teamleden" + (stempelStatus(T) === "geen" ? "; nog geen controlegetal" : "; controlegetal klopt")); } },
   // ── Team, accounts en rechten ──
   { id: "groups", groep: 2, zwaar: true, naam: "Administrators", run: async ()=>{
       const g = (await chkNet()).groups; if(g.fout) return ck_fout("groups.json niet leesbaar (" + g.fout + ")");
@@ -5393,7 +5393,7 @@ const CHECKS = [
   // ── Backups en logboek ──
   { id: "backups", groep: 3, zwaar: true, naam: "Backups aanwezig", run: async ()=>{
       const l = (await chkNet()).lijst; if(!l || l.fout) return ck_let("de backuplijst kon niet worden opgehaald" + (l && l.fout ? " (" + l.fout + ")" : "")); if(!l.length) return ck_fout("er zijn geen backups", ()=>ckMaakBackup());
-      return ck_ok(l.length + " backups, de nieuwste van " + l[l.length - 1].name.replace(".json", "").replace("_", " ").replace(/-(\d\d)$/, ":$1")); } },
+      return ck_ok(l.length + (l.length === 1 ? " backup" : " backups") + ", de nieuwste van " + l[l.length - 1].name.replace(".json", "").replace("_", " ").replace(/-(\d\d)$/, ":$1")); } },
   { id: "backup_actueel", groep: 3, zwaar: true, naam: "Laatste backup bevat de laatste opslag", run: async ()=>{
       const l = (await chkNet()).lijst; if(!l || l.fout || !l.length) return ck_info("geen backups om mee te vergelijken");
       const b = await ckBackupLees(l[l.length - 1].name); if(!b.data) return ck_let("de nieuwste backup is niet leesbaar", ()=>ckMaakBackup());
@@ -5439,6 +5439,12 @@ async function runChecks(opts){
 }
 function checkTelling(){ const t = { ok: 0, info: 0, let: 0, fout: 0, hersteld: 0, nog: 0 }; CHECKS.forEach(c=>{ const r = CHECK_RESULT[c.id]; if(!r){ t.nog++; return; } t[r.s]++; if(r.hersteld && r.hersteld.gelukt) t.hersteld++; }); return t; }
 function checksMenuSuffix(){ if(!CHECK_RUN_AT) return ""; const t = checkTelling(); return t.fout ? " \u2717" + t.fout : t.let ? " \u26A0" + t.let : " \u2713"; }
+function checkVakje(status, maat){   // het aanvinkvakje van een check: groen vinkje = in orde
+  const kleur = { ok: "#4caf50", info: "#64b5f6", let: "#ffb74d", fout: "#ef5350", nog: "rgba(255,255,255,0.3)" }, teken = { ok: "\u2713", info: "\u2139", let: "!", fout: "\u2717", nog: "" };
+  const v = document.createElement("span"); v.className = "ck-box"; v.dataset.status = status; v.setAttribute("role", "checkbox"); v.setAttribute("aria-checked", status === "ok" ? "true" : "false");
+  v.style.cssText = "flex:0 0 " + maat + "px;width:" + maat + "px;height:" + maat + "px;box-sizing:border-box;border:2px solid " + kleur[status] + ";border-radius:" + Math.round(maat / 4) + "px;display:inline-flex;align-items:center;justify-content:center;font-size:" + Math.round(maat * 0.72) + "px;font-weight:900;line-height:1;color:" + kleur[status] + ";background:" + (status === "nog" ? "transparent" : "rgba(255,255,255,0.05)") + ";";
+  v.textContent = teken[status]; return v;
+}
 async function showChecksWindow(){
   if(!canSeeInfo()) return;
   const old = document.getElementById("checks-overlay"); if(old) old.remove();
@@ -5451,16 +5457,19 @@ async function showChecksWindow(){
   const sum = box.querySelector("#ck-sum"), lijst = box.querySelector("#ck-list"), knop = box.querySelector("#ck-run");
   const teken = ()=>{
     const t = checkTelling(); sum.style.color = t.fout ? kleur.fout : t.let ? kleur.let : "#fff";
-    sum.textContent = (!CHECK_RUN_AT ? "Bezig met controleren\u2026" : t.fout ? "\u2717 " + t.fout + " fout" + (t.fout === 1 ? "" : "en") + (t.let ? " en " + t.let + " aandachtspunt" + (t.let === 1 ? "" : "en") : "") : t.let ? "\u26A0 " + t.let + " aandachtspunt" + (t.let === 1 ? "" : "en") : "\u2713 Alles in orde") + "  \u00B7  " + (CHECKS.length - t.nog) + " van " + CHECKS.length + " gecontroleerd" + (t.hersteld ? "  \u00B7  " + t.hersteld + " automatisch hersteld" : "") + (CHECK_RUN_AT ? "  \u00B7  laatste ronde " + ckAgo(Math.round((Date.now() - CHECK_RUN_AT) / 1000)) + " geleden" : "");
+    const sumTekst = (!CHECK_RUN_AT ? "Bezig met controleren\u2026" : t.fout ? "\u2717 " + t.fout + " fout" + (t.fout === 1 ? "" : "en") + (t.let ? " en " + t.let + " aandachtspunt" + (t.let === 1 ? "" : "en") : "") : t.let ? "\u26A0 " + t.let + " aandachtspunt" + (t.let === 1 ? "" : "en") : "\u2713 Alles in orde") + "  \u00B7  " + (CHECKS.length - t.nog) + " van " + CHECKS.length + " gecontroleerd" + (t.hersteld ? "  \u00B7  " + t.hersteld + " automatisch hersteld" : "") + (CHECK_RUN_AT ? "  \u00B7  laatste ronde " + ckAgo(Math.round((Date.now() - CHECK_RUN_AT) / 1000)) + " geleden" : "");
+    sum.innerHTML = ""; sum.style.cssText += "display:flex;align-items:center;gap:10px;"; sum.appendChild(checkVakje(!CHECK_RUN_AT ? "nog" : t.fout ? "fout" : t.let ? "let" : "ok", 28)); const st = document.createElement("span"); st.textContent = sumTekst; sum.appendChild(st);
     lijst.innerHTML = "";
     CHECK_GROEPEN.forEach((g, gi)=>{
       const kop = document.createElement("div"); kop.style.cssText = "font-size:11px;font-weight:700;color:#80cbc4;letter-spacing:1px;text-transform:uppercase;margin:12px 0 4px;"; kop.textContent = g; lijst.appendChild(kop);
       CHECKS.filter(c=>c.groep === gi).forEach(c=>{
         const r = CHECK_RESULT[c.id], rij = document.createElement("div"); rij.dataset.check = c.id; rij.dataset.status = r ? r.s : "nog";
         rij.style.cssText = "display:flex;gap:10px;align-items:flex-start;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.06);font-size:12px;";
-        const ic = document.createElement("span"); ic.style.cssText = "min-width:16px;font-weight:700;color:" + (r ? kleur[r.s] : "rgba(255,255,255,0.3)") + ";"; ic.textContent = r ? icoon[r.s] : "\u2026";
-        const nm = document.createElement("span"); nm.style.cssText = "min-width:190px;max-width:190px;color:#fff;font-weight:700;"; nm.textContent = c.naam;
-        const tx = document.createElement("span"); tx.style.cssText = "flex:1;color:rgba(255,255,255,0.65);line-height:1.4;"; tx.textContent = r ? r.t : "nog niet gecontroleerd" + (c.zwaar ? " (zware check)" : "");
+        const ic = checkVakje(r ? r.s : "nog", 22);
+        const smal = window.innerWidth < 600;   // op een telefoon staat de uitleg onder de naam in plaats van ernaast
+        const nm = document.createElement("span"); nm.style.cssText = (smal ? "flex:1;min-width:0;" : "min-width:190px;max-width:190px;") + "color:#fff;font-weight:700;"; nm.textContent = c.naam;
+        const tx = document.createElement("span"); tx.style.cssText = (smal ? "flex-basis:100%;margin-left:32px;" : "flex:1;") + "color:rgba(255,255,255,0.65);line-height:1.4;"; tx.textContent = r ? r.t : "nog niet gecontroleerd" + (c.zwaar ? " (zware check)" : "");
+        if(smal){ rij.style.flexWrap = "wrap"; rij.style.rowGap = "1px"; }
         rij.append(ic, nm, tx);
         if(r && r.hersteld){ const h = document.createElement("div"); h.style.cssText = "flex-basis:100%;margin-left:26px;font-size:10px;color:" + (r.hersteld.gelukt ? "#4caf50" : "#ffb74d") + ";"; h.textContent = (r.hersteld.gelukt ? "\u2713 automatisch hersteld om " : "herstel niet gelukt om ") + new Date(r.hersteld.t).toLocaleTimeString("nl-NL", {hour: "2-digit", minute: "2-digit"}) + " (was: " + r.hersteld.van + ")"; rij.style.flexWrap = "wrap"; rij.appendChild(h); }
         lijst.appendChild(rij);
