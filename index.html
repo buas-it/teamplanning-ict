@@ -231,7 +231,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 4 nov 2026 · 143</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 4 nov 2026 · 144</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -5346,13 +5346,14 @@ async function ckKlok(){
       const r = await fetch(map + "index.html?klok=" + t0 + "_" + i, { method: "HEAD", cache: "no-store" }), t1 = Date.now();
       if(!r.ok) continue;
       const d = Date.parse(r.headers.get("date") || ""), age = parseInt(r.headers.get("age") || "0", 10) || 0;
-      if(!isNaN(d)) monsters.push({ rtt: t1 - t0, verschil: (t0 + t1) / 2 - (d + age * 1000 + 500) });   // de Date-kop is op de hele seconde afgekapt: gemiddeld een halve seconde te vroeg
+      if(!isNaN(d)) monsters.push({ rtt: t1 - t0, mid: (t0 + t1) / 2, verschil: (t0 + t1) / 2 - (d + age * 1000 + 500) });   // de Date-kop is op de hele seconde afgekapt: gemiddeld een halve seconde te vroeg
     }
     if(monsters.length){
       monsters.sort((a, b)=>a.rtt - b.rtt); const m = monsters[0], min = m.verschil / 60000, marge = Math.max(1, Math.round((m.rtt / 2 + 500) / 1000));
-      const klopt = Math.abs(m.verschil) <= 60000;
-      res = { ok: klopt, onbekend: false, t: Date.now(), ms: Math.round(m.verschil), min: Math.round(min), marge: marge,
-        tekst: klopt ? "klopt met GitHub (verschil " + ckVerschilTekst(m.verschil) + ", gemeten op ongeveer " + marge + " s nauwkeurig)" : "dit apparaat loopt " + ckVerschilTekst(m.verschil) + (m.verschil > 0 ? " voor" : " achter") + " op GitHub (gemeten op ongeveer " + marge + " s nauwkeurig)" };
+      const klopt = Math.abs(m.verschil) <= 60000, uur = ms=>new Date(ms).toLocaleTimeString("nl-NL", {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+      const bewijs = " Op hetzelfde moment: GitHub " + uur(m.mid - m.verschil) + ", dit apparaat " + uur(m.mid) + " (gemeten op ongeveer " + marge + " s nauwkeurig; vergelijk met een klok die je vertrouwt).";
+      res = { ok: klopt, onbekend: false, t: Date.now(), ms: Math.round(m.verschil), min: Math.round(min), marge: marge, githubTijd: uur(m.mid - m.verschil), apparaatTijd: uur(m.mid),
+        tekst: (klopt ? "klopt met GitHub (verschil " + ckVerschilTekst(m.verschil) + ")." : "dit apparaat loopt " + ckVerschilTekst(m.verschil) + (m.verschil > 0 ? " voor" : " achter") + " op GitHub.") + bewijs };
     }
   }catch(e){}
   if(res.onbekend){   // geen Date-kop beschikbaar (bijvoorbeeld een lokaal bestand): een grove schatting via de API
