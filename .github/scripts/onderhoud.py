@@ -333,7 +333,7 @@ def schrijf_status(acties, problemen, meldingen, extra):
     st.update(extra)
     if vorig:
         oud = dt.datetime.fromisoformat(vorig.get("t", "2000-01-01T00:00:00+00:00").replace("Z", "+00:00"))
-        gelijk = vorig.get("acties") == acties and vorig.get("problemen") == problemen and vorig.get("meldingen") == meldingen and vorig.get("droog") == DROOG
+        gelijk = vorig.get("acties") == acties and vorig.get("problemen") == problemen and vorig.get("meldingen") == meldingen and vorig.get("droog") == DROOG and vorig.get("state_sha") == extra.get("state_sha")   # is de planning veranderd sinds de vorige ronde, dan komt er een nieuwe status
         if gelijk and (nu() - oud).total_seconds() < STATUS_VERVERSEN_MIN * 60:
             return   # niets nieuws en nog vers: geen extra commit
     schrijf("onderhoud.json", json.dumps(st, ensure_ascii=False, indent=1) + "\n", f["sha"] if f else None, "Serveronderhoud: status")
@@ -355,7 +355,7 @@ def ronde():
     st = stempel_status(s)
     if st == "fout":
         return acties, [f"het controlegetal van de planning klopt niet (laatste opslag nr. {s['integriteit'].get('n')} door {s['integriteit'].get('door')}): er is niets gewijzigd, een Administrator moet dit eerst beoordelen"], meldingen, extra
-    extra["weken"] = len(s["store"]); extra["team"] = len(s["team"])
+    extra["weken"] = len(s["store"]); extra["team"] = len(s["team"]); extra["state_sha"] = f["sha"]   # de versie van de planning die de server nu ziet
     n, a1, m1 = opschonen(s); acties += a1; meldingen += m1
     teWissen, alle_oud = oude_weken(n)
     if teWissen:
@@ -404,7 +404,7 @@ def ronde():
             except Exception as e2:
                 fouten.append(f"terugzetten lukte niet ({e2}): zet backup {naam[:-5]} terug")
             return acties, ["controle na opslaan mislukt: " + "; ".join(fouten)], meldingen, extra
-        extra["weken"] = len(n["store"]); extra["team"] = len(n["team"]); extra["stempel_n"] = n["integriteit"]["n"]
+        extra["weken"] = len(n["store"]); extra["team"] = len(n["team"]); extra["stempel_n"] = n["integriteit"]["n"]; extra["state_sha"] = t["sha"]   # de planning zoals de server hem zojuist heeft achtergelaten
         bestaand = {x["name"] for x in lijst("backups")}
         try:
             naam2 = maak_backup(nieuw_tekst, bestaand, "Auto-backup (server, na onderhoud)"); acties.append(f"backup achteraf: {naam2[:-5]}")
