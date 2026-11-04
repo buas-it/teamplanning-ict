@@ -1,4 +1,4 @@
 {
- "droog": true,
- "uitleg": "Zet droog op false om het serveronderhoud echt te laten wijzigen; true = alleen kijken."
+ "droog": false,
+ "uitleg": "Zet droog op true om het serveronderhoud alleen te laten kijken; false = het wijzigt echt."
 }
