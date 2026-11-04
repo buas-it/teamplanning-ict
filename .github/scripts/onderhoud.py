@@ -90,14 +90,29 @@ def schrijf(pad, tekst, sha, bericht):
     body = {"message": bericht, "content": base64.b64encode(tekst.encode("utf-8")).decode(), "branch": BRANCH}
     if sha:
         body["sha"] = sha
-    s, j = call("PUT", f"contents/{pad}", body)
+    try:
+        s, j = call("PUT", f"contents/{pad}", body)
+    except Conflict:
+        # GitHub geeft soms een tijdelijke fout (502) terwijl de schrijfactie wel is verwerkt; de herhaalpoging krijgt dan "bestaat al" of "sha klopt niet".
+        # Staat er precies wat we wilden schrijven, dan is het gelukt. Anders is er echt tegelijk iets anders gewijzigd.
+        nu_f = lees(pad)
+        if nu_f and nu_f["tekst"] == tekst:
+            return nu_f["sha"]
+        raise
     if s not in (200, 201):
         raise RuntimeError(f"{pad} kon niet worden geschreven (HTTP {s}: {j.get('message')})")
     return j["content"]["sha"]
 
 
 def verwijder(pad, sha, bericht):
-    s, j = call("DELETE", f"contents/{pad}", {"message": bericht, "sha": sha, "branch": BRANCH})
+    try:
+        s, j = call("DELETE", f"contents/{pad}", {"message": bericht, "sha": sha, "branch": BRANCH})
+    except Conflict:
+        if lees(pad) is None:
+            return   # al verwijderd (een eerdere poging was wel verwerkt)
+        raise
+    if s == 404:
+        return       # bestaat niet meer: al verwijderd
     if s not in (200, 204):
         raise RuntimeError(f"{pad} kon niet worden verwijderd (HTTP {s})")
 
