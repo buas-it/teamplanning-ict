@@ -231,7 +231,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 4 nov 2026 · 142</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 4 nov 2026 · 143</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -5330,16 +5330,40 @@ function ckLokaleOudeWekenWeg(data){   // na een synchronisatie: weken die GitHu
   Object.keys(store).forEach(w=>{ if(!(w in (data.store || {})) && /^\d{4}-W\d{2}$/.test(w) && ckWeekEinde(w) < c){ delete store[w]; delete manuallyEdited[w]; } });
 }
 let CK_KLOK = null;
-async function ckKlok(){   // klopt de klok van dit apparaat met die van GitHub? (GitHub meldt wanneer het uur-venster van de API afloopt: de server staat dus binnen een uur daarvoor)
+function ckVerschilTekst(ms){   // 18 min 12 s
+  const s = Math.round(Math.abs(ms) / 1000), d = Math.floor(s / 86400), u = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return ((d ? d + " d " : "") + (u ? u + " u " : "") + (m ? m + " min " : "") + (!d && !u ? sec + " s" : "")).trim();
+}
+async function ckKlok(){
+  // Klopt de klok van dit apparaat? De pagina haalt zichzelf op bij GitHub Pages: dat antwoord bevat de servertijd (Date, op de seconde) en bij een kopie uit de cache ook Age.
+  // Zelfde herkomst, dus de koppen zijn leesbaar. Meerdere metingen; die met de kortste reistijd telt, gecorrigeerd voor de halve reistijd. Nauwkeurigheid: ongeveer een halve seconde plus de halve reistijd.
   if(CK_KLOK && Date.now() - CK_KLOK.t < 300000) return CK_KLOK;
   let res = { ok: false, onbekend: true, t: Date.now(), tekst: "de tijd van GitHub kon niet worden vastgesteld" };
   try{
-    const r = await fetch("https://api.github.com/rate_limit?t=" + Date.now(), {headers: ckHdr()});
-    if(r.ok){
-      const j = await r.json(), reset = (j.resources && j.resources.core && j.resources.core.reset) || (j.rate && j.rate.reset);
-      if(reset){ const verschil = Date.now() - (reset - 1800) * 1000, min = Math.round(verschil / 60000); res = { ok: Math.abs(verschil) < 2 * 3600000, onbekend: false, t: Date.now(), min: min, tekst: min === 0 ? "klopt met GitHub" : "wijkt " + (Math.abs(min) < 90 ? Math.abs(min) + " min" : Math.abs(min) < 2880 ? Math.round(Math.abs(min) / 60) + " uur" : Math.round(Math.abs(min) / 1440) + " dagen") + " af van GitHub (" + (min > 0 ? "loopt voor" : "loopt achter") + ")" }; }
+    const map = location.pathname.replace(/[^\/]*$/, ""), monsters = [];
+    for(let i = 0; i < 4; i++){
+      const t0 = Date.now();
+      const r = await fetch(map + "index.html?klok=" + t0 + "_" + i, { method: "HEAD", cache: "no-store" }), t1 = Date.now();
+      if(!r.ok) continue;
+      const d = Date.parse(r.headers.get("date") || ""), age = parseInt(r.headers.get("age") || "0", 10) || 0;
+      if(!isNaN(d)) monsters.push({ rtt: t1 - t0, verschil: (t0 + t1) / 2 - (d + age * 1000 + 500) });   // de Date-kop is op de hele seconde afgekapt: gemiddeld een halve seconde te vroeg
+    }
+    if(monsters.length){
+      monsters.sort((a, b)=>a.rtt - b.rtt); const m = monsters[0], min = m.verschil / 60000, marge = Math.max(1, Math.round((m.rtt / 2 + 500) / 1000));
+      const klopt = Math.abs(m.verschil) <= 60000;
+      res = { ok: klopt, onbekend: false, t: Date.now(), ms: Math.round(m.verschil), min: Math.round(min), marge: marge,
+        tekst: klopt ? "klopt met GitHub (verschil " + ckVerschilTekst(m.verschil) + ", gemeten op ongeveer " + marge + " s nauwkeurig)" : "dit apparaat loopt " + ckVerschilTekst(m.verschil) + (m.verschil > 0 ? " voor" : " achter") + " op GitHub (gemeten op ongeveer " + marge + " s nauwkeurig)" };
     }
   }catch(e){}
+  if(res.onbekend){   // geen Date-kop beschikbaar (bijvoorbeeld een lokaal bestand): een grove schatting via de API
+    try{
+      const r = await fetch("https://api.github.com/rate_limit?t=" + Date.now(), {headers: ckHdr()});
+      if(r.ok){
+        const j = await r.json(), reset = (j.resources && j.resources.core && j.resources.core.reset) || (j.rate && j.rate.reset);
+        if(reset){ const verschil = Date.now() - (reset - 1800) * 1000; res = { ok: Math.abs(verschil) < 3600000, onbekend: false, grof: true, t: Date.now(), ms: verschil, min: Math.round(verschil / 60000), tekst: Math.abs(verschil) < 3600000 ? "binnen een uur van GitHub (grove schatting, niet nauwkeuriger te meten)" : "dit apparaat loopt " + ckVerschilTekst(verschil) + (verschil > 0 ? " voor" : " achter") + " op GitHub (grove schatting)" }; }
+      }
+    }catch(e){}
+  }
   CK_KLOK = res; return res;
 }
 async function ckOudeWekenVerwijderen(){
@@ -5372,7 +5396,7 @@ const CHECKS = [
       const r = await fetch("index.html?v=" + Date.now() + "&r=" + Math.random().toString(36).slice(2), { cache: "no-store" }); if(!r.ok) return ck_let("de nieuwste versie kon niet worden opgehaald");
       const m = (await r.text()).match(/id="app-version"[^>]*>\s*(versie [^<]+?)\s*</); if(!m) return ck_let("het versielabel van de nieuwste versie is niet te lezen");
       return m[1].trim() === RUNNING_VERSION ? ck_ok(RUNNING_VERSION) : ck_let("er is een nieuwere versie (" + m[1].trim() + "); deze pagina ververst zichzelf zodra dat veilig kan"); } },   // geen herstel hier: het verversen regelt de pagina zelf (en wacht op een veilig moment)
-  { id: "klok", groep: 0, zwaar: true, naam: "Klok van dit apparaat", run: async ()=>{ const k = await ckKlok(); return k.onbekend ? ck_info(k.tekst) : k.ok ? ck_ok(k.tekst) : ck_let(k.tekst + ": zet de tijd van dit apparaat goed; zolang dit zo is worden er geen oude roosters verwijderd"); } },
+  { id: "klok", groep: 0, zwaar: true, naam: "Klok van dit apparaat", run: async ()=>{ const k = await ckKlok(); return k.onbekend ? ck_info(k.tekst) : k.ok ? ck_ok(k.tekst) : ck_let(k.tekst + ": zet de datum en tijd van dit apparaat op automatisch (bij Instellingen ▸ Algemeen ▸ Datum en tijd). Een verkeerde klok geeft een verkeerde “vandaag”-markering en verkeerde verjaardagsmeldingen"); } },
   { id: "uitrol", groep: 0, zwaar: true, naam: "Uitrol van de pagina (GitHub Pages)", run: async ()=>{
       const rb = await fetch(`https://api.github.com/repos/${GH_REPO}/pages/builds/latest?t=${Date.now()}`, {headers: ckHdr()}); if(!rb.ok) return ck_info("niet te controleren (HTTP " + rb.status + ")");
       const b = await rb.json(), rr = await fetch(`https://api.github.com/repos/${GH_REPO}/git/refs/heads/main?t=${Date.now()}`, {headers: ckHdr()}), head = rr.ok ? ((await rr.json()).object || {}).sha : null;
