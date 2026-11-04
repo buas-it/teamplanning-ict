@@ -4,9 +4,6 @@
 name: Onderhoud planning
 
 on:
-  push:
-    branches: [main]
-    paths: [".github/aanzet/**"]   # een wijziging in een bestand hier start de taak meteen (handig om te testen)
   schedule:
     - cron: "11,41 * * * *"      # elk half uur (op :11 en :41, buiten de drukte van het hele uur)
   workflow_dispatch:
