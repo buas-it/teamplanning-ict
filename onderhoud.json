@@ -1,15 +1,10 @@
 {
  "v": 1,
- "t": "2026-11-04T10:02:41.000Z",
+ "t": "2026-11-04T10:05:01.000Z",
  "droog": false,
- "acties": [
-  "backup vooraf: 2026-11-04_11-02",
-  "13 weken ouder dan 2 maanden verwijderd (2026-W22 t/m 2026-W35)"
- ],
+ "acties": [],
  "problemen": [],
- "meldingen": [
-  "de backup achteraf is niet gelukt (422: Invalid request.\n\n\"sha\" wasn't supplied.)"
- ],
+ "meldingen": [],
  "weken": 58,
  "team": 10,
  "stempel_n": 4
