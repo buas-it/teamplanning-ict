@@ -11,7 +11,7 @@ PAGE = "https://buas-it.github.io/teamplanning-ict/"; API = re.compile(r"^https:
 TEAM = ["Wim", "Wouter", "Annies", "Bas", "Bram", "Marco", "Hans", "Sercan", "Ted", "Sam"]; DG = ["MA", "DI", "WO", "DO", "VR"]
 CORS = {"access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET,PUT,POST,DELETE,PATCH,HEAD,OPTIONS"}
 class Repo:
-    def __init__(self): self.f = {}; self.puts = []; self.hook = None; self.tamper = None; self.na_put = False
+    def __init__(self): self.f = {}; self.puts = []; self.hook = None; self.tamper = None; self.na_put = False; self.msgs = []
     def sha(self, p): return hashlib.sha1(self.f[p].encode()).hexdigest()
 def handler_voor(R):
     def h(route, request):
@@ -36,7 +36,7 @@ def handler_voor(R):
                 bestaat = pad in R.f
                 if bestaat and not body.get("sha"): return route.fulfill(status=422, headers=CORS, content_type="application/json", body=json.dumps({"message": "sha wasn't supplied"}))
                 if bestaat and body["sha"] != R.sha(pad): return route.fulfill(status=409, headers=CORS, content_type="application/json", body=json.dumps({"message": "does not match"}))
-                R.f[pad] = base64.b64decode(body["content"]).decode(); R.puts.append(pad)
+                R.f[pad] = base64.b64decode(body["content"]).decode(); R.puts.append(pad); R.msgs.append((pad, body.get("message", "")))
                 if pad == "state.json": R.na_put = True
                 return route.fulfill(status=200 if bestaat else 201, headers=CORS, content_type="application/json", body=json.dumps({"content": {"sha": R.sha(pad)}, "commit": {"sha": "abc"}}))
             if m == "DELETE":
@@ -138,8 +138,16 @@ with sync_playwright() as pw:
     gezond = sc("HEALTH.github = 'ok'; HEALTH.lastSync = Date.now() - 20000;"); offline = sc("Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });"); online = sc("Object.defineProperty(navigator, 'onLine', { value: true, configurable: true }); HEALTH.github = 'ok'; HEALTH.lastSync = Date.now() - 20000;")
     geenverb = sc("HEALTH.github = 'fout';"); onbekend = sc("HEALTH.github = 'unknown';"); alleenlezen = sc("HEALTH.github = 'ok'; stateTrusted = false;"); p.evaluate("stateTrusted = true"); achter = sc("HEALTH.github = 'ok'; HEALTH.lastSync = Date.now() - 400000;"); nooit = sc("HEALTH.lastSync = 0;")
     check("K17 de controle 'Dit scherm is verbonden en bijgewerkt' (voorheen vier controles) meldt: in orde met teamleden, weken en laatste synchronisatie; offline = fout; geen verbinding = fout; nog niet gecontroleerd = let op; alleen lezen = fout; synchronisatie meer dan 3 minuten geleden = let op; nog nooit gesynchroniseerd = let op", gezond["s"] == "ok" and "10 teamleden" in gezond["t"] and offline["s"] == "fout" and "offline" in offline["t"] and online["s"] == "ok" and geenverb["s"] == "fout" and onbekend["s"] == "let" and alleenlezen["s"] == "fout" and "alleen lezen" in alleenlezen["t"] and achter["s"] == "let" and nooit["s"] == "let", json.dumps([gezond, offline, geenverb, onbekend, alleenlezen, achter, nooit])[:600]); b.close()
+with sync_playwright() as pw:
+    # K18 de pagina schrijft geen wijzigingsregels meer (dat doet de server) maar geeft de toelichting bij een opslag mee in het commitbericht
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R)
+    p.evaluate(EDIT, ["2026-W43", "Wim", "MA", ["vrij"]]); p.wait_for_timeout(2500); m1 = [m for pad, m in R.msgs if pad == "state.json"][-1]
+    p.evaluate("auditSetHint('periode: Wim vrij 12-11 t/m 14-11')"); p.evaluate(EDIT, ["2026-W43", "Wim", "DI", ["vrij"]]); p.wait_for_timeout(2500); m2 = [m for pad, m in R.msgs if pad == "state.json"][-1]
+    p.evaluate(EDIT, ["2026-W43", "Wim", "WO", ["vrij"]]); p.wait_for_timeout(2500); m3 = [m for pad, m in R.msgs if pad == "state.json"][-1]
+    wijz_regels = [pad for pad in R.puts if pad.startswith("audit/") and any('"action":"wijziging"' in R.f.get(pad, "") for _ in [0])]
+    check("K18 de pagina schrijft geen wijzigingsregels meer in het logboek (dat doet de server na elke opslag); een gewone opslag heeft het commitbericht 'Update planning', een opslag met een toelichting (hier een Periode) draagt die toelichting in het commitbericht, en die geldt maar voor die ene opslag", m1.startswith("Update planning") and m2.startswith("periode: Wim vrij 12-11 t/m 14-11") and m3.startswith("Update planning") and not wijz_regels and '"action":"wijziging"' not in "".join(v for kk, v in R.f.items() if kk.startswith("audit/")) and not fouten, json.dumps([m1, m2, m3, wijz_regels, fouten[:1]])); b.close()
 # K12 statische controle op slapende code en op controles die naar de server zijn verhuisd
-weg = ["TP_SERVER_ONDERHOUD", "serverModus", "LOKALE_HERSTEL", "SERVER_HERSTELT", "checkSchrijvenMag", "ckMaakBackup", "ckStatusOpschonen", "ckManueelOpschonen", "ckVreemdOpschonen", "ckVerwijderBackups", "ckWachtOpHerstel", "ckWachtOpstaan", "ckOudeWekenVerwijderen", "opts.prune", "opts.opschonen", "ckBackupLees", "ckManueelTelling", "function ckOudeWeken(", "ckLeesTekst", "healRemoved", "auditCleanup", "retryPendingBackup", "Verwijder oude backup", "Backup na bewerken", "Verwijder backups ouder dan 14 dagen"] + [f'{{ id: "{x}"' for x in ("accounts", "backups", "backup_geldig", "backup_actueel", "groups", "weken", "oudeweken", "statussen", "manueel", "vreemd", "namen", "team", "halvedag", "grootte", "logboek", "instellingen", "wachtwoorden", "remote", "uitrol", "rechten", "limiet", "stempel", "verplicht", "verjaardagen", "online", "github", "sync", "geladen")] + ["chkNet"]
+weg = ["TP_SERVER_ONDERHOUD", "serverModus", "LOKALE_HERSTEL", "SERVER_HERSTELT", "checkSchrijvenMag", "ckMaakBackup", "ckStatusOpschonen", "ckManueelOpschonen", "ckVreemdOpschonen", "ckVerwijderBackups", "ckWachtOpHerstel", "ckWachtOpstaan", "ckOudeWekenVerwijderen", "opts.prune", "opts.opschonen", "ckBackupLees", "ckManueelTelling", "function ckOudeWeken(", "ckLeesTekst", "auditDiff", "auditAfterSave", "auditRebase", "auditWho", "auditBase", "healRemoved", "auditCleanup", "retryPendingBackup", "Verwijder oude backup", "Backup na bewerken", "Verwijder backups ouder dan 14 dagen"] + [f'{{ id: "{x}"' for x in ("accounts", "backups", "backup_geldig", "backup_actueel", "groups", "weken", "oudeweken", "statussen", "manueel", "vreemd", "namen", "team", "halvedag", "grootte", "logboek", "instellingen", "wachtwoorden", "remote", "uitrol", "rechten", "limiet", "stempel", "verplicht", "verjaardagen", "online", "github", "sync", "geladen")] + ["chkNet"]
 aanwezig = {w: HTML.count(w) for w in weg if HTML.count(w)}
 print("INFO slapende code of verhuisde controles die nog in de pagina staan:", aanwezig or "geen")
 check("K12 er staat geen slapende opruimcode meer in de pagina, geen controle meer die de server doet, en ook geen automatische backups, backup- of logboekopruiming en geen schoonschrijven van verwijderde namen meer (dat doet allemaal de server)", not aanwezig, json.dumps(aanwezig))
