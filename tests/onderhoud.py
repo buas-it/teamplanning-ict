@@ -176,6 +176,99 @@ def verwijder(pad, sha, bericht):
         raise RuntimeError(f"{pad} kon niet worden verwijderd (HTTP {s})")
 
 
+# ── het logboek van wijzigingen: de server leidt ze af uit de opslagen van de planning (de pagina schrijft alleen nog bezoeken en inloggen) ──
+LOG_MAX_CHANGES = 200
+LOG_STATUS = {"ok": True, "fout": None}   # voor de controle 'Wijzigingsregels worden door de server geschreven'
+
+
+def log_diff(base, cur, hinted):
+    """Identiek aan auditDiff in de pagina: wat is er veranderd tussen twee standen van de planning."""
+    same = lambda a, b: (a or []) == (b or [])
+    b_team = [p for p in base.get("team", []) if p != "__divider__"]; c_team = [p for p in cur.get("team", []) if p != "__divider__"]
+    both = [p for p in c_team if p in b_team]
+    team = [{"s": "team+", "p": p} for p in c_team if p not in b_team] + [{"s": "team-", "p": p} for p in b_team if p not in c_team]
+    b_tpl = base.get("template") or {}; c_tpl = cur.get("template") or {}; tpl = []
+    for p in both:
+        for d in DAGEN:
+            a = (b_tpl.get(p) or {}).get(d); b = (c_tpl.get(p) or {}).get(d)
+            if not same(a, b): tpl.append({"s": "standaard", "p": p, "d": d, "from": a or [], "to": b or []})
+    b_store = base.get("store") or {}; c_store = cur.get("store") or {}; cells = []
+    for w in c_store:
+        bw = b_store.get(w) or {}; cw = c_store.get(w) or {}
+        for p in both:
+            for d in DAGEN:
+                b = (cw.get(p) or {}).get(d)
+                if b is None: continue
+                a = (bw.get(p) or {}).get(d)
+                if a is None: a = (b_tpl.get(p) or {}).get(d)
+                if not same(a, b): cells.append({"s": "cel", "w": w, "p": p, "d": d, "from": a or [], "to": b or []})
+    if tpl and not hinted: changes = team + tpl + [{"s": "doorgevoerd", "n": len(cells)}]; n = len(team) + len(tpl)
+    else: changes = team + tpl + cells; n = len(team) + len(tpl) + len(cells)
+    return {"n": n, "trunc": len(changes) > LOG_MAX_CHANGES, "changes": changes[:LOG_MAX_CHANGES], "action": "standaard" if tpl else ("team" if team and not cells else "wijziging")}
+
+
+def log_state_op(ref):
+    s, j = call("GET", f"contents/state.json?ref={ref}")
+    if s != 200 or j.get("encoding") != "base64": return None
+    try: d = json.loads(base64.b64decode(j["content"]).decode("utf-8"))
+    except Exception: return None
+    return d if geldig(d) else None
+
+
+def log_wijzigingen(pointer):
+    """(regels, nieuwe pointer, meldingen): de wijzigingsregels van alle opslagen van de planning na de laatst verwerkte opslag."""
+    s, lst = call("GET", f"commits?sha={BRANCH}&path=state.json&per_page=100")
+    if s != 200 or not isinstance(lst, list): raise RuntimeError(f"de opslagen zijn niet te lezen (HTTP {s})")
+    if not lst: return [], pointer, []
+    nieuwste = lst[0]["sha"]
+    if not pointer: return [], nieuwste, []   # de eerste keer: vanaf nu bijhouden (wat daarvoor is gebeurd heeft de pagina al gelogd)
+    if nieuwste == pointer: return [], pointer, []
+    nieuw = []; gevonden = False
+    for c in lst:
+        if c["sha"] == pointer: gevonden = True; break
+        nieuw.append(c)
+    meldingen = [] if gevonden else [f"meer dan {len(lst)} opslagen sinds de vorige ronde: de oudste zijn niet gelogd"]
+    nieuw.reverse(); regels = []
+    vorig = log_state_op(nieuw[0]["parents"][0]["sha"]) if nieuw[0].get("parents") else None
+    for c in nieuw:
+        cur = log_state_op(c["sha"]); msg = (c["commit"].get("message") or "").split("\n")[0]
+        if cur is None: meldingen.append(f"opslag {c['sha'][:7]} is niet te lezen: geen wijzigingsregel"); continue
+        if vorig is not None and "Server (onderhoud)" not in msg:
+            m = re.match(r"^(.*?) \u2014 (\S+)(?: \((.*)\))?$", msg)
+            basis_t = m.group(1) if m else msg; ident = m.group(2) if m else None; ws = (m.group(3) or "") if m else ""
+            hint = basis_t if basis_t.startswith(("periode: ", "backup hersteld: ")) else ("backup hersteld: " + basis_t[len("Herstel backup "):] if basis_t.startswith("Herstel backup ") else None)
+            d = log_diff(vorig, cur, bool(hint))
+            if d["n"]:
+                t = dt.datetime.fromisoformat(c["commit"]["committer"]["date"].replace("Z", "+00:00")).astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+                regel = {"v": 1, "eid": "srv-" + c["sha"][:12], "t": t, "user": (ident.split("@")[0] if ident else "onbekend"), "ws": ws, "device": (ident.split("@")[1] if ident and "@" in ident else ""), "id": ident or "", "wsinfo": "",
+                         "action": hint or d["action"], "n": d["n"], "trunc": d["trunc"], "changes": d["changes"], "bron": "server"}
+                if not ident: regel["buiten_app"] = True
+                regels.append(regel)
+        vorig = cur
+    return regels, nieuwste, meldingen
+
+
+def log_schrijf_dagen(regels):
+    """De regels per dag toevoegen aan audit/<dag>.jsonl, zonder dubbelen (op eid)."""
+    for dag in sorted({r["t"][:10] for r in regels}):
+        pad = f"audit/{dag}.jsonl"; nieuw_r = [r for r in regels if r["t"][:10] == dag]
+        for _ in range(5):
+            f = lees(pad); aanwezig = set()
+            for l in (f["tekst"] if f else "").split("\n"):
+                try: aanwezig.add(json.loads(l).get("eid"))
+                except Exception: pass
+            toe = [r for r in nieuw_r if r["eid"] not in aanwezig]
+            if not toe: break
+            tekst = (f["tekst"] if f else "")
+            if tekst and not tekst.endswith("\n"): tekst += "\n"
+            try:
+                schrijf(pad, tekst + "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in toe), f["sha"] if f else None, f"Audit {dag} \u2014 Server (onderhoud)"); break
+            except Conflict:
+                time.sleep(1 + random.random())
+        else:
+            raise RuntimeError(f"het logboek van {dag} kon niet worden bijgewerkt")
+
+
 # ── controlegetal (identiek aan de pagina) ─────────────────────────────────────────────────────
 def _canon(v):
     if isinstance(v, list):
@@ -387,6 +480,8 @@ def log_schrijf(regels):
             schrijf(pad, nieuw, f["sha"] if f else None, f"Audit {nu().strftime('%Y-%m-%d')} \u2014 Server (onderhoud)"); return
         except Conflict:
             time.sleep(1 + random.random())
+        except Exception as e:   # een serverfout van GitHub mag de rest van de ronde (het statusbestand) niet tegenhouden
+            print(f"let op: het logboek kon niet worden bijgewerkt ({e})", file=sys.stderr); return
     print("let op: het logboek kon niet worden bijgewerkt", file=sys.stderr)
 
 
@@ -403,7 +498,7 @@ def schrijf_status(acties, problemen, meldingen, extra, checks=None):
     st.update(extra)
     if vorig:
         oud = dt.datetime.fromisoformat(vorig.get("t", "2000-01-01T00:00:00+00:00").replace("Z", "+00:00"))
-        gelijk = vorig.get("acties") == acties and vorig.get("problemen") == problemen and vorig.get("meldingen") == meldingen and vorig.get("droog") == DROOG and vorig.get("state_sha") == extra.get("state_sha") and [(c["id"], c["s"], c["t"]) for c in (vorig.get("checks") or [])] == [(c["id"], c["s"], c["t"]) for c in (checks or [])]   # is de planning veranderd sinds de vorige ronde, dan komt er een nieuwe status
+        gelijk = vorig.get("acties") == acties and vorig.get("problemen") == problemen and vorig.get("meldingen") == meldingen and vorig.get("droog") == DROOG and vorig.get("state_sha") == extra.get("state_sha") and vorig.get("audit_commit") == extra.get("audit_commit") and [(c["id"], c["s"], c["t"]) for c in (vorig.get("checks") or [])] == [(c["id"], c["s"], c["t"]) for c in (checks or [])]   # is de planning veranderd sinds de vorige ronde, dan komt er een nieuwe status
         if gelijk and (nu() - oud).total_seconds() < STATUS_VERVERSEN_MIN * 60:
             return   # niets nieuws en nog vers: geen extra commit
     schrijf("onderhoud.json", json.dumps(st, ensure_ascii=False, indent=1) + "\n", f["sha"] if f else None, "Serveronderhoud: status")
@@ -776,6 +871,18 @@ def controles(acties, problemen):
         add("logboek_termijn", 3, f"Logboek binnen de bewaartermijn ({AUDIT_BEWAAR_DAGEN} dagen)", "info" if n_oud_a else "ok", f"{n_oud_a} {'dagbestand is' if n_oud_a == 1 else 'dagbestanden zijn'} ouder dan {AUDIT_BEWAAR_DAGEN} dagen; de server ruimt ze in de volgende ronde op" if n_oud_a else f"geen dagbestanden ouder dan {AUDIT_BEWAAR_DAGEN} dagen")
     except Exception as e:
         add("backups_termijn", 3, f"Backups binnen de bewaartermijn ({BACKUP_BEWAAR_DAGEN} dagen)", "info", f"niet te controleren ({e})")
+    add("logboek_server", 3, "Wijzigingsregels worden door de server geschreven", "ok" if LOG_STATUS["ok"] else "fout", "de server zet elke wijziging van de planning in het logboek (de pagina schrijft alleen bezoeken en inloggen)" if LOG_STATUS["ok"] else f"het logboek van wijzigingen is niet bijgewerkt: {LOG_STATUS['fout']}")
+    try:
+        buiten = []
+        for dag in (nu() - dt.timedelta(days=1), nu()):
+            fa = lees(f"audit/{dag.strftime('%Y-%m-%d')}.jsonl")
+            for l in (fa["tekst"] if fa else "").split("\n"):
+                try: e = json.loads(l)
+                except Exception: continue
+                if e.get("buiten_app") and dt.datetime.fromisoformat(e["t"].replace("Z", "+00:00")) >= nu() - dt.timedelta(hours=24): buiten.append(e)
+        add("logboek_onbekend", 3, "Wijzigingen zonder bekende gebruiker (24 uur)", "let" if buiten else "ok", f"{len(buiten)} {'wijziging' if len(buiten) == 1 else 'wijzigingen'} zonder bekende gebruiker, mogelijk buiten de app gedaan (het token staat in de pagina): kijk in het logboek bij 'onbekend'" if buiten else "alle wijzigingen van de laatste 24 uur hebben een bekende gebruiker")
+    except Exception as e:
+        add("logboek_onbekend", 3, "Wijzigingen zonder bekende gebruiker (24 uur)", "info", f"niet te controleren ({e})")
     try:
         a = lees(f"audit/{nu().strftime('%Y-%m-%d')}.jsonl")
         if not a: add("logboek", 3, "Logboek van vandaag is leesbaar", "ok", "nog geen regels vandaag")
@@ -810,6 +917,21 @@ def lees_config():
 
 def main():
     config_meldingen = lees_config()
+    audit_oud = None; audit_ptr = None; audit_meld = []
+    try:
+        vs = lees("onderhoud.json"); audit_oud = (json.loads(vs["tekst"]) if vs else {}).get("audit_commit")
+    except Exception:
+        audit_oud = None
+    audit_ptr = audit_oud
+    try:
+        regels_w, ptr_nieuw, audit_meld = log_wijzigingen(audit_oud)
+        if DROOG or ALLEEN_LEZEN:
+            if regels_w: audit_meld.append(f"{'droogloop' if DROOG else 'alleen lezen'}: {len(regels_w)} wijzigingsregels zouden in het logboek worden gezet")
+        else:
+            log_schrijf_dagen(regels_w); audit_ptr = ptr_nieuw
+        LOG_STATUS.update({"ok": True, "fout": None})
+    except Exception as e:
+        audit_meld = audit_meld + [f"het logboek van wijzigingen is niet bijgewerkt ({e})"]; LOG_STATUS.update({"ok": False, "fout": str(e)})
     acties = problemen = meldingen = extra = None
     for poging in range(3):
         try:
@@ -818,7 +940,8 @@ def main():
             print(f"gelijktijdige wijziging ({e}); opnieuw proberen", file=sys.stderr); time.sleep(2 + random.random() * 3)
     else:
         acties, problemen, meldingen, extra = [], ["er is steeds tegelijk een andere wijziging binnengekomen: niets gewijzigd, volgende ronde opnieuw"], [], {}
-    meldingen = (meldingen or []) + config_meldingen
+    meldingen = (meldingen or []) + config_meldingen + audit_meld
+    extra = dict(extra or {}); extra["audit_commit"] = audit_ptr
     checks = []
     try:
         checks = controles(acties or [], problemen or [])
