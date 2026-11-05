@@ -231,7 +231,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 4 nov 2026 · 146</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 5 nov 2026 · 147</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -5242,7 +5242,7 @@ async function showStatsWindow(){
 // ── Checks: alle controles op één plek, met status en automatisch herstel ─────────────────────────────
 // Onder Info ▸ Checks (alleen Administrators). Elke check geeft ok (✓), info (ℹ), let op (⚠) of fout (✗). Wat veilig kan, herstelt zichzelf; de rest blijft staan met uitleg.
 // De lichte checks lopen elke 2 minuten, de zware (die GitHub bevragen) elke 30 minuten, op de pagina van elke Administrator. Een herstel wordt hooguit 3 keer per uur geprobeerd en komt in het logboek.
-const CHECK_GROEPEN = ["Verbinding en versie", "Planning", "Team, accounts en rechten", "Backups en logboek"];
+const CHECK_GROEPEN = ["Verbinding en versie", "Planning", "Team, accounts en rechten", "Backups en logboek", "Dit apparaat en dit scherm"];   // 0 t/m 3: gemeten door de server; 4: door dit apparaat
 const GELDIGE_STATUSSEN = new Set(STATUSES.map(s=>s.key));
 const JS_FOUTEN = [];
 window.addEventListener("error", e=>{ JS_FOUTEN.push({ t: Date.now(), tekst: String(e.message || e.error || "fout").slice(0, 160) }); if(JS_FOUTEN.length > 30) JS_FOUTEN.shift(); });
@@ -5260,34 +5260,22 @@ async function ckLees(pad){   // een JSON-bestand op de data-branch; { bestaat:f
     const d = await r.json(); return { bestaat: true, sha: d.sha, data: JSON.parse(auditDecode(d.content)) };
   }catch(e){ return { fout: String((e && e.message) || e) }; }
 }
-async function chkNet(){   // de gedeelde bestanden, de backuplijst en de rechten van het token: één keer per ronde ophalen
+async function chkNet(){   // de rechten en de API-limiet van het token dat deze pagina gebruikt
   if(CHK.net && Date.now() - CHK.netT < 20000) return CHK.net;
-  const [users, groups, settings] = await Promise.all([ckLees(USERS_PATH), ckLees(GROUPS_PATH), ckLees(SETTINGS_PATH)]);
-  let lijst = null, limiet = null, rechten = null;
-  try{
-    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups?ref=${GH_BRANCH}&t=${Date.now()}`, {headers: ckHdr()});
-    if(r.ok){ lijst = (await r.json()).filter(f=>/\.json$/.test(f.name)).sort((a, b)=>a.name < b.name ? -1 : 1); limiet = { rest: r.headers.get("x-ratelimit-remaining"), max: r.headers.get("x-ratelimit-limit") }; }
-    else lijst = { fout: "HTTP " + r.status };
-  }catch(e){ lijst = { fout: String((e && e.message) || e) }; }
-  try{ const r = await fetch(`https://api.github.com/repos/${GH_REPO}`, {headers: ckHdr()}); if(r.ok) rechten = (await r.json()).permissions || null; }catch(e){}
-  CHK.net = { users, groups, settings, lijst, limiet, rechten }; CHK.netT = Date.now(); return CHK.net;
+  let limiet = null, rechten = null;
+  try{ const r = await fetch(`https://api.github.com/repos/${GH_REPO}`, {headers: ckHdr()}); if(r.ok){ rechten = (await r.json()).permissions || null; limiet = { rest: r.headers.get("x-ratelimit-remaining"), max: r.headers.get("x-ratelimit-limit") }; } }catch(e){}
+  CHK.net = { limiet, rechten }; CHK.netT = Date.now(); return CHK.net;
 }
-async function ckBackupLees(naam){ const r = await ckLees("backups/" + naam); return r; }
-function ckManueelTelling(){   // markeringen die naar een onbekende week, persoon of dag verwijzen: in dit scherm én in de laatst geladen planning van GitHub
-  let n = 0;
-  Object.keys(manuallyEdited).forEach(wk=>{ if(!store[wk]){ n += manuallyEdited[wk].size || 1; return; } manuallyEdited[wk].forEach(k=>{ const [p, d] = splitKey(k); if(!TEAM.includes(p) || !DAYS.includes(d)) n++; }); });
-  const lg = lastGoodLoad();
-  if(lg){ let m = 0; Object.keys(lg.data.manuallyEdited || {}).forEach(wk=>(lg.data.manuallyEdited[wk] || []).forEach(k=>{ const [p, d] = splitKey(k); if(!(lg.data.team || []).includes(p) || !DAYS.includes(d)) m++; })); n = Math.max(n, m); }
-  return n;
+let SERVER_STATUS = null, SERVER_STATUS_FOUT = null, SERVER_STATUS_AT = 0;   // de laatste inhoud van onderhoud.json: de uitslag van de controles van de server
+async function laadServerStatus(){
+  const o = await ckLees("onderhoud.json");
+  if(o.fout){ SERVER_STATUS_FOUT = o.fout; return; }
+  SERVER_STATUS_FOUT = null; SERVER_STATUS = o.bestaat ? o.data : null; SERVER_STATUS_AT = Date.now();
 }
 
 // ── Oude roosters: het SERVERONDERHOUD verwijdert weken die helemaal ouder zijn dan 2 maanden (met een backup vooraf). Deze pagina laat alleen zien welke het zijn en ruimt ze na een synchronisatie uit het eigen geheugen. ──
 function ckCutoff(){ const d = new Date(); d.setHours(0, 0, 0, 0); d.setMonth(d.getMonth() - 2); return d; }
 function ckWeekEinde(wk){ const e = new Date(getMondayFromKey(wk)); e.setDate(e.getDate() + 6); e.setHours(23, 59, 59, 999); return e; }
-function ckOudeWeken(){
-  const c = ckCutoff(), weken = new Set(Object.keys(store)), lg = lastGoodLoad(); if(lg) Object.keys(lg.data.store || {}).forEach(w=>weken.add(w));
-  return [...weken].filter(w=>/^\d{4}-W\d{2}$/.test(w) && ckWeekEinde(w) < c).sort();
-}
 function ckLokaleOudeWekenWeg(data){   // na een synchronisatie: weken die GitHub niet meer heeft en ouder zijn dan 2 maanden, gaan ook uit het geheugen van dit scherm
   if(savePending || ghSaving) return; const c = ckCutoff();
   Object.keys(store).forEach(w=>{ if(!(w in (data.store || {})) && /^\d{4}-W\d{2}$/.test(w) && ckWeekEinde(w) < c){ delete store[w]; delete manuallyEdited[w]; } });
@@ -5330,105 +5318,10 @@ async function ckKlok(){
   }
   CK_KLOK = res; return res;
 }
-async function ckLeesTekst(pad){   // een bestand als platte tekst; null als het er niet is
-  const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${pad}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers: ckHdr()});
-  if(r.status === 404) return null; if(!r.ok) throw new Error("HTTP " + r.status); return auditDecode((await r.json()).content);
-}
 const CHECKS = [
-  // ── Verbinding en versie ──
-  { id: "github", groep: 0, naam: "GitHub bereikbaar", run: ()=> HEALTH.github === "ok" ? ck_ok("verbonden") : HEALTH.github === "unknown" ? ck_let("nog niet gecontroleerd", ()=>syncNu()) : ck_fout("geen verbinding of geen toegang (" + HEALTH.github + ")", ()=>syncNu()) },
-  { id: "online", groep: 0, naam: "Apparaat is online", run: ()=> navigator.onLine === false ? ck_fout("dit apparaat meldt dat het offline is") : ck_ok("online") },
-  { id: "sync", groep: 0, naam: "Planning is actueel", run: ()=>{
-      if(!HEALTH.lastSync) return ck_let("nog niet gesynchroniseerd", ()=>syncNu());
-      const sec = Math.round((Date.now() - HEALTH.lastSync) / 1000);
-      if(document.hidden) return ck_ok("laatste synchronisatie " + ckAgo(sec) + " geleden (pagina staat op de achtergrond)");
-      return sec > 180 ? ck_let("laatste synchronisatie " + ckAgo(sec) + " geleden", ()=>syncNu()) : ck_ok("laatste synchronisatie " + ckAgo(sec) + " geleden"); } },
-  { id: "rechten", groep: 0, zwaar: true, naam: "Rechten op de repository", run: async ()=>{ const n = await chkNet(); if(!n.rechten) return ck_info("GitHub gaf de rechten niet door"); return n.rechten.push ? ck_ok("GitHub meldt dat deze gebruiker mag lezen en schrijven; of het token zelf mag schrijven blijkt bij elke opslag (daarna wordt teruggelezen)") : ck_fout("GitHub meldt dat deze gebruiker niet mag schrijven: wijzigingen worden niet opgeslagen"); } },
-  { id: "limiet", groep: 0, zwaar: true, naam: "Ruimte in de API-limiet", run: async ()=>{ const n = await chkNet(); const rest = n.limiet && n.limiet.rest != null ? parseInt(n.limiet.rest, 10) : null; if(rest == null || isNaN(rest)) return ck_info("niet gemeten"); return rest < 300 ? ck_let("nog maar " + rest + " verzoeken per uur over") : ck_ok(rest + " van " + n.limiet.max + " verzoeken over"); } },
-  { id: "versie", groep: 0, zwaar: true, naam: "Pagina is de nieuwste versie", run: async ()=>{
-      if(location.protocol === "file:" || !RUNNING_VERSION) return ck_info("lokaal bestand");
-      const r = await fetch("index.html?v=" + Date.now() + "&r=" + Math.random().toString(36).slice(2), { cache: "no-store" }); if(!r.ok) return ck_let("de nieuwste versie kon niet worden opgehaald");
-      const m = (await r.text()).match(/id="app-version"[^>]*>\s*(versie [^<]+?)\s*</); if(!m) return ck_let("het versielabel van de nieuwste versie is niet te lezen");
-      return m[1].trim() === RUNNING_VERSION ? ck_ok(RUNNING_VERSION) : ck_let("er is een nieuwere versie (" + m[1].trim() + "); deze pagina ververst zichzelf zodra dat veilig kan"); } },   // geen herstel hier: het verversen regelt de pagina zelf (en wacht op een veilig moment)
-  { id: "klok", groep: 0, zwaar: true, naam: "Klok van dit apparaat", run: async ()=>{ const k = await ckKlok(); return k.onbekend ? ck_info(k.tekst) : k.ok ? ck_ok(k.tekst) : ck_let(k.tekst + ": zet de datum en tijd van dit apparaat op automatisch (bij Instellingen ▸ Algemeen ▸ Datum en tijd). Een verkeerde klok geeft een verkeerde “vandaag”-markering en verkeerde verjaardagsmeldingen"); } },
-  { id: "uitrol", groep: 0, zwaar: true, naam: "Uitrol van de pagina (GitHub Pages)", run: async ()=>{
-      const rb = await fetch(`https://api.github.com/repos/${GH_REPO}/pages/builds/latest?t=${Date.now()}`, {headers: ckHdr()}); if(!rb.ok) return ck_info("niet te controleren (HTTP " + rb.status + ")");
-      const b = await rb.json(), rr = await fetch(`https://api.github.com/repos/${GH_REPO}/git/refs/heads/main?t=${Date.now()}`, {headers: ckHdr()}), head = rr.ok ? ((await rr.json()).object || {}).sha : null;
-      if(b.status === "errored") return ck_fout("de laatste uitrol is mislukt: " + ((b.error && b.error.message) || "onbekende fout"));
-      if(b.status === "building") return ck_info("er wordt nu uitgerold");
-      if(head && b.commit && b.commit !== head) return ck_let("de nieuwste wijziging (" + head.slice(0, 7) + ") is nog niet uitgerold; de laatste uitrol is " + String(b.commit).slice(0, 7));
-      return ck_ok("de laatste uitrol is gelukt" + (head ? " en is de nieuwste versie (" + head.slice(0, 7) + ")" : "")); } },
-  { id: "fouten", groep: 0, naam: "Geen fouten in de pagina", run: ()=> JS_FOUTEN.length ? ck_let(JS_FOUTEN.length + " fout" + (JS_FOUTEN.length === 1 ? "" : "en") + " sinds het openen; laatste: " + JS_FOUTEN[JS_FOUTEN.length - 1].tekst) : ck_ok("geen") },
-  { id: "opslag", groep: 0, naam: "Geheugen van dit apparaat werkt", run: ()=>{ try{ localStorage.setItem("tp_chk", "1"); localStorage.removeItem("tp_chk"); return ck_ok("werkt"); }catch(e){ return ck_fout("localStorage werkt niet: de laatst bekende planning kan niet worden bewaard"); } } },
-  // ── Planning ──
-  { id: "geladen", groep: 1, naam: "Planning geladen van GitHub", run: ()=> stateTrusted && stateSource === "github" ? ck_ok(TEAM.length + " teamleden, " + Object.keys(store).length + " weken") : ck_fout("alleen lezen: de planning is niet van GitHub geladen", ()=>syncNu()) },
-  { id: "stempel", groep: 1, naam: "Controlegetal", run: ()=>{ const i = HEALTH.integriteit; if(!i) return ck_let("nog niet gecontroleerd"); if(i.probleem) return ck_fout(i.probleem); if(i.status === "geen") return ck_let("nog niet vastgelegd", SERVER); return ck_ok("klopt (opslag " + i.n + (i.door ? " door " + i.door : "") + ")"); } },
-  { id: "weken", groep: 1, naam: "Aantal weken in de planning", run: ()=>{ const ks = Object.keys(store).sort(); if(!ks.length) return ck_fout("geen enkele week"); if(verdachtWeken(ks.length)) return ck_fout("opeens veel minder weken (" + ks.length + ") dan eerder: mogelijk beschadigd"); return ck_ok(ks.length + " weken, " + ks[0] + " t/m " + ks[ks.length - 1]); } },
-  { id: "oudeweken", groep: 1, naam: "Roosters ouder dan 2 maanden", run: ()=>{ const w = ckOudeWeken(); return w.length ? ck_let(w.length + (w.length === 1 ? " week" : " weken") + " ouder dan 2 maanden (" + w[0] + (w.length > 1 ? " t/m " + w[w.length - 1] : "") + "): die worden door het serveronderhoud verwijderd, nadat er een backup van is gemaakt") : ck_ok("geen weken ouder dan 2 maanden (de oudste is " + (Object.keys(store).sort()[0] || "-") + ")"); } },
-  { id: "grootte", groep: 1, naam: "Grootte van de planning", run: ()=>{ const kb = Math.round(JSON.stringify(serializeState()).length / 1024); return kb > 900 ? ck_fout(kb + " KB: GitHub levert bestanden boven 1000 KB niet meer uit, dan kan de planning niet meer geladen worden") : kb > 700 ? ck_let(kb + " KB van maximaal 1000 KB: de planning wordt te groot") : ck_ok(kb + " KB van maximaal 1000 KB"); } },
-  { id: "namen", groep: 1, naam: "Verwijderde namen zijn weg", run: ()=> (verwijderdAanwezig() || HEALTH.verwijderdGevonden > 0) ? ck_fout("een verwijderde naam is aangetroffen en wordt hersteld", SERVER) : ck_ok(VERWIJDERDE_NAMEN.join(", ") + " komen nergens voor") },
-  { id: "team", groep: 1, naam: "Team en werkweken", run: ()=>{
-      const f = []; if(!TEAM.length) f.push("het team is leeg");
-      const dub = TEAM.filter((p, i)=>TEAM.indexOf(p) !== i); if(dub.length) f.push("dubbele namen: " + dub.join(", "));
-      const zonder = TEAM.filter(p=>!template[p] || DAYS.some(d=>!Array.isArray(template[p][d]))); if(zonder.length) f.push("geen volledige werkweek voor " + zonder.join(", "));
-      const verb = [...HIDDEN].filter(p=>!TEAM.includes(p)); if(verb.length) f.push("verborgen maar geen teamlid: " + verb.join(", "));
-      return f.length ? ck_fout(f.join("; ")) : ck_ok(TEAM.length + " personen, iedereen heeft een werkweek" + (HIDDEN.size ? "; " + HIDDEN.size + " verborgen" : "")); } },
-  { id: "vreemd", groep: 1, naam: "Geen planning voor niet-teamleden", run: ()=>{
-      const v = new Set(); Object.values(store).forEach(w=>Object.keys(w).forEach(p=>{ if(!TEAM.includes(p)) v.add(p); })); Object.keys(template).forEach(p=>{ if(!TEAM.includes(p)) v.add(p); });
-      const lg = lastGoodLoad(); if(lg) Object.values(lg.data.store || {}).forEach(w=>Object.keys(w).forEach(p=>{ if(!(lg.data.team || []).includes(p)) v.add(p); }));
-      return v.size ? ck_let("planning of werkweek van " + [...v].join(", ") + ", die niet in het team staan", SERVER) : ck_ok("alleen het team"); } },
-  { id: "statussen", groep: 1, naam: "Alle statussen zijn geldig", run: ()=>{
-      const slecht = [], leeg = []; Object.keys(store).forEach(wk=>Object.keys(store[wk]).forEach(p=>DAYS.forEach(d=>{ const v = (store[wk][p] || {})[d]; if(Array.isArray(v) && v.some(k=>!GELDIGE_STATUSSEN.has(k))){ (v.some(k=>GELDIGE_STATUSSEN.has(k)) ? slecht : leeg).push(wk + " " + p + " " + d); } })));
-      Object.keys(template).forEach(p=>DAYS.forEach(d=>{ const v = (template[p] || {})[d]; if(Array.isArray(v) && v.some(k=>!GELDIGE_STATUSSEN.has(k))) slecht.push("werkweek " + p + " " + d); }));
-      if(slecht.length) return ck_let(slecht.length + " cel" + (slecht.length === 1 ? "" : "len") + " met een onbekende status (bijv. " + slecht.slice(0, 2).join(", ") + ")", SERVER);
-      return leeg.length ? ck_let(leeg.length + " cellen bestaan alleen uit een onbekende status (bijv. " + leeg[0] + ")") : ck_ok("alle cellen hebben een geldige status"); } },
-  { id: "manueel", groep: 1, naam: "Handmatige markeringen kloppen", run: ()=>{
-      const n = ckManueelTelling();
-      return n ? ck_let(n + " markering" + (n === 1 ? "" : "en") + " verwijst naar een week, persoon of dag die niet bestaat", SERVER) : ck_ok("alle markeringen verwijzen naar bestaande dagen"); } },
-  { id: "verplicht", groep: 1, naam: "Verplichte vrije dagen staan op Vrij", run: ()=>{
-      let fout = 0, dagen = 0; Object.keys(store).forEach(wk=>DAYS.forEach(d=>{ if(!LOCKED_DAYS.has(wk + "-" + d)) return; dagen++; TEAM.forEach(p=>{ const v = (store[wk][p] || {})[d]; if(!(Array.isArray(v) && v.length === 1 && v[0] === "vrij")) fout++; }); }));
-      return fout ? ck_let(fout + " cellen op een verplichte vrije dag staan niet op Vrij", ()=>{ verplichtVrijAlles(); renderAndSync(); }) : ck_ok(dagen ? dagen + " verplichte vrije dagen in de geladen weken, voor iedereen Vrij" : "geen verplichte vrije dagen in de geladen weken"); } },
-  { id: "halvedag", groep: 1, naam: "Halve dagen zijn aangevuld", run: ()=>{
-      const wie = TEAM.map(p=>[p, ontbrekendeDagdelen(p).length]).filter(x=>x[1]).map(x=>x[0] + " (" + x[1] + ")");
-      return wie.length ? ck_let("nog niet aangevuld: " + wie.join(", ") + ". Zij krijgen de vraag zodra ze de pagina openen") : ck_ok("alle halve dagen zijn aangevuld"); } },
-  { id: "remote", groep: 1, zwaar: true, naam: "Planning op GitHub (nu opgehaald)", run: async ()=>{
-      const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers: ckHdr()});
-      if(!r.ok) return ck_fout("niet op te halen (HTTP " + r.status + ")", ()=>syncNu());
-      let T; try{ T = JSON.parse(auditDecode((await r.json()).content)); }catch(e){ return ck_fout("onleesbaar"); }
-      if(!stateGeldig(T)) return ck_fout("leeg of ongeldig");
-      if(bevatVerwijderd(T)) return ck_fout("bevat een verwijderde naam", SERVER);
-      if(stempelStatus(T) === "fout") return ck_fout("het controlegetal klopt niet (opslag " + ((T.integriteit || {}).n | 0) + ")");
-      const nT = Object.keys(T.store).length, nL = Object.keys(store).length;
-      if(nL >= 10 && nT < nL * 0.5) return ck_fout("veel minder weken dan op dit scherm (" + nT + " tegen " + nL + ")");
-      if(savePending || ghSaving) return ck_ok("wijzigingen van dit scherm worden net opgeslagen");
-      if(opsCount(diffOps(T, serializeState())) > 0) return ck_let("wijkt af van wat dit scherm toont; het scherm wordt zo bijgewerkt", ()=>syncNu());
-      return ck_ok(nT + " weken, " + (T.team || []).length + " teamleden" + (stempelStatus(T) === "geen" ? "; nog geen controlegetal" : "; controlegetal klopt")); } },
-  // ── Team, accounts en rechten ──
-  { id: "groups", groep: 2, zwaar: true, naam: "Administrators", run: async ()=>{
-      const g = (await chkNet()).groups; if(g.fout) return ck_fout("groups.json niet leesbaar (" + g.fout + ")");
-      const lijst = (g.bestaat && g.data && g.data.administrators) || []; const echte = lijst.filter(a=>TEAM.includes(a)), vreemd = lijst.filter(a=>!TEAM.includes(a) && a !== MONITOR_ACCOUNT);
-      if(!echte.length) return ck_fout("geen enkele Administrator die teamlid is");
-      if(vreemd.length) return ck_let("Administrators die niet in het team staan: " + vreemd.join(", "));
-      if(!lijst.includes(MONITOR_ACCOUNT)) return ck_let("het Monitor-account staat niet als Administrator in de lijst");
-      return echte.length < 2 ? ck_let("maar één Administrator (" + echte[0] + "): bij uitval kan niemand beheren") : ck_ok(echte.length + " Administrators (" + echte.join(", ") + ") en het Monitor-account"); } },
-  { id: "accounts", groep: 2, zwaar: true, naam: "Accounts", run: async ()=>{
-      const u = (await chkNet()).users; if(u.fout) return ck_fout("users.json niet leesbaar (" + u.fout + ")");
-      const acc = u.bestaat ? Object.keys((u.data && u.data.users) || {}) : []; const weg = acc.filter(a=>VERWIJDERDE_NAMEN.includes(a)), vreemd = acc.filter(a=>!TEAM.includes(a) && a !== MONITOR_ACCOUNT && !VERWIJDERDE_NAMEN.includes(a));
-      if(weg.length) return ck_fout("account van een verwijderde naam: " + weg.join(", "), SERVER);
-      if(vreemd.length) return ck_let("accounts van mensen die niet in het team staan: " + vreemd.join(", "));
-      const eigen = TEAM.filter(p=>acc.includes(p)); return ck_ok(acc.length + (acc.length === 1 ? " account" : " accounts") + ": " + eigen.length + " van de " + TEAM.length + " teamleden " + (eigen.length === 1 ? "heeft" : "hebben") + " een eigen wachtwoord" + (acc.includes(MONITOR_ACCOUNT) ? ", plus het Monitor-account" : "")); } },
-  { id: "wachtwoorden", groep: 2, zwaar: true, naam: "Eigen wachtwoorden", run: async ()=>{
-      const u = (await chkNet()).users; if(u.fout) return ck_let("niet te controleren"); const acc = u.bestaat ? Object.keys((u.data && u.data.users) || {}) : []; const zonder = TEAM.filter(p=>!acc.includes(p));
-      return zonder.length ? ck_info("nog het startwachtwoord: " + zonder.join(", ")) : ck_ok("iedereen heeft een eigen wachtwoord"); } },
-  { id: "instellingen", groep: 2, zwaar: true, naam: "Instellingen (boodschap en talen)", run: async ()=>{
-      const s = (await chkNet()).settings; if(s.fout) return ck_fout("settings.json niet leesbaar (" + s.fout + ")"); if(!s.bestaat) return ck_ok("nog niet aangemaakt: standaardwaarden gelden");
-      const d = s.data || {}, sl = new Set(); ["talen", "personen", "campus", "monitor", "persoonlijk"].forEach(k=>Object.keys(d[k] || {}).forEach(p=>sl.add(p)));
-      const weg = [...sl].filter(p=>VERWIJDERDE_NAMEN.includes(p)); if(weg.length) return ck_let("instellingen van een verwijderde naam: " + weg.join(", "));
-      const vreemd = [...sl].filter(p=>!TEAM.includes(p) && p !== MONITOR_ACCOUNT); return vreemd.length ? ck_let("instellingen voor mensen die niet in het team staan: " + vreemd.join(", ")) : ck_ok("leesbaar en alleen voor het team"); } },
-  { id: "verjaardagen", groep: 2, naam: "Verjaardag bekend voor iedereen", run: ()=>{ const zonder = TEAM.filter(p=>!VERJAARDAGEN[p]); return zonder.length ? ck_let("geen verjaardag bekend voor " + zonder.join(", ")) : ck_ok("alle " + TEAM.length + " teamleden"); } },
-  // ── Backups en logboek ──
+  // ── de liveness van de server zelf (de server kan niet melden dat hij niet draait) ──
   { id: "serveronderhoud", groep: 3, zwaar: true, naam: "Serveronderhoud (taak op GitHub)", run: async ()=>{
-      const o = await ckLees("onderhoud.json"); if(o.fout) return ck_let("het statusbestand van het serveronderhoud is niet te lezen (" + o.fout + ")");
+      await laadServerStatus(); const o = { fout: SERVER_STATUS_FOUT, bestaat: !!SERVER_STATUS, data: SERVER_STATUS }; if(o.fout) return ck_let("het statusbestand van het serveronderhoud is niet te lezen (" + o.fout + ")");
       if(!o.bestaat) return ck_fout("het serveronderhoud heeft nog nooit gedraaid: de taak moet nog worden aangezet op GitHub (Actions \u25B8 Onderhoud planning)");
       const d = o.data || {}, t = Date.parse(d.t || ""), min = isNaN(t) ? null : Math.round((Date.now() - t) / 60000);
       if(min === null) return ck_let("het statusbestand van het serveronderhoud is onleesbaar");
@@ -5445,35 +5338,34 @@ const CHECKS = [
       if(min > 100) return ck_let("de laatste ronde was " + ckAgo(min * 60) + " geleden (" + wanneer + "); er hoort na elke wijziging van de planning een ronde te zijn");
       if(d.droog) return ck_let("laatste ronde " + wanneer + " was een droogloop: de server kijkt alleen en wijzigt niets (zet in onderhoud-config.json \"droog\" op false om het echt te laten werken)");
       return ck_ok("laatste ronde " + wanneer + (acties ? ", " + acties + " actie" + (acties === 1 ? "" : "s") : ", niets te doen") + (meld ? "; " + meld + " melding" + (meld === 1 ? "" : "en") + " (zie het statusbestand)" : "")); } },
-  { id: "backups", groep: 3, zwaar: true, naam: "Backups aanwezig", run: async ()=>{
-      const l = (await chkNet()).lijst; if(!l || l.fout) return ck_let("de backuplijst kon niet worden opgehaald" + (l && l.fout ? " (" + l.fout + ")" : "")); if(!l.length) return ck_fout("er zijn geen backups", SERVER);
-      return l.length > 80 ? ck_let(l.length + " backups: dat worden er veel (oude worden niet automatisch opgeruimd)") : ck_ok(l.length + (l.length === 1 ? " backup" : " backups") + ", de nieuwste van " + l[l.length - 1].name.replace(".json", "").replace("_", " ").replace(/-(\d\d)$/, ":$1")); } },
-  { id: "backup_actueel", groep: 3, zwaar: true, naam: "Laatste backup bevat de laatste opslag", run: async ()=>{
-      const l = (await chkNet()).lijst; if(!l || l.fout || !l.length) return ck_info("geen backups om mee te vergelijken");
-      const b = await ckBackupLees(l[l.length - 1].name); if(!b.data) return ck_let("de nieuwste backup is niet leesbaar", SERVER);
-      if(planningHash(b.data) === planningHash(serializeState())) return ck_ok("gelijk aan de huidige planning");
-      const t = HEALTH.integriteit && HEALTH.integriteit.t ? Date.parse(HEALTH.integriteit.t) : 0;
-      return (t && Date.now() - t < 30 * 60000) || savePending || ghSaving ? ck_ok("loopt iets achter op de laatste opslag (normaal: een backup volgt binnen 10 minuten)") : ck_let("de planning is gewijzigd sinds de nieuwste backup", SERVER); } },
-  { id: "backup_geldig", groep: 3, zwaar: true, naam: "Nieuwste backups zijn in orde", run: async ()=>{
-      const l = (await chkNet()).lijst; if(!l || l.fout || !l.length) return ck_info("geen backups om te controleren");
-      const recent = l.slice(-3), slecht = [], nu = Object.keys(store).length;
-      for(const f of recent){
-        const b = await ckBackupLees(f.name); let reden = null;
-        if(!b.data) reden = "niet leesbaar"; else if(!stateGeldig(b.data)) reden = "leeg of ongeldig"; else if(bevatVerwijderd(b.data)) reden = "bevat een verwijderde naam"; else if(nu >= 10 && Object.keys(b.data.store).length < nu * 0.5) reden = "veel minder weken dan de planning";
-        if(reden) slecht.push({ naam: f.name, reden });
-      }
-      if(!slecht.length) return ck_ok("de " + recent.length + " nieuwste backups zijn leesbaar en volledig");
-      const goed = l.length - slecht.length; const tekst = slecht.map(x=>x.naam.replace(".json", "") + " (" + x.reden + ")").join("; ");
-      return ck_fout("beschadigd: " + tekst, goed >= 5 ? SERVER : null); } },
-  { id: "audit", groep: 3, naam: "Logboek schrijft", run: ()=> auditQueue.length ? ck_let(auditQueue.length + " regel" + (auditQueue.length === 1 ? "" : "s") + " wacht" + (auditQueue.length === 1 ? "" : "en") + " nog op GitHub", ()=>auditFlush()) : ck_ok("geen wachtrij") },
-  { id: "logboek", groep: 3, zwaar: true, naam: "Logboek van vandaag is leesbaar", run: async ()=>{
-      const dag = new Date().toISOString().slice(0, 10), t = await ckLeesTekst("audit/" + dag + ".jsonl"); if(t === null) return ck_ok("nog geen regels vandaag");
-      const regels = t.split("\n").filter(l=>l.trim()); const kapot = regels.filter(l=>{ try{ JSON.parse(l); return false; }catch(e){ return true; } });
-      return kapot.length ? ck_let(kapot.length + " van de " + regels.length + " regels van vandaag zijn kapot") : ck_ok(regels.length + " regels, allemaal leesbaar"); } },
+  // ── alleen wat aan dit apparaat en dit scherm hangt; alle andere controles doet de server ──
+  { id: "github", groep: 4, naam: "GitHub bereikbaar (vanaf dit scherm)", run: ()=> HEALTH.github === "ok" ? ck_ok("verbonden") : HEALTH.github === "unknown" ? ck_let("nog niet gecontroleerd", ()=>syncNu()) : ck_fout("geen verbinding of geen toegang (" + HEALTH.github + ")", ()=>syncNu()) },
+  { id: "online", groep: 4, naam: "Apparaat is online", run: ()=> navigator.onLine === false ? ck_fout("dit apparaat meldt dat het offline is") : ck_ok("online") },
+  { id: "sync", groep: 4, naam: "Dit scherm is bijgewerkt", run: ()=>{
+      if(!HEALTH.lastSync) return ck_let("nog niet gesynchroniseerd", ()=>syncNu());
+      const sec = Math.round((Date.now() - HEALTH.lastSync) / 1000);
+      if(document.hidden) return ck_ok("laatste synchronisatie " + ckAgo(sec) + " geleden (pagina staat op de achtergrond)");
+      return sec > 180 ? ck_let("laatste synchronisatie " + ckAgo(sec) + " geleden", ()=>syncNu()) : ck_ok("laatste synchronisatie " + ckAgo(sec) + " geleden"); } },
+  { id: "rechten", groep: 4, zwaar: true, naam: "Rechten op de repository", run: async ()=>{ const n = await chkNet(); if(!n.rechten) return ck_info("GitHub gaf de rechten niet door"); return n.rechten.push ? ck_ok("GitHub meldt dat deze gebruiker mag lezen en schrijven; of het token zelf mag schrijven blijkt bij elke opslag (daarna wordt teruggelezen)") : ck_fout("GitHub meldt dat deze gebruiker niet mag schrijven: wijzigingen worden niet opgeslagen"); } },
+  { id: "limiet", groep: 4, zwaar: true, naam: "Ruimte in de API-limiet", run: async ()=>{ const n = await chkNet(); const rest = n.limiet && n.limiet.rest != null ? parseInt(n.limiet.rest, 10) : null; if(rest == null || isNaN(rest)) return ck_info("niet gemeten"); return rest < 300 ? ck_let("nog maar " + rest + " verzoeken per uur over") : ck_ok(rest + " van " + n.limiet.max + " verzoeken over"); } },
+  { id: "versie", groep: 4, zwaar: true, naam: "Pagina is de nieuwste versie", run: async ()=>{
+      if(location.protocol === "file:" || !RUNNING_VERSION) return ck_info("lokaal bestand");
+      const r = await fetch("index.html?v=" + Date.now() + "&r=" + Math.random().toString(36).slice(2), { cache: "no-store" }); if(!r.ok) return ck_let("de nieuwste versie kon niet worden opgehaald");
+      const m = (await r.text()).match(/id="app-version"[^>]*>\s*(versie [^<]+?)\s*</); if(!m) return ck_let("het versielabel van de nieuwste versie is niet te lezen");
+      return m[1].trim() === RUNNING_VERSION ? ck_ok(RUNNING_VERSION) : ck_let("er is een nieuwere versie (" + m[1].trim() + "); deze pagina ververst zichzelf zodra dat veilig kan"); } },   // geen herstel hier: het verversen regelt de pagina zelf (en wacht op een veilig moment)
+  { id: "klok", groep: 4, zwaar: true, naam: "Klok van dit apparaat", run: async ()=>{ const k = await ckKlok(); return k.onbekend ? ck_info(k.tekst) : k.ok ? ck_ok(k.tekst) : ck_let(k.tekst + ": zet de datum en tijd van dit apparaat op automatisch (bij Instellingen ▸ Algemeen ▸ Datum en tijd). Een verkeerde klok geeft een verkeerde “vandaag”-markering en verkeerde verjaardagsmeldingen"); } },
+  { id: "fouten", groep: 4, naam: "Geen fouten in de pagina", run: ()=> JS_FOUTEN.length ? ck_let(JS_FOUTEN.length + " fout" + (JS_FOUTEN.length === 1 ? "" : "en") + " sinds het openen; laatste: " + JS_FOUTEN[JS_FOUTEN.length - 1].tekst) : ck_ok("geen") },
+  { id: "opslag", groep: 4, naam: "Geheugen van dit apparaat werkt", run: ()=>{ try{ localStorage.setItem("tp_chk", "1"); localStorage.removeItem("tp_chk"); return ck_ok("werkt"); }catch(e){ return ck_fout("localStorage werkt niet: de laatst bekende planning kan niet worden bewaard"); } } },
+  { id: "geladen", groep: 4, naam: "Planning op dit scherm geladen van GitHub", run: ()=> stateTrusted && stateSource === "github" ? ck_ok(TEAM.length + " teamleden, " + Object.keys(store).length + " weken") : ck_fout("alleen lezen: de planning is niet van GitHub geladen", ()=>syncNu()) },
+  { id: "stempel", groep: 4, naam: "Controlegetal zoals dit scherm het ziet", run: ()=>{ const i = HEALTH.integriteit; if(!i) return ck_let("nog niet gecontroleerd"); if(i.probleem) return ck_fout(i.probleem); if(i.status === "geen") return ck_let("nog niet vastgelegd", SERVER); return ck_ok("klopt (opslag " + i.n + (i.door ? " door " + i.door : "") + ")"); } },
+  { id: "verplicht", groep: 4, naam: "Verplichte vrije dagen staan op Vrij", run: ()=>{
+      let fout = 0, dagen = 0; Object.keys(store).forEach(wk=>DAYS.forEach(d=>{ if(!LOCKED_DAYS.has(wk + "-" + d)) return; dagen++; TEAM.forEach(p=>{ const v = (store[wk][p] || {})[d]; if(!(Array.isArray(v) && v.length === 1 && v[0] === "vrij")) fout++; }); }));
+      return fout ? ck_let(fout + " cellen op een verplichte vrije dag staan niet op Vrij", ()=>{ verplichtVrijAlles(); renderAndSync(); }) : ck_ok(dagen ? dagen + " verplichte vrije dagen in de geladen weken, voor iedereen Vrij" : "geen verplichte vrije dagen in de geladen weken"); } },
+  { id: "verjaardagen", groep: 4, naam: "Verjaardag bekend voor iedereen", run: ()=>{ const zonder = TEAM.filter(p=>!VERJAARDAGEN[p]); return zonder.length ? ck_let("geen verjaardag bekend voor " + zonder.join(", ")) : ck_ok("alle " + TEAM.length + " teamleden"); } },
+  { id: "audit", groep: 4, naam: "Logboek schrijft", run: ()=> auditQueue.length ? ck_let(auditQueue.length + " regel" + (auditQueue.length === 1 ? "" : "s") + " wacht" + (auditQueue.length === 1 ? "" : "en") + " nog op GitHub", ()=>auditFlush()) : ck_ok("geen wachtrij") },
 ];
 // Alles wat gegevens wijzigt (oude roosters verwijderen, planning, backups en accounts opruimen, controlegetal vastleggen) doet het SERVERONDERHOUD (.github/scripts/onderhoud.py op GitHub), niet deze pagina.
 // Deze pagina herstelt zelf alleen wat lokaal is: verversen, de logboekwachtrij van dit apparaat en het hertekenen van verplichte vrije dagen.
-const SERVER = ()=>{};   // markering: 'dit herstelt het serveronderhoud'
 function checkMagHerstellen(id){ return !ghSaving && ((CHECK_FIX[id] || []).filter(t=>Date.now() - t < 3600000).length < 3); }
 async function runChecks(opts){
   opts = opts || {}; if(checkBusy) return; checkBusy = true; CHK.net = opts.zwaar ? null : CHK.net;
@@ -5481,7 +5373,6 @@ async function runChecks(opts){
     for(const c of CHECKS){
       if(c.zwaar && !opts.zwaar) continue;
       let r; try{ r = await c.run(); }catch(e){ r = ck_fout("de controle zelf is mislukt: " + ((e && e.message) || e)); }
-      if(r.fix === SERVER){ r.t += " (het serveronderhoud herstelt dit vanzelf)"; r.fix = null; }
       let hersteld = null;
       if(opts.repair && r.fix && (r.s === "let" || r.s === "fout") && checkMagHerstellen(c.id)){
         (CHECK_FIX[c.id] = (CHECK_FIX[c.id] || []).filter(t=>Date.now() - t < 3600000)).push(Date.now());
@@ -5495,7 +5386,14 @@ async function runChecks(opts){
     }
   } finally { checkBusy = false; CHECK_RUN_AT = Date.now(); if(opts.zwaar) CHECK_ZWAAR_AT = Date.now(); }
 }
-function checkTelling(){ const t = { ok: 0, info: 0, let: 0, fout: 0, hersteld: 0, nog: 0 }; CHECKS.forEach(c=>{ const r = CHECK_RESULT[c.id]; if(!r){ t.nog++; return; } t[r.s]++; if(r.hersteld && r.hersteld.gelukt) t.hersteld++; }); return t; }
+function checkRijen(){   // alle rijen van het venster: de uitslag van de server (groep 0 t/m 3) en de controles van dit apparaat (groep 4)
+  const rijen = [], srv = SERVER_STATUS && Array.isArray(SERVER_STATUS.checks) ? SERVER_STATUS.checks : [];
+  srv.forEach(c=>{ if(c.id !== "serveronderhoud") rijen.push({ id: "srv_" + c.id, groep: c.groep, naam: c.naam, s: c.s, t: c.t, bron: "server" }); });
+  if(SERVER_STATUS_AT && !srv.length) rijen.push({ id: "srv_geen", groep: 0, naam: "Controles van de server", s: "fout", t: SERVER_STATUS ? "de server heeft nog geen uitslag van de controles vastgelegd" : "de server heeft nog nooit gedraaid", bron: "server" });
+  CHECKS.forEach(c=>{ const r = CHECK_RESULT[c.id]; rijen.push({ id: c.id, groep: c.groep, naam: c.naam, s: r ? r.s : "nog", t: r ? r.t : "nog niet gecontroleerd" + (c.zwaar ? " (zware check)" : ""), bron: "apparaat", hersteld: r && r.hersteld }); });
+  return rijen;
+}
+function checkTelling(){ const t = { ok: 0, info: 0, let: 0, fout: 0, hersteld: 0, nog: 0, totaal: 0 }; checkRijen().forEach(r=>{ t.totaal++; if(r.s === "nog"){ t.nog++; return; } t[r.s]++; if(r.hersteld && r.hersteld.gelukt) t.hersteld++; }); return t; }
 function checksMenuSuffix(){ if(!CHECK_RUN_AT) return ""; const t = checkTelling(); return t.fout ? " \u2717" + t.fout : t.let ? " \u26A0" + t.let : " \u2713"; }
 function checkVakje(status, maat){   // het aanvinkvakje van een check: groen vinkje = in orde
   const kleur = { ok: "#4caf50", info: "#64b5f6", let: "#ffb74d", fout: "#ef5350", nog: "rgba(255,255,255,0.3)" }, teken = { ok: "\u2713", info: "\u2139", let: "!", fout: "\u2717", nog: "" };
@@ -5509,27 +5407,27 @@ async function showChecksWindow(){
   const overlay = document.createElement("div"); overlay.className = "tp-overlay"; overlay.id = "checks-overlay";
   overlay.style.cssText = "position:fixed;inset:0;z-index:860;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:60px 10px 20px;";
   const box = document.createElement("div"); box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px;width:640px;max-width:98vw;font-family:'Courier New',monospace;";
-  box.innerHTML = `<div style="font-size:14px;font-weight:700;color:#80cbc4;margin-bottom:6px;padding-right:40px;">\u2705 Checks</div><div id="ck-sum" style="font-size:12px;margin-bottom:10px;color:#fff;"></div><button id="ck-run" type="button" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(128,203,196,0.5);background:rgba(128,203,196,0.12);color:#80cbc4;font:inherit;font-size:12px;cursor:pointer;margin-bottom:12px;">Nu controleren</button><div id="ck-list"></div><div style="margin-top:12px;font-size:10px;color:rgba(255,255,255,0.4);line-height:1.5;">De checks lopen vanzelf op de pagina van elke Administrator: de lichte elke 2 minuten, de zware (die GitHub bevragen) elke 30 minuten. Wat gegevens wijzigt (zoals oude roosters verwijderen, planning en backups opruimen) doet het serveronderhoud, een taak op GitHub die start zodra de planning verandert (en elk half uur, als GitHub de timer laat lopen); deze pagina ververst alleen zichzelf. Wat het serveronderhoud doet staat in het logboek.</div>`;
+  box.innerHTML = `<div style="font-size:14px;font-weight:700;color:#80cbc4;margin-bottom:6px;padding-right:40px;">\u2705 Checks</div><div id="ck-sum" style="font-size:12px;margin-bottom:10px;color:#fff;"></div><button id="ck-run" type="button" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(128,203,196,0.5);background:rgba(128,203,196,0.12);color:#80cbc4;font:inherit;font-size:12px;cursor:pointer;margin-bottom:12px;">Nu controleren</button><div id="ck-list"></div><div style="margin-top:12px;font-size:10px;color:rgba(255,255,255,0.4);line-height:1.5;">De controles van de planning, de accounts, de backups en het logboek doet de server (een taak op GitHub die start zodra de planning verandert, en elk half uur): hier staat zijn laatste uitslag, de server herstelt ook zelf wat kan. Dit apparaat controleert alleen zichzelf (klok, geheugen, fouten in de pagina, versie en verbinding) en ververst zichzelf. Wat de server doet staat in het logboek.</div>`;
   overlay.appendChild(box); document.body.appendChild(overlay); addWinX(box, ()=>overlay.remove(), "checks-close");
-  const kleur = { ok: "#4caf50", info: "#64b5f6", let: "#ffb74d", fout: "#ef5350" }, icoon = { ok: "\u2713", info: "\u2139", let: "\u26A0", fout: "\u2717" };
+  const kleur = { ok: "#4caf50", info: "#64b5f6", let: "#ffb74d", fout: "#ef5350" };
   const sum = box.querySelector("#ck-sum"), lijst = box.querySelector("#ck-list"), knop = box.querySelector("#ck-run");
   const teken = ()=>{
-    const t = checkTelling(); sum.style.color = t.fout ? kleur.fout : t.let ? kleur.let : "#fff";
-    const sumTekst = (!CHECK_RUN_AT ? "Bezig met controleren\u2026" : t.fout ? "\u2717 " + t.fout + " fout" + (t.fout === 1 ? "" : "en") + (t.let ? " en " + t.let + " aandachtspunt" + (t.let === 1 ? "" : "en") : "") : t.let ? "\u26A0 " + t.let + " aandachtspunt" + (t.let === 1 ? "" : "en") : "\u2713 Alles in orde") + "  \u00B7  " + (CHECKS.length - t.nog) + " van " + CHECKS.length + " gecontroleerd" + (t.hersteld ? "  \u00B7  " + t.hersteld + " automatisch hersteld" : "") + (CHECK_RUN_AT ? "  \u00B7  laatste ronde " + ckAgo(Math.round((Date.now() - CHECK_RUN_AT) / 1000)) + " geleden" : "");
-    sum.innerHTML = ""; sum.style.cssText += "display:flex;align-items:center;gap:10px;"; sum.appendChild(checkVakje(!CHECK_RUN_AT ? "nog" : t.fout ? "fout" : t.let ? "let" : "ok", 28)); const st = document.createElement("span"); st.textContent = sumTekst; sum.appendChild(st);
+    const t = checkTelling(), rijen = checkRijen(); sum.style.color = t.fout ? kleur.fout : t.let ? kleur.let : "#fff";
+    const sT = SERVER_STATUS && SERVER_STATUS.t ? Date.parse(SERVER_STATUS.t) : NaN, srvTekst = !isNaN(sT) ? "server: laatste ronde " + ckAgo(Math.max(0, Math.round((Date.now() - sT) / 1000))) + " geleden" : "server: nog geen uitslag";
+    const txt = (!CHECK_RUN_AT ? "Bezig met controleren\u2026" : t.fout ? "\u2717 " + t.fout + " fout" + (t.fout === 1 ? "" : "en") + (t.let ? " en " + t.let + " aandachtspunt" + (t.let === 1 ? "" : "en") : "") : t.let ? "\u26A0 " + t.let + " aandachtspunt" + (t.let === 1 ? "" : "en") : "\u2713 Alles in orde") + "  \u00B7  " + (t.totaal - t.nog) + " van " + t.totaal + " gecontroleerd" + (t.hersteld ? "  \u00B7  " + t.hersteld + " automatisch hersteld" : "") + "  \u00B7  " + srvTekst;
+    sum.innerHTML = ""; sum.style.cssText += "display:flex;align-items:center;gap:10px;"; sum.appendChild(checkVakje(!CHECK_RUN_AT ? "nog" : t.fout ? "fout" : t.let ? "let" : "ok", 28)); const st = document.createElement("span"); st.textContent = txt; sum.appendChild(st);
     lijst.innerHTML = "";
     CHECK_GROEPEN.forEach((g, gi)=>{
-      const kop = document.createElement("div"); kop.style.cssText = "font-size:11px;font-weight:700;color:#80cbc4;letter-spacing:1px;text-transform:uppercase;margin:12px 0 4px;"; kop.textContent = g; lijst.appendChild(kop);
-      CHECKS.filter(c=>c.groep === gi).forEach(c=>{
-        const r = CHECK_RESULT[c.id], rij = document.createElement("div"); rij.dataset.check = c.id; rij.dataset.status = r ? r.s : "nog";
+      const kop = document.createElement("div"); kop.style.cssText = "font-size:11px;font-weight:700;color:#80cbc4;letter-spacing:1px;text-transform:uppercase;margin:12px 0 4px;"; kop.textContent = g + (gi < 4 ? "  \u00B7  gemeten door de server" : "  \u00B7  gemeten door dit apparaat"); lijst.appendChild(kop);
+      rijen.filter(r=>r.groep === gi).sort((a, b)=>(a.id === "serveronderhoud" ? -1 : 0) - (b.id === "serveronderhoud" ? -1 : 0)).forEach(r=>{
+        const rij = document.createElement("div"); rij.dataset.check = r.id; rij.dataset.status = r.s; rij.dataset.bron = r.bron;
         rij.style.cssText = "display:flex;gap:10px;align-items:flex-start;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.06);font-size:12px;";
-        const ic = checkVakje(r ? r.s : "nog", 22);
+        const ic = checkVakje(r.s, 22);
         const smal = window.innerWidth < 600;   // op een telefoon staat de uitleg onder de naam in plaats van ernaast
-        const nm = document.createElement("span"); nm.style.cssText = (smal ? "flex:1;min-width:0;" : "min-width:190px;max-width:190px;") + "color:#fff;font-weight:700;"; nm.textContent = c.naam;
-        const tx = document.createElement("span"); tx.style.cssText = (smal ? "flex-basis:100%;margin-left:32px;" : "flex:1;") + "color:rgba(255,255,255,0.65);line-height:1.4;"; tx.textContent = r ? r.t : "nog niet gecontroleerd" + (c.zwaar ? " (zware check)" : "");
-        if(smal){ rij.style.flexWrap = "wrap"; rij.style.rowGap = "1px"; }
-        rij.append(ic, nm, tx);
-        if(r && r.hersteld){ const h = document.createElement("div"); h.style.cssText = "flex-basis:100%;margin-left:26px;font-size:10px;color:" + (r.hersteld.gelukt ? "#4caf50" : "#ffb74d") + ";"; h.textContent = (r.hersteld.gelukt ? "\u2713 automatisch hersteld om " : "herstel niet gelukt om ") + new Date(r.hersteld.t).toLocaleTimeString("nl-NL", {hour: "2-digit", minute: "2-digit"}) + " (was: " + r.hersteld.van + ")"; rij.style.flexWrap = "wrap"; rij.appendChild(h); }
+        const nm = document.createElement("span"); nm.style.cssText = (smal ? "flex:1;min-width:0;" : "min-width:190px;max-width:190px;") + "color:#fff;font-weight:700;"; nm.textContent = r.naam;
+        const tx = document.createElement("span"); tx.style.cssText = (smal ? "flex-basis:100%;margin-left:32px;" : "flex:1;") + "color:rgba(255,255,255,0.65);line-height:1.4;"; tx.textContent = r.t;
+        rij.append(ic, nm, tx); if(smal){ rij.style.flexWrap = "wrap"; rij.style.rowGap = "1px"; }
+        if(r.hersteld){ const h = document.createElement("div"); h.style.cssText = "flex-basis:100%;margin-left:26px;font-size:10px;color:" + (r.hersteld.gelukt ? "#4caf50" : "#ffb74d") + ";"; h.textContent = (r.hersteld.gelukt ? "\u2713 automatisch hersteld om " : "herstel niet gelukt om ") + new Date(r.hersteld.t).toLocaleTimeString("nl-NL", {hour: "2-digit", minute: "2-digit"}) + " (was: " + r.hersteld.van + ")"; rij.style.flexWrap = "wrap"; rij.appendChild(h); }
         lijst.appendChild(rij);
       });
     });
