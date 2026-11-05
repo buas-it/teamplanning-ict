@@ -1,10 +1,159 @@
 {
  "v": 1,
- "t": "2026-11-05T10:50:43.000Z",
+ "t": "2026-11-05T17:45:29.000Z",
  "droog": false,
  "acties": [],
  "problemen": [],
  "meldingen": [],
+ "checks": [
+  {
+   "id": "github",
+   "groep": 0,
+   "naam": "GitHub bereikbaar",
+   "s": "ok",
+   "t": "de server kan de planning lezen"
+  },
+  {
+   "id": "uitrol",
+   "groep": 0,
+   "naam": "Uitrol van de pagina (GitHub Pages)",
+   "s": "ok",
+   "t": "de site toont dezelfde versie als main (versie 4 nov 2026 · 146)"
+  },
+  {
+   "id": "stempel",
+   "groep": 1,
+   "naam": "Controlegetal",
+   "s": "ok",
+   "t": "klopt (opslag 5 door Monitor)"
+  },
+  {
+   "id": "weken",
+   "groep": 1,
+   "naam": "Aantal weken in de planning",
+   "s": "ok",
+   "t": "58 weken, 2026-W36 t/m 2027-W52"
+  },
+  {
+   "id": "namen",
+   "groep": 1,
+   "naam": "Verwijderde namen zijn weg",
+   "s": "ok",
+   "t": "Frederique, Ivor, Dave komen nergens voor"
+  },
+  {
+   "id": "team",
+   "groep": 1,
+   "naam": "Team en werkweken",
+   "s": "ok",
+   "t": "10 personen, iedereen heeft een werkweek"
+  },
+  {
+   "id": "vreemd",
+   "groep": 1,
+   "naam": "Geen planning voor niet-teamleden",
+   "s": "ok",
+   "t": "alleen het team"
+  },
+  {
+   "id": "statussen",
+   "groep": 1,
+   "naam": "Alle statussen zijn geldig",
+   "s": "ok",
+   "t": "alle cellen hebben een geldige status"
+  },
+  {
+   "id": "manueel",
+   "groep": 1,
+   "naam": "Handmatige markeringen kloppen",
+   "s": "ok",
+   "t": "alle markeringen verwijzen naar bestaande dagen"
+  },
+  {
+   "id": "halvedag",
+   "groep": 1,
+   "naam": "Halve dagen zijn aangevuld",
+   "s": "ok",
+   "t": "alle halve dagen zijn aangevuld"
+  },
+  {
+   "id": "oudeweken",
+   "groep": 1,
+   "naam": "Roosters ouder dan 2 maanden",
+   "s": "ok",
+   "t": "geen weken ouder dan 2 maanden (de oudste is 2026-W36)"
+  },
+  {
+   "id": "grootte",
+   "groep": 1,
+   "naam": "Grootte van de planning",
+   "s": "ok",
+   "t": "59 KB van maximaal 1000 KB"
+  },
+  {
+   "id": "groups",
+   "groep": 2,
+   "naam": "Administrators",
+   "s": "ok",
+   "t": "4 Administrators (Hans, Marco, Bram, Sercan) en het Monitor-account"
+  },
+  {
+   "id": "accounts",
+   "groep": 2,
+   "naam": "Accounts",
+   "s": "ok",
+   "t": "7 accounts: 6 van de 10 teamleden hebben een eigen wachtwoord, plus het Monitor-account"
+  },
+  {
+   "id": "wachtwoorden",
+   "groep": 2,
+   "naam": "Eigen wachtwoorden",
+   "s": "info",
+   "t": "nog het startwachtwoord: Wim, Wouter, Annies, Ted"
+  },
+  {
+   "id": "instellingen",
+   "groep": 2,
+   "naam": "Instellingen (boodschap en talen)",
+   "s": "ok",
+   "t": "leesbaar en alleen voor het team"
+  },
+  {
+   "id": "serveronderhoud",
+   "groep": 3,
+   "naam": "Serveronderhoud (taak op GitHub)",
+   "s": "ok",
+   "t": "de server draait; niets te doen"
+  },
+  {
+   "id": "backups",
+   "groep": 3,
+   "naam": "Backups aanwezig",
+   "s": "ok",
+   "t": "37 backups, de nieuwste van 2026-11-05 08:30"
+  },
+  {
+   "id": "backup_actueel",
+   "groep": 3,
+   "naam": "Laatste backup bevat de laatste opslag",
+   "s": "ok",
+   "t": "gelijk aan de huidige planning"
+  },
+  {
+   "id": "backup_geldig",
+   "groep": 3,
+   "naam": "Nieuwste backups zijn in orde",
+   "s": "ok",
+   "t": "de 3 nieuwste backups zijn leesbaar en volledig"
+  },
+  {
+   "id": "logboek",
+   "groep": 3,
+   "naam": "Logboek van vandaag is leesbaar",
+   "s": "ok",
+   "t": "13 regels, allemaal leesbaar"
+  }
+ ],
  "weken": 58,
  "team": 10,
  "state_sha": "61a55c83eb9f152be956d3a892e310fd690d1848",
