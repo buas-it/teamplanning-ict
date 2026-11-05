@@ -231,7 +231,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 5 nov 2026 · 149</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 5 nov 2026 · 150</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -971,7 +971,7 @@ function touchEditTimer(){   // er is gemuteerd (of bewerken is net aangezet): d
   lastEditAt = Date.now();
   try{ localStorage.setItem("tp_edit", String(lastEditAt)); }catch(e){}
   armEditTimer(EDIT_IDLE_MS);
-  if(currentIdentity) auditWho = currentIdentity;   // wie heeft het laatst gemuteerd (voor het audit-logboek)
+     // wie heeft het laatst gemuteerd (voor het audit-logboek)
 }
 // Vangnet: een timer loopt niet in een slapende laptop of een bevroren/verborgen tabblad; kijk dan alsnog naar de klok
 function checkEditExpiry(){ if(editUnlocked && Date.now() - lastEditAt >= EDIT_IDLE_MS) disableEditing(); }
@@ -1062,8 +1062,6 @@ function commitMessage(base){
 // ── Audit: wie (naam/machine) heeft wanneer wat gewijzigd ───────────────
 const AUDIT_MAX_CHANGES = 200;
 let auditPushed = 0;      // teller: hoeveel regels er in deze sessie zijn klaargezet (om te zien of een actie al is vastgelegd)
-let auditBase = null;     // laatst bekende opgeslagen staat: basis voor de vergelijking
-let auditWho = null;      // identiteit van de laatste mutatie
 let auditHint = null;     // {text, t}: omschrijving van de actie (Periode, backup herstellen)
 let auditLastOk = null;   // laatste upload geslaagd? (null = nog niet geprobeerd)
 let auditFlushing = false;
@@ -1077,8 +1075,8 @@ function auditEid(){
 function auditPersist(){
   try{ if(auditQueue.length) localStorage.setItem("tp_audit_queue", JSON.stringify(auditQueue)); else localStorage.removeItem("tp_audit_queue"); }catch(e){}
 }
-function auditRebase(){ try{ auditBase = JSON.parse(JSON.stringify(serializeState())); }catch(e){} }
 function auditSetHint(text){ auditHint = {text, t: Date.now()}; }
+function auditHintTekst(){ return (auditHint && Date.now() - auditHint.t < 60000) ? auditHint.text : null; }   // de toelichting bij een opslag gaat mee in het commitbericht: de server zet de wijziging daarmee in het logboek
 function auditDecode(b64){
   const bin = atob(String(b64).replace(/\n/g,""));
   const bytes = new Uint8Array(bin.length);
@@ -1087,56 +1085,8 @@ function auditDecode(b64){
 }
 
 // Vergelijk twee opgeslagen staten en geef de echte wijzigingen terug
-function auditDiff(base, cur, hinted){
-  const D5 = ["MA","DI","WO","DO","VR"];
-  const same = (a,b)=>JSON.stringify(a||[]) === JSON.stringify(b||[]);
-  const bTeam = (base.team||[]).filter(p=>p!=="__divider__"), cTeam = (cur.team||[]).filter(p=>p!=="__divider__");
-  const both = cTeam.filter(p=>bTeam.includes(p));
-  const team = [];
-  cTeam.filter(p=>!bTeam.includes(p)).forEach(p=>team.push({s:"team+", p}));
-  bTeam.filter(p=>!cTeam.includes(p)).forEach(p=>team.push({s:"team-", p}));
-  const bTpl = base.template||{}, cTpl = cur.template||{};
-  const tpl = [];
-  both.forEach(p=>D5.forEach(d=>{ const a=(bTpl[p]||{})[d], b=(cTpl[p]||{})[d]; if(!same(a,b)) tpl.push({s:"standaard", p, d, from:a||[], to:b||[]}); }));
-  const bStore = base.store||{}, cStore = cur.store||{};
-  const cells = [];
-  Object.keys(cStore).forEach(w=>{
-    const bw = bStore[w] || {}, cw = cStore[w] || {};
-    both.forEach(p=>D5.forEach(d=>{
-      const b = (cw[p]||{})[d]; if(b === undefined) return;
-      let a = (bw[p]||{})[d]; if(a === undefined) a = (bTpl[p]||{})[d];   // ontbrekende cel/week = standaardrooster
-      if(!same(a,b)) cells.push({s:"cel", w, p, d, from:a||[], to:b||[]});
-    }));
-  });
-  let changes, n;
-  if(tpl.length && !hinted){ changes = [...team, ...tpl, {s:"doorgevoerd", n:cells.length}]; n = team.length + tpl.length; }   // standaardrooster: afgeleide cellen alleen tellen
-  else { changes = [...team, ...tpl, ...cells]; n = team.length + tpl.length + cells.length; }
-  return { n, trunc: changes.length > AUDIT_MAX_CHANGES, changes: changes.slice(0, AUDIT_MAX_CHANGES),
-           action: tpl.length ? "standaard" : (team.length && !cells.length ? "team" : "wijziging") };
-}
 
 // Na elke geslaagde opslag: wat is er veranderd, door wie, vanaf welke machine
-function auditAfterSave(snap){
-  try{
-    const base = auditBase;
-    auditBase = snap;
-    if(!base) return;
-    const hint = (auditHint && Date.now() - auditHint.t < 60000) ? auditHint.text : null;
-    auditHint = null;
-    const diff = auditDiff(base, snap, !!hint);
-    if(!diff.n) return;
-    const who = auditWho || currentIdentity || null;
-    auditQueue.push({
-      v:1, eid: auditEid(), t: new Date().toISOString(),
-      user: who ? who.user : "onbekend", ws: who ? who.workstation : "", device: who ? who.device : "", id: who ? who.id : "", wsinfo: who ? (who.info || "") : "",
-      action: hint || diff.action, n: diff.n, trunc: diff.trunc, changes: diff.changes
-    });
-    auditPushed++;
-    auditWho = null;
-    auditPersist();
-    auditFlush();
-  }catch(e){ console.warn("audit fout:", e); }
-}
 
 // Regels toevoegen aan audit/<dag>.jsonl (lezen, toevoegen, schrijven; bij conflict opnieuw)
 async function auditAppend(day, entries){
@@ -1743,7 +1693,7 @@ async function promptUnlock(opts){
       loginGelukt();                   // een echte inlog: de teller van mislukte pogingen begint opnieuw
       editUnlocked = false;            // na inloggen kun je alleen kijken; bewerken zet je zelf aan
       clearTimeout(unlockTimer);
-      lastActivity = Date.now(); auditWho = currentIdentity;
+      lastActivity = Date.now(); 
       try{ localStorage.removeItem("tp_ws"); localStorage.removeItem("tp_edit"); localStorage.setItem("tp_user", JSON.stringify(currentIdentity)); localStorage.setItem("tp_last_user", user); localStorage.setItem("tp_unlocked", String(lastActivity)); }catch(e){}   // onthoud op dit apparaat (tot 10 minuten na de laatste activiteit)
       document.dispatchEvent(new CustomEvent("tp-lock-changed"));
       showLockIndicator();
@@ -2192,7 +2142,7 @@ async function loadFromGitHub(usePrefetch=false){
       }
       hideReadOnlyBanner(); hideNoDataOverlay();
       if(stempelProbleem) toonIntegriteitBanner(stempelProbleem); else verbergIntegriteitBanner();
-      applyState(data); ckLokaleOudeWekenWeg(data); auditRebase();
+      applyState(data); ckLokaleOudeWekenWeg(data);
       if(!savePending && !ghSaving) setBaseline();   // vanaf nu: alleen wijzigingen ten opzichte van deze stand worden opgeslagen
       if(wasUntrusted && firstLoadSettled){   // terug na een mislukte eerste poging: het hoofdscherm alsnog tonen
         try{ propagateTemplateToAll(); }catch(e){}
@@ -2600,7 +2550,7 @@ async function saveToGitHub(opts){
       const prevI = R.integriteit || {};   // het controlegetal: volgnummer en vingerafdruk van de planning die nu wordt weggeschreven
       stempel(M, (prevI.n | 0) + 1, currentIdentity && currentIdentity.user, (prevI.bev | 0) + (opts.forceStamp ? 1 : 0));
       const json = JSON.stringify(M);
-      const body = {message: commitMessage(nR ? "Verwijderde namen hersteld" : "Update planning"), content: encodeBase64(json), sha: cd.sha, branch: GH_BRANCH};
+      const body = {message: commitMessage(nR ? "Verwijderde namen hersteld" : (auditHintTekst() || "Update planning")), content: encodeBase64(json), sha: cd.sha, branch: GH_BRANCH};
       const r = await ghWriteFetch(url, {method:"PUT", headers:{...hdr, "Content-Type":"application/json"}, body: JSON.stringify(body)});
       if(r.ok){
         const d = await r.json();
@@ -2612,10 +2562,10 @@ async function saveToGitHub(opts){
         lastSavedJson = json; saveOkCount++;
         if(opts.forceStamp){ try{ localStorage.setItem(STEMPEL_KEY, String(M.integriteit.n)); localStorage.setItem(STEMPEL_BEV_KEY, String(M.integriteit.bev)); }catch(e){} verbergIntegriteitBanner(); }
         const ver = await verifieerNaOpslaan(R0, M, opts, ops);   // teruglezen en vergelijken: is er echt opgeslagen wat de bedoeling was?
-        if(!ver.ok){ verificatieMislukt(ver.fouten); auditAfterSave(L); return; }
+        if(!ver.ok){ verificatieMislukt(ver.fouten); auditHint = null; return; }
         if(M.integriteit){ HEALTH.integriteit = { status: "ok", n: M.integriteit.n, door: M.integriteit.door, t: M.integriteit.t, probleem: null }; try{ localStorage.setItem(STEMPEL_KEY, String(Math.max(M.integriteit.n, opts.forceStamp ? 0 : (parseInt(localStorage.getItem(STEMPEL_KEY) || "0", 10) || 0)))); }catch(e){} }
         if(!verdachtWeken(Object.keys(M.store).length)) lastGoodSave(json, ghSha);
-        auditAfterSave(L);   // audit: wat is er veranderd, door wie
+        auditHint = null;   // de toelichting is met deze opslag meegegaan (in het commitbericht)
         return;
       }
       if(r.status === 409 || r.status === 422){ await new Promise(res=>setTimeout(res, 300 * poging)); continue; }   // een ander was net eerder: opnieuw, bovenop zijn versie
@@ -3177,7 +3127,6 @@ async function checkForNewVersion(){
   if(ghLoaded || fallbackUsed){
     propagateTemplateToAll();
     renderAndSync();
-    auditRebase();                 // audit: automatische doorvoering van het standaardrooster bij laden telt niet als gebruikerswijziging
   }
   if(ghLoaded) auditFlush();     // eventuele eerder niet-geüploade regels alsnog wegschrijven
   // Toon grid nu state geladen is (zonder enige bekende planning blijft het verborgen)
@@ -5543,10 +5492,8 @@ async function restoreFromBackup(filename, sha){
       propagateTemplateToAll();
       setBaseline();
       const naam1 = filename.replace(".json",""), gelogd1 = auditPushed;
-      auditSetHint("backup hersteld: " + naam1);
-      auditAfterSave(written);   // logboek: verschil met wat er daarvoor stond
+      
       if(auditPushed === gelogd1){ auditHint = null; auditEvent("backup hersteld: " + naam1 + " (geen verschil met de planning die er al stond)"); }   // ook een terugzetting zonder verschil hoort in het logboek
-      auditRebase();             // daarna weer vergelijken met de lokale staat
       renderAndSync();
       alert("✅ Backup hersteld!");
     } else {
@@ -5953,7 +5900,7 @@ try{
     try{ ident = JSON.parse(localStorage.getItem("tp_user") || "null"); }catch(e){}
     if(ident && ident.user && ident.id){   // je blijft ingelogd, hoe lang het ook geleden is
       currentIdentity = ident;
-      auditWho = currentIdentity;
+      
       lastActivity = Date.now();
       const eAt = parseInt(localStorage.getItem("tp_edit") || "0"), eAge = Date.now() - eAt;
       if(eAt && eAge >= 0 && eAge < EDIT_IDLE_MS){ editUnlocked = true; lastEditAt = eAt; armEditTimer(EDIT_IDLE_MS - eAge); }
