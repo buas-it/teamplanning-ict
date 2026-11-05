@@ -10,8 +10,12 @@ def check(naam, ok, detail=""):
     UIT.append(("PASS  " if ok else "FAIL  ") + naam + ("" if ok else "   -> " + str(detail)[:700])); print(UIT[-1], flush=True)
 class Repo:
     def __init__(self): self.reset()
-    def reset(self): self.f = {}; self.puts = []; self.dels = []; self.hook = None; self.tamper = None; self.stuk = set(); self.na_toepassen_502 = set(); self.pages = None; self.get_hook = None; self.gets = {}; self.token = None
+    def reset(self): self.f = {}; self.puts = []; self.dels = []; self.hook = None; self.tamper = None; self.stuk = set(); self.na_toepassen_502 = set(); self.pages = None; self.get_hook = None; self.gets = {}; self.token = None; self.hist = []; self.msgs = []
     def sha(self, p): return hashlib.sha1(self.f[p].encode()).hexdigest()
+    def vastleggen(self, tekst, bericht, auteur="BUas-Admin", datum=None):   # een opslag van de planning in de commitgeschiedenis
+        sha = hashlib.sha1((str(len(self.hist)) + bericht + tekst).encode()).hexdigest(); self.hist.append({"sha": sha, "parent": self.hist[-1]["sha"] if self.hist else None, "message": bericht, "author": auteur, "date": datum or "2026-11-04T07:30:00Z", "content": tekst}); return sha
+    def opslag(self, s, bericht, datum=None):   # een opslag van de planning door een gebruiker (of buiten de app)
+        self.f["state.json"] = json.dumps(s); return self.vastleggen(self.f["state.json"], bericht, "BUas-Admin", datum)
     def dir(self, p): return sorted({k[len(p) + 1:].split("/")[0] for k in self.f if k.startswith(p + "/")})
 REPO = Repo()
 class H(BaseHTTPRequestHandler):
@@ -22,6 +26,14 @@ class H(BaseHTTPRequestHandler):
         if self.path.startswith("/pages/"):   # een nagebootste GitHub Pages-site
             if REPO.pages is None: return self._j(404, {})
             b = REPO.pages.encode(); self.send_response(200); self.send_header("Content-Type", "text/html"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
+        mc = re.match(r"^/repos/[^/]+/[^/]+/commits\?(.*)$", self.path)
+        if mc:   # de opslagen van de planning, nieuwste eerst
+            return self._j(200, [{"sha": c["sha"], "parents": [{"sha": c["parent"]}] if c["parent"] else [], "commit": {"message": c["message"], "committer": {"date": c["date"]}, "author": {"name": c["author"]}}} for c in reversed(REPO.hist)])
+        mo = re.match(r"^/repos/[^/]+/[^/]+/contents/state\.json\?ref=([0-9a-f]{40})", self.path)
+        if mo:   # de planning zoals hij bij een opslag was
+            c = next((c for c in REPO.hist if c["sha"] == mo.group(1)), None)
+            if not c: return self._j(404, {})
+            return self._j(200, {"sha": hashlib.sha1(c["content"].encode()).hexdigest(), "content": base64.b64encode(c["content"].encode()).decode(), "encoding": "base64"})
         if re.match(r"^/repos/[^/]+/[^/]+/?(\?.*)?$", self.path):   # het token van de pagina: rechten, limiet en vervaldatum
             tk = REPO.token
             if not tk: return self._j(404, {})
@@ -49,7 +61,8 @@ class H(BaseHTTPRequestHandler):
         bestaat = p in r.f
         if bestaat and not body.get("sha"): return self._j(422, {"message": "sha wasn't supplied"})
         if bestaat and body["sha"] != r.sha(p): return self._j(409, {"message": "does not match"})
-        r.f[p] = base64.b64decode(body["content"]).decode(); r.puts.append((p, body.get("message", "")))
+        r.f[p] = base64.b64decode(body["content"]).decode(); r.puts.append((p, body.get("message", ""))); r.msgs.append((p, body.get("message", "")))
+        if p == "state.json": r.vastleggen(r.f[p], body.get("message", ""), "github-actions[bot]" if "Server (onderhoud)" in body.get("message", "") else "BUas-Admin")
         if r.tamper and p == "state.json": r.tamper["na_put"] = True
         if any(p.startswith(x) for x in r.na_toepassen_502):
             r.na_toepassen_502 = {x for x in r.na_toepassen_502 if not p.startswith(x)}; return self._j(502, {"message": "Server Error"})
@@ -77,7 +90,7 @@ def planning(van=20, tot=49, extra=None, stempel=True, n=4, t="2026-11-04T06:30:
     return s
 def nieuw(s, goede_backups=6):
     REPO.reset(); REPO.zet = None
-    REPO.f["state.json"] = json.dumps(s); REPO.f["users.json"] = json.dumps({"v": 1, "users": {"Hans": {"salt": "x"}, "Bas": {"salt": "y"}}}); REPO.f["groups.json"] = json.dumps({"v": 1, "administrators": ["Hans", "Monitor"]})
+    REPO.f["state.json"] = json.dumps(s); REPO.vastleggen(REPO.f["state.json"], "Update planning \u2014 Hans@dev1 (MacBook)", "BUas-Admin", "2026-11-04T06:30:00Z"); REPO.f["users.json"] = json.dumps({"v": 1, "users": {"Hans": {"salt": "x"}, "Bas": {"salt": "y"}}}); REPO.f["groups.json"] = json.dumps({"v": 1, "administrators": ["Hans", "Monitor"]})
     for i in range(goede_backups): REPO.f[f"backups/2026-10-2{i + 1}_09-00.json"] = json.dumps(s)
 def st(): return json.loads(REPO.f["state.json"])
 def backups(): return sorted(k for k in REPO.f if k.startswith("backups/"))
@@ -187,9 +200,9 @@ def token_ok(dagen=90, **kw):
 def basis(s=None, groepen=None):
     nieuw(s or planning(36, 52)); REPO.f["index.html"] = pagina(LABEL_A); REPO.pages = LABEL_A; REPO.token = token_ok()
     if groepen is not None: REPO.f["groups.json"] = json.dumps({"v": 1, "administrators": groepen})
-nu_id = ["github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "groups", "accounts", "wachtwoorden", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen"]
+nu_id = ["github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "groups", "accounts", "wachtwoorden", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen", "logboek_server", "logboek_onbekend"]
 basis(); rc, u = draai(); c = checks()
-check("SV35 de server doet 27 controles in vier groepen en legt de uitslag vast in het statusbestand; bij een gezonde planning is er geen enkele fout en zijn de uitslagen: alles in orde, behalve dat er maar een Administrator is (let op) en wie nog het startwachtwoord heeft (info)", rc == 0 and sorted(c) == sorted(nu_id) and {x["s"] for x in c.values()} <= {"ok", "info", "let"} and c["groups"]["s"] == "let" and "maar één Administrator" in c["groups"]["t"] and c["wachtwoorden"]["s"] == "info" and c["accounts"]["t"] == "2 accounts: 2 van de 10 teamleden hebben een eigen wachtwoord" and all(c[k]["s"] == "ok" for k in ("github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen")) and {x["groep"] for x in c.values()} == {0, 1, 2, 3}, json.dumps({k: (v["s"], v["t"][:50]) for k, v in c.items() if v["s"] != "ok"}))
+check("SV35 de server doet 29 controles in vier groepen en legt de uitslag vast in het statusbestand; bij een gezonde planning is er geen enkele fout en zijn de uitslagen: alles in orde, behalve dat er maar een Administrator is (let op) en wie nog het startwachtwoord heeft (info)", rc == 0 and sorted(c) == sorted(nu_id) and {x["s"] for x in c.values()} <= {"ok", "info", "let"} and c["groups"]["s"] == "let" and "maar één Administrator" in c["groups"]["t"] and c["wachtwoorden"]["s"] == "info" and c["accounts"]["t"] == "2 accounts: 2 van de 10 teamleden hebben een eigen wachtwoord" and all(c[k]["s"] == "ok" for k in ("github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen", "logboek_server", "logboek_onbekend")) and {x["groep"] for x in c.values()} == {0, 1, 2, 3}, json.dumps({k: (v["s"], v["t"][:50]) for k, v in c.items() if v["s"] != "ok"}))
 for pages, hoofd, verwacht, zoek in ((LABEL_A, LABEL_A, "ok", "dezelfde versie"), (LABEL_A, LABEL_B, "let", "loopt achter"), (None, LABEL_A, "info", "niet te bereiken"), (LABEL_A, "geen label", "info", "niet te lezen")):
     basis(); REPO.f["index.html"] = hoofd; REPO.pages = pages; rc, u = draai(); r = checks()["uitrol"]
     check(f"SV36{verwacht[0]} de check 'Uitrol van de pagina' vergelijkt de versie op de site met die op main: {zoek} ({verwacht})", r["s"] == verwacht and zoek in r["t"], json.dumps(r))
@@ -304,4 +317,67 @@ check("SV63c een gewoon hoger volgnummer dan eerder (4 na 3) is in orde", checks
 
 basis(); rc, u = draai(nu="2026-11-04T08:00:00Z"); REPO.token = token_ok(rest=3100); n_p = len(REPO.puts); rc, u = draai(nu="2026-11-04T08:10:00Z")
 check("SV64 een veranderend aantal resterende API-verzoeken of verstrijkende dagen tot de vervaldatum zorgt bij een gezonde stand niet voor een nieuw statusbestand (geen commit per ronde)", len(REPO.puts) == n_p, json.dumps([len(REPO.puts) - n_p]))
+
+# ── SV70-82: het logboek van wijzigingen wordt door de server geschreven ────────────────────────────────────
+import copy
+def audit_regels(): 
+    uit = []
+    for k in sorted(REPO.f):
+        if k.startswith("audit/") and k.endswith(".jsonl"):
+            for l in REPO.f[k].split("\n"):
+                try: uit.append(json.loads(l))
+                except Exception: pass
+    return uit
+def srv_regels(): return [r for r in audit_regels() if r.get("bron") == "server"]
+def opslag_door(wijzig, bericht, datum="2026-11-04T07:45:00Z", behoud_stempel=False):
+    s = copy.deepcopy(st()); wijzig(s)
+    if not behoud_stempel: OND.stempel(s, s); s["integriteit"]["door"] = "Hans"
+    return REPO.opslag(s, bericht, datum)
+def zet_cel(wk, p, d, w): return lambda s: s["store"][wk][p].__setitem__(d, w)
+def start(): basis(); draai(nu="2026-11-04T08:00:00Z"); return json.loads(REPO.f["onderhoud.json"])
+s0 = start(); ptr0 = REPO.hist[-1]["sha"]
+check("SV70 de eerste ronde begint stil: er worden geen oude opslagen als wijzigingsregels in het logboek gezet (die heeft de pagina al gelogd), maar de server onthoudt vanaf welke opslag hij bijhoudt", not srv_regels() and s0["audit_commit"] == ptr0 and not any("logboek" in m for m in s0["meldingen"]), json.dumps([s0.get("audit_commit"), ptr0, s0["meldingen"]]))
+sha1 = opslag_door(zet_cel("2026-W40", "Wim", "MA", ["vrij"]), "Update planning \u2014 Hans@dev1 (MacBook)"); rc, u = draai(nu="2026-11-04T08:10:00Z"); r = srv_regels(); s1 = json.loads(REPO.f["onderhoud.json"])
+check("SV71 een opslag van de planning wordt door de server in het logboek gezet, met precies de velden die de pagina gebruikte: gebruiker, werkplek, apparaat, id, soort ('wijziging'), aantal, de wijziging zelf (cel, van, naar) en een vaste regel-id; de server onthoudt tot welke opslag hij is gekomen", len(r) == 1 and r[0]["user"] == "Hans" and r[0]["ws"] == "MacBook" and r[0]["device"] == "dev1" and r[0]["id"] == "Hans@dev1" and r[0]["action"] == "wijziging" and r[0]["n"] == 1 and r[0]["trunc"] is False and r[0]["changes"] == [{"s": "cel", "w": "2026-W40", "p": "Wim", "d": "MA", "from": ["kantoor"], "to": ["vrij"]}] and r[0]["eid"] == "srv-" + sha1[:12] and r[0]["t"] == "2026-11-04T07:45:00.000Z" and r[0]["v"] == 1 and r[0]["bron"] == "server" and "buiten_app" not in r[0] and s1["audit_commit"] == sha1, json.dumps([r, s1.get("audit_commit")])[:600])
+rc, u = draai(nu="2026-11-04T08:20:00Z")
+check("SV71b een volgende ronde zonder nieuwe opslag zet niets bij (geen dubbele regels)", len(srv_regels()) == 1, str(len(srv_regels())))
+start(); sa = opslag_door(zet_cel("2026-W40", "Wim", "MA", ["vrij"]), "Update planning \u2014 Hans@dev1 (MacBook)", "2026-11-04T07:41:00Z"); sb = opslag_door(zet_cel("2026-W41", "Bas", "DI", ["thuis"]), "Update planning \u2014 Bas@dev2 (iPad)", "2026-11-04T07:43:00Z"); sc_ = opslag_door(zet_cel("2026-W40", "Wim", "MA", ["kantoor"]), "Update planning \u2014 Hans@dev1 (MacBook)", "2026-11-04T07:46:00Z"); rc, u = draai(nu="2026-11-04T08:10:00Z"); r = srv_regels()
+check("SV72 meerdere opslagen tussen twee rondes (door Hans, Bas en weer Hans) geven elk een eigen regel, in de volgorde van de opslagen, elk vergeleken met de opslag ervoor (de laatste gaat van 'vrij' terug naar 'kantoor')", [x["user"] for x in r] == ["Hans", "Bas", "Hans"] and [x["id"] for x in r] == ["Hans@dev1", "Bas@dev2", "Hans@dev1"] and r[1]["ws"] == "iPad" and r[2]["changes"] == [{"s": "cel", "w": "2026-W40", "p": "Wim", "d": "MA", "from": ["vrij"], "to": ["kantoor"]}] and [x["eid"] for x in r] == ["srv-" + sa[:12], "srv-" + sb[:12], "srv-" + sc_[:12]], json.dumps([[(x["user"], x["t"], x["changes"][0]["to"]) for x in r]])[:400])
+start(); opslag_door(zet_cel("2026-W40", "Wim", "DI", ["vrij"]), "periode: Wim vrij 12-11 t/m 14-11 \u2014 Hans@dev1 (MacBook)"); opslag_door(zet_cel("2026-W41", "Bas", "WO", ["vrij"]), "Herstel backup 2026-10-28_09-00 \u2014 Hans@dev1 (MacBook)", "2026-11-04T07:47:00Z"); rc, u = draai(nu="2026-11-04T08:10:00Z"); r = srv_regels()
+check("SV73 de toelichting bij bijzondere acties blijft behouden via het commitbericht: een Periode wordt 'periode: ...' en een teruggezette backup 'backup hersteld: <naam>'", [x["action"] for x in r] == ["periode: Wim vrij 12-11 t/m 14-11", "backup hersteld: 2026-10-28_09-00"], json.dumps([x["action"] for x in r]))
+def standaard(s):
+    s["template"]["Wim"]["MA"] = ["vrij"]
+    for w in ("2026-W41", "2026-W42"): s["store"][w]["Wim"]["MA"] = ["vrij"]
+start(); opslag_door(standaard, "Update planning \u2014 Hans@dev1 (MacBook)"); rc, u = draai(nu="2026-11-04T08:10:00Z"); r = srv_regels()
+check("SV74 een wijziging van het standaardrooster is een regel 'standaard' die de doorgevoerde cellen alleen telt (aantal 1 = de wijziging van het standaardrooster zelf, daarna 'doorgevoerd: 2 cellen'), zoals de pagina dat deed", len(r) == 1 and r[0]["action"] == "standaard" and r[0]["n"] == 1 and r[0]["changes"][0]["s"] == "standaard" and r[0]["changes"][-1] == {"s": "doorgevoerd", "n": 2}, json.dumps(r)[:400])
+def nieuw_lid(s):
+    s["team"].append("Nieuw"); s["template"]["Nieuw"] = {d: ["kantoor"] for d in OND.DAGEN}
+    for w in s["store"].values(): w["Nieuw"] = {d: ["kantoor"] for d in OND.DAGEN}
+start(); opslag_door(nieuw_lid, "Update planning \u2014 Hans@dev1 (MacBook)"); rc, u = draai(nu="2026-11-04T08:10:00Z"); r = srv_regels()
+check("SV74b een nieuw teamlid is een regel 'team' met 'team+'", len(r) == 1 and r[0]["action"] == "team" and r[0]["changes"] == [{"s": "team+", "p": "Nieuw"}], json.dumps(r)[:300])
+start(); opslag_door(zet_cel("2026-W40", "Wim", "MA", ["vrij"]), "Update planning"); rc, u = draai(nu="2026-11-04T08:10:00Z"); r = srv_regels(); c = checks()
+check("SV75 een opslag zonder bekende gebruiker in het commitbericht (buiten de app gedaan, met het token uit de pagina) komt in het logboek als 'onbekend' met de markering buiten_app, en de check 'Wijzigingen zonder bekende gebruiker' geeft een aandachtspunt", len(r) == 1 and r[0]["user"] == "onbekend" and r[0].get("buiten_app") is True and r[0]["id"] == "" and c["logboek_onbekend"]["s"] == "let" and "1 wijziging zonder bekende gebruiker" in c["logboek_onbekend"]["t"], json.dumps([r, c["logboek_onbekend"]])[:500])
+start(); opslag_door(zet_cel("2026-W40", "Ted", "MA", ["vrij"]), "Update planning \u2014 Server (onderhoud)", "2026-11-04T07:44:00Z"); opslag_door(zet_cel("2026-W40", "Wim", "DI", ["vrij"]), "Update planning \u2014 Hans@dev1 (MacBook)", "2026-11-04T07:46:00Z")
+s_stil = copy.deepcopy(st()); s_stil["integriteit"]["t"] = "2026-11-04T07:50:00.000Z"; REPO.opslag(s_stil, "Update planning \u2014 Bas@dev2 (iPad)", "2026-11-04T07:50:00Z"); rc, u = draai(nu="2026-11-04T08:10:00Z"); r = srv_regels()
+check("SV76 opslagen van de server zelf ('\u2014 Server (onderhoud)') krijgen geen regel (de server logt zijn eigen acties al), een opslag zonder verschil in de planning (alleen het controlegetal) ook niet, en de wijziging van de gebruiker erna wordt vergeleken met wat de server had achtergelaten (alleen Wim, niet Ted)", len(r) == 1 and r[0]["user"] == "Hans" and r[0]["changes"] == [{"s": "cel", "w": "2026-W40", "p": "Wim", "d": "DI", "from": ["kantoor"], "to": ["vrij"]}], json.dumps(r)[:400])
+start(); sx = opslag_door(zet_cel("2026-W40", "Wim", "MA", ["vrij"]), "Update planning \u2014 Hans@dev1 (MacBook)"); voor = json.loads(REPO.f["onderhoud.json"])["audit_commit"]; rc, u = draai(droog=True, nu="2026-11-04T08:10:00Z")
+check("SV77 in een droogloop schrijft de server geen wijzigingsregels en onthoudt hij niet dat hij ze heeft verwerkt; hij meldt wat hij zou doen", not srv_regels() and json.loads(REPO.f["onderhoud.json"])["audit_commit"] == voor and any("1 wijzigingsregels zouden" in m for m in u["meldingen"]), json.dumps([u["meldingen"], srv_regels()]))
+rc, u = draai(nu="2026-11-04T08:15:00Z", extra_env={"ONDERHOUD_ALLEEN_LEZEN": "1"}); n_alleen = len(srv_regels())
+rc, u = draai(nu="2026-11-04T08:20:00Z")
+check("SV77b in de alleen-lezen-stand schrijft de server ook geen wijzigingsregels; een gewone ronde daarna haalt ze alsnog in (geen regel gemist)", n_alleen == 0 and len(srv_regels()) == 1 and srv_regels()[0]["eid"] == "srv-" + sx[:12], json.dumps([n_alleen, len(srv_regels())]))
+start(); sy = opslag_door(zet_cel("2026-W40", "Wim", "MA", ["vrij"]), "Update planning \u2014 Hans@dev1 (MacBook)"); rc, u = draai(nu="2026-11-04T08:10:00Z"); st_ = json.loads(REPO.f["onderhoud.json"]); st_["audit_commit"] = REPO.hist[0]["sha"]; REPO.f["onderhoud.json"] = json.dumps(st_); rc, u = draai(nu="2026-11-04T08:20:00Z")
+check("SV78 wordt een opslag toch nog een keer verwerkt (de server was zijn plek kwijt), dan komt er geen dubbele regel: een regel heeft een vaste id per opslag", len(srv_regels()) == 1, str(len(srv_regels())))
+def alles_vrij(s):
+    for w in s["store"].values():
+        for p in TEAM:
+            for d in OND.DAGEN: w[p][d] = ["vrij"]
+start(); opslag_door(alles_vrij, "Update planning \u2014 Hans@dev1 (MacBook)"); rc, u = draai(nu="2026-11-04T08:10:00Z"); r = srv_regels()
+check("SV79 bij heel veel wijzigingen in een opslag (850 cellen) houdt de regel het echte aantal bij maar bewaart hij er hooguit 200 (afgekapt: true), zoals de pagina dat deed", len(r) == 1 and r[0]["n"] == 850 and r[0]["trunc"] is True and len(r[0]["changes"]) == 200, json.dumps([r[0]["n"] if r else None, r[0]["trunc"] if r else None, len(r[0]["changes"]) if r else None]))
+start(); st_ = json.loads(REPO.f["onderhoud.json"]); st_["audit_commit"] = "0" * 40; REPO.f["onderhoud.json"] = json.dumps(st_); opslag_door(zet_cel("2026-W40", "Wim", "MA", ["vrij"]), "Update planning \u2014 Hans@dev1 (MacBook)"); rc, u = draai(nu="2026-11-04T08:10:00Z")
+check("SV80 is de laatst verwerkte opslag niet meer terug te vinden onder de laatste 100 opslagen, dan verwerkt de server de nieuwste en meldt dat de oudste mogelijk zijn gemist", len(srv_regels()) >= 1 and any("opslagen sinds de vorige ronde" in m for m in u["meldingen"]), json.dumps([len(srv_regels()), u["meldingen"]]))
+start(); opslag_door(zet_cel("2026-W40", "Wim", "MA", ["vrij"]), "Update planning \u2014 Hans@dev1 (MacBook)"); REPO.stuk = {"audit/"}; pt = json.loads(REPO.f["onderhoud.json"])["audit_commit"]; rc, u = draai(nu="2026-11-04T08:10:00Z"); c = checks()
+check("SV81 lukt het schrijven van het logboek niet, dan onthoudt de server niet dat hij de opslag heeft verwerkt (de volgende ronde probeert het opnieuw, er gaat niets verloren), meldt het en geeft de check 'Wijzigingsregels worden door de server geschreven' een fout (de Action wordt rood)", json.loads(REPO.f["onderhoud.json"])["audit_commit"] == pt and c["logboek_server"]["s"] == "fout" and rc == 1 and any("logboek van wijzigingen is niet bijgewerkt" in m for m in u["meldingen"]), json.dumps([rc, c["logboek_server"], u["meldingen"]])[:500])
+REPO.stuk = set(); rc, u = draai(nu="2026-11-04T08:40:00Z")
+check("SV81b zodra het schrijven weer lukt, komt de gemiste regel er alsnog in", len(srv_regels()) == 1 and checks()["logboek_server"]["s"] == "ok", json.dumps([len(srv_regels()), checks()["logboek_server"]]))
+
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")
