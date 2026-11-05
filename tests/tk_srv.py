@@ -10,7 +10,7 @@ def check(naam, ok, detail=""):
     UIT.append(("PASS  " if ok else "FAIL  ") + naam + ("" if ok else "   -> " + str(detail)[:700])); print(UIT[-1], flush=True)
 class Repo:
     def __init__(self): self.reset()
-    def reset(self): self.f = {}; self.puts = []; self.dels = []; self.hook = None; self.tamper = None; self.stuk = set(); self.na_toepassen_502 = set()
+    def reset(self): self.f = {}; self.puts = []; self.dels = []; self.hook = None; self.tamper = None; self.stuk = set(); self.na_toepassen_502 = set(); self.pages = None
     def sha(self, p): return hashlib.sha1(self.f[p].encode()).hexdigest()
     def dir(self, p): return sorted({k[len(p) + 1:].split("/")[0] for k in self.f if k.startswith(p + "/")})
 REPO = Repo()
@@ -19,6 +19,9 @@ class H(BaseHTTPRequestHandler):
     def _j(self, code, obj): b = json.dumps(obj).encode(); self.send_response(code); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
     def _pad(self): m = re.match(r"^/repos/[^/]+/[^/]+/contents/(.*)$", urlparse(self.path).path); return m.group(1) if m else None
     def do_GET(self):
+        if self.path.startswith("/pages/"):   # een nagebootste GitHub Pages-site
+            if REPO.pages is None: return self._j(404, {})
+            b = REPO.pages.encode(); self.send_response(200); self.send_header("Content-Type", "text/html"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
         p = self._pad(); r = REPO
         if p is None: return self._j(404, {})
         if p in r.f:
@@ -48,7 +51,7 @@ class H(BaseHTTPRequestHandler):
         del r.f[p]; r.dels.append(p); return self._j(200, {})
 srv = ThreadingHTTPServer(("127.0.0.1", 0), H); threading.Thread(target=srv.serve_forever, daemon=True).start(); PORT = srv.server_address[1]
 def draai(droog=False, nu="2026-11-04T08:00:00Z", extra_env=None):
-    env = dict(os.environ, GITHUB_API_URL=f"http://127.0.0.1:{PORT}", GITHUB_REPOSITORY="o/r", GITHUB_TOKEN="t", ONDERHOUD_NU=nu, ONDERHOUD_DROOG="1" if droog else "")
+    env = dict(os.environ, GITHUB_API_URL=f"http://127.0.0.1:{PORT}", GITHUB_REPOSITORY="o/r", GITHUB_TOKEN="t", PAGES_URL=f"http://127.0.0.1:{PORT}/pages/", ONDERHOUD_NU=nu, ONDERHOUD_DROOG="1" if droog else "")
     if extra_env: env.update(extra_env)
     p = subprocess.run([sys.executable, SCRIPT], env=env, capture_output=True, text=True, timeout=150)
     try: uit = json.loads(p.stdout)
@@ -96,7 +99,7 @@ def vuil(s):
     s["template"]["Ivor"] = {d: ["kantoor"] for d in OND.DAGEN}; s["template"]["Zed"] = {d: ["kantoor"] for d in OND.DAGEN}
     s["store"]["2026-W40"]["Wim"]["MA"] = ["kantoor", "deel"]; s["store"]["2026-W41"]["Bas"]["DI"] = ["deel"]
     s["manuallyEdited"]["2026-W40"] = ["Wim-MA", "Niemand-MA", "Wim-ZO", "Dave-MA"]; s["manuallyEdited"]["2026-W99"] = ["Wim-MA"]
-nieuw(planning(36, 52, extra=vuil)); REPO.f["users.json"] = json.dumps({"v": 1, "users": {"Hans": {}, "Dave": {}, "Ivor": {}, "Bas": {}, "Zoveel": {}}}); rc, u = draai(); s = st()
+nieuw(planning(36, 52, extra=vuil)); [REPO.f.__setitem__(b, json.dumps(planning(36, 52))) for b in backups()]; REPO.f["users.json"] = json.dumps({"v": 1, "users": {"Hans": {}, "Dave": {}, "Ivor": {}, "Bas": {}, "Zoveel": {}}}); rc, u = draai(); s = st()
 check("SV10 de verwijderde namen (Frederique, Ivor, Dave) gaan uit team, verborgen, werkweek, planning en markeringen; planning van een niet-teamlid (Zed) gaat eruit; de onbekende status 'deel' naast een geldige gaat eruit; verweesde markeringen (onbekende persoon, dag of week) gaan eruit", rc == 0 and not any(n in json.dumps(s) for n in ("Frederique", "Ivor", "Dave", "Zed", "Niemand", "W99", "Wim-ZO")) and s["team"] == TEAM and s["store"]["2026-W40"]["Wim"]["MA"] == ["kantoor"] and OND.stempel_status(s) == "ok", json.dumps([rc, u["acties"], s["team"]]))
 check("SV11 een cel die alleen uit een onbekende status bestaat wordt niet aangeraakt maar gemeld; het account van een verwijderde naam (Dave, Ivor) is uit users.json, andere accounts blijven, een account buiten het team wordt gemeld", s["store"]["2026-W41"]["Bas"]["DI"] == ["deel"] and any("alleen uit een onbekende status" in m for m in u["meldingen"]) and sorted(json.loads(REPO.f["users.json"])["users"]) == ["Bas", "Hans", "Zoveel"] and any("Zoveel" in m for m in u["meldingen"]), json.dumps([u["meldingen"], sorted(json.loads(REPO.f["users.json"])["users"])]))
 # ── SV12-14: controlegetal en onleesbaar ──────────────────────────────────────────────────────
@@ -160,4 +163,67 @@ n_p = len(REPO.puts); rc, u = draai(nu="2026-11-04T08:20:00Z")
 check("SV33 een ronde zonder wijziging van de planning, binnen het uur, schrijft geen nieuwe status (geen overbodige commits)", len(REPO.puts) == n_p, str(len(REPO.puts) - n_p))
 nieuw(planning(20, 49)); rc, u = draai(); sj = json.loads(REPO.f["onderhoud.json"])
 check("SV34 na een wijziging door de server zelf (oude weken verwijderd) wijst state_sha naar de planning zoals de server hem heeft achtergelaten", sj["state_sha"] == REPO.sha("state.json"), json.dumps([sj["state_sha"][:8], REPO.sha("state.json")[:8]]))
+
+# ── SV35-45: de controles die de server zelf doet (het Checks-venster toont deze uitslag) ──────────────────
+def checks(): return {c["id"]: c for c in json.loads(REPO.f["onderhoud.json"])["checks"]}
+LABEL_A = '<span id="app-version">versie 4 nov 2026 · 146</span>'; LABEL_B = '<span id="app-version">versie 4 nov 2026 · 147</span>'
+def basis(s=None, groepen=None):
+    nieuw(s or planning(36, 52)); REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A
+    if groepen is not None: REPO.f["groups.json"] = json.dumps({"v": 1, "administrators": groepen})
+nu_id = ["github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "groups", "accounts", "wachtwoorden", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "logboek"]
+basis(); rc, u = draai(); c = checks()
+check("SV35 de server doet 21 controles in vier groepen en legt de uitslag vast in het statusbestand; bij een gezonde planning is er geen enkele fout en zijn de uitslagen: alles in orde, behalve dat er maar een Administrator is (let op) en wie nog het startwachtwoord heeft (info)", rc == 0 and sorted(c) == sorted(nu_id) and {x["s"] for x in c.values()} <= {"ok", "info", "let"} and c["groups"]["s"] == "let" and "maar één Administrator" in c["groups"]["t"] and c["wachtwoorden"]["s"] == "info" and c["accounts"]["t"] == "2 accounts: 2 van de 10 teamleden hebben een eigen wachtwoord" and all(c[k]["s"] == "ok" for k in ("github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "logboek")) and {x["groep"] for x in c.values()} == {0, 1, 2, 3}, json.dumps({k: (v["s"], v["t"][:50]) for k, v in c.items() if v["s"] != "ok"}))
+for pages, hoofd, verwacht, zoek in ((LABEL_A, LABEL_A, "ok", "dezelfde versie"), (LABEL_A, LABEL_B, "let", "loopt achter"), (None, LABEL_A, "info", "niet te bereiken"), (LABEL_A, "geen label", "info", "niet te lezen")):
+    basis(); REPO.f["index.html"] = hoofd; REPO.pages = pages; rc, u = draai(); r = checks()["uitrol"]
+    check(f"SV36{verwacht[0]} de check 'Uitrol van de pagina' vergelijkt de versie op de site met die op main: {zoek} ({verwacht})", r["s"] == verwacht and zoek in r["t"], json.dumps(r))
+# statussen, halve dagen, weken, team, grootte
+def rommel(s): s["store"]["2026-W41"]["Bas"]["DI"] = ["deel"]; s["store"]["2026-W46"]["Wim"]["DI"] = ["vm_vrij"]; s["manuallyEdited"].setdefault("2026-W46", []).append("Wim-DI"); s["store"]["2026-W37"]["Sam"]["MA"] = ["nm_vrij"]; s["manuallyEdited"].setdefault("2026-W37", []).append("Sam-MA")
+basis(planning(36, 52, extra=rommel)); rc, u = draai(); c = checks()
+check("SV37 een cel die alleen uit een onbekende status bestaat wordt gemeld (let op); een halve dag vrij zonder invulling in de toekomst (Wim, week 46) wordt gemeld met de naam, een in het verleden (Sam, week 37) niet", c["statussen"]["s"] == "let" and "alleen uit een onbekende status" in c["statussen"]["t"] and c["halvedag"]["s"] == "let" and "Wim (1)" in c["halvedag"]["t"] and "Sam" not in c["halvedag"]["t"], json.dumps([c["statussen"], c["halvedag"]]))
+def geenwerkweek(s): del s["template"]["Ted"]
+basis(planning(36, 52, extra=geenwerkweek)); rc, u = draai(); c = checks()
+check("SV38 een teamlid zonder werkweek is een fout in de check 'Team en werkweken'; omdat het een nieuwe fout is wordt de Action rood (exitcode 1) en staat het in de problemen", c["team"]["s"] == "fout" and "Ted" in c["team"]["t"] and rc == 1 and any("Team en werkweken" in p for p in u["problemen"]), json.dumps([rc, c["team"], u["problemen"]]))
+rc, u = draai(nu="2026-11-04T08:10:00Z")
+check("SV39 blijft dezelfde fout bestaan, dan wordt de Action niet bij elke ronde opnieuw rood (geen mail bij elke ronde): de fout staat nog wel in de uitslag", checks()["team"]["s"] == "fout" and rc == 0, json.dumps([rc, u["problemen"]]))
+basis(); REPO.f["backups/2026-10-11_09-00.json"] = json.dumps(planning(20, 60)); [REPO.f.__setitem__(f"backups/2026-10-1{i}_09-00.json", json.dumps(planning(20, 60))) for i in range(1, 7)]; basis_s = planning(36, 45); REPO.f["state.json"] = json.dumps(basis_s); rc, u = draai(); c = checks()
+check("SV40 heeft de planning opeens veel minder weken dan de nieuwste backup (10 tegen 41), dan is dat een fout in de check 'Aantal weken' (mogelijk beschadigd)", c["weken"]["s"] == "fout" and "opeens veel minder weken" in c["weken"]["t"], json.dumps(c["weken"]))
+def groot(jaren):
+    def f(s):
+        w = s["store"]["2026-W43"] if "2026-W43" in s["store"] else next(iter(s["store"].values()))
+        for j in range(2030, 2030 + jaren):
+            for i in range(1, 53): s["store"][f"{j}-W{i:02d}"] = json.loads(json.dumps(w))
+    return f
+basis(planning(36, 52, extra=groot(14))); rc, u = draai(); g1 = checks()["grootte"]
+basis(planning(36, 52, extra=groot(17))); rc, u = draai(); g2 = checks()["grootte"]
+check("SV41 de grootte van de planning: een aandachtspunt boven 700 KB en een fout boven 900 KB (dan kan GitHub het bestand niet meer uitleveren)", g1["s"] in ("let", "fout") and g2["s"] == "fout" and ("let" if g1["s"] == "let" else "fout") and "KB" in g1["t"], json.dumps([g1, g2]))
+# Administrators, accounts, instellingen
+for adm, verwacht, zoek in (([ "Hans", "Marco", "Monitor"], "ok", "2 Administrators"), (["Monitor"], "fout", "geen enkele"), (["Hans", "Marco", "Dave", "Monitor"], "let", "niet in het team"), (["Hans", "Marco"], "let", "Monitor-account")):
+    basis(groepen=adm); rc, u = draai(); r = checks()["groups"]
+    check(f"SV42{verwacht[0]} de check 'Administrators' meldt {adm}: {zoek} ({verwacht})", r["s"] == verwacht and zoek in r["t"], json.dumps(r))
+basis(); REPO.f["users.json"] = json.dumps({"v": 1, "users": {p: {} for p in ["Bas", "Bram", "Hans", "Marco", "Sam", "Sercan", "Monitor"]}}); rc, u = draai(); c = checks()
+check("SV43 de check 'Accounts' zegt precies hoeveel teamleden een eigen wachtwoord hebben ('7 accounts: 6 van de 10 teamleden hebben een eigen wachtwoord, plus het Monitor-account') en 'Eigen wachtwoorden' noemt wie nog het startwachtwoord gebruikt", c["accounts"]["t"] == "7 accounts: 6 van de 10 teamleden hebben een eigen wachtwoord, plus het Monitor-account" and c["wachtwoorden"]["s"] == "info" and all(n in c["wachtwoorden"]["t"] for n in ("Wim", "Wouter", "Annies", "Ted")), json.dumps([c["accounts"], c["wachtwoorden"]]))
+basis(); REPO.f["settings.json"] = json.dumps({"v": 1, "talen": {"Dave": ["nl"], "Wim": ["nl"]}, "personen": {}}); rc, u = draai()
+check("SV44 instellingen (boodschap, talen) van een verwijderde naam worden gemeld (let op)", checks()["instellingen"]["s"] == "let" and "Dave" in checks()["instellingen"]["t"], json.dumps(checks()["instellingen"]))
+# backups en logboek
+basis(); [REPO.f.pop(b) for b in backups()]; rc, u = draai(droog=True); c = checks()
+check("SV45 zijn er helemaal geen backups, dan is dat een fout; zijn het er meer dan 80, dan een aandachtspunt", c["backups"]["s"] == "fout" and c["backup_actueel"] if False else c["backups"]["s"] == "fout", json.dumps(c["backups"]))
+basis()
+for i in range(1, 85): REPO.f[f"backups/2026-09-{(i % 28) + 1:02d}_{i // 28:02d}-00.json"] = json.dumps(planning(36, 52))
+rc, u = draai(droog=True); check("SV46 meer dan 80 backups is een aandachtspunt", checks()["backups"]["s"] == "let" and "veel" in checks()["backups"]["t"], json.dumps(checks()["backups"]))
+basis(planning(36, 52, t="2026-11-04T05:00:00.000Z")); REPO.f["backups/2026-10-18_09-00.json"] = json.dumps(planning(36, 52, extra=lambda s: s["store"]["2026-W40"]["Wim"]["MA"].__setitem__(0, "vrij"))); rc, u = draai(droog=True)
+check("SV47 verschilt de nieuwste backup van de planning en is de laatste opslag al ruim een half uur oud, dan is dat een aandachtspunt in 'Laatste backup bevat de laatste opslag' (in een droogloop maakt de server geen backup bij)", checks()["backup_actueel"]["s"] == "let", json.dumps(checks()["backup_actueel"]))
+for inhoud, verwacht, zoek in ((None, "ok", "nog geen regels"), ('{"a":1}\n{"b":2}\n', "ok", "allemaal leesbaar"), ('{"a":1}\n{kapot\n{"b":2}\n', "let", "1 van de 3")):
+    basis()
+    if inhoud is not None: REPO.f["audit/2026-11-04.jsonl"] = inhoud
+    rc, u = draai(droog=True); r = checks()["logboek"]
+    check(f"SV48{verwacht[0]} de check 'Logboek van vandaag is leesbaar' meldt: {zoek} ({verwacht})", r["s"] == verwacht and zoek in r["t"], json.dumps(r))
+# het statusbestand verandert alleen als een controle verandert
+basis(); rc, u = draai(nu="2026-11-04T08:00:00Z"); n_p = len(REPO.puts); rc, u = draai(nu="2026-11-04T08:10:00Z"); n_gelijk = len(REPO.puts) - n_p
+REPO.pages = LABEL_B; REPO.f["index.html"] = LABEL_A; n_p = len(REPO.puts); rc, u = draai(nu="2026-11-04T08:20:00Z"); n_wijz = len(REPO.puts) - n_p
+check("SV49 het statusbestand wordt niet opnieuw geschreven zolang alle controles gelijk blijven, maar wel zodra er een verandert (hier: de site loopt achter op main), ook binnen het uur", n_gelijk == 0 and n_wijz == 1 and checks()["uitrol"]["s"] == "let", json.dumps([n_gelijk, n_wijz, checks()["uitrol"]["s"]]))
+
+
+basis(); [REPO.f.__setitem__(f"backups/2026-10-1{i}_09-00.json", json.dumps(planning(20, 60))) for i in range(1, 7)]; REPO.f["state.json"] = json.dumps(planning(36, 45)); n_b0 = len(backups()); rc, u = draai()
+check("SV50 ziet de planning er beschadigd uit (opeens veel minder weken dan de backups), dan maakt de server er geen backup van bij en meldt hij een probleem (Action rood)", len(backups()) == n_b0 and rc == 1 and any("geen backup bijgemaakt" in p for p in u["problemen"]), json.dumps([rc, u["problemen"], len(backups()) - n_b0]))
+
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")
