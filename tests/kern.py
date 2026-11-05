@@ -94,24 +94,40 @@ with sync_playwright() as pw:
     oud_voor = p.evaluate("Object.keys(store).filter(w => w < '2026-W32').length"); p.evaluate("syncNu()"); p.wait_for_timeout(3500); oud_na = p.evaluate("Object.keys(store).filter(w => w < '2026-W32').length")
     p.evaluate(EDIT, ["2026-W43", "Wim", "MA", ["vrij"]]); p.wait_for_timeout(3500); t = staat(R)
     check("K8 heeft de server oude weken verwijderd, dan ruimt de pagina ze bij de eerstvolgende synchronisatie uit zijn geheugen, een wijziging erna zet ze niet terug op GitHub en de controle na het opslaan slaat geen alarm", oud_voor > 0 and oud_na == 0 and min(t["store"]) == "2026-W32" and t["store"]["2026-W43"]["Wim"]["MA"] == ["vrij"] and not p.evaluate(BANNER, "verify-banner"), json.dumps([oud_voor, oud_na, min(t["store"])])); b.close()
-    # K9 de checks: geen schrijfacties, wel uitleg, en lokaal herstel werkt nog
-    def rommel(s):
-        s["store"]["2026-W43"]["Wim"]["MA"] = ["kantoor", "deel"]; s["manuallyEdited"]["2026-W43"] = ["Wim-MA", "Niemand-MA"]; s["store"]["2026-W43"]["Zed"] = {d: ["kantoor"] for d in DG}
-    R = nieuw(planning(extra=rommel)); b, p, fouten = open_pagina(pw, R); voor = dict(R.f); n_put = len(R.puts)
-    p.evaluate("HEALTH.lastSync = Date.now() - 400000"); p.evaluate("runChecks({ zwaar: true, repair: true })"); p.wait_for_timeout(3500)
+    # K9 de pagina controleert alleen nog zichzelf: 15 controles (de liveness van de server en wat aan dit apparaat hangt)
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R); ids = p.evaluate("CHECKS.map(c => c.id)")
+    check("K9 de pagina heeft nog maar 15 eigen controles (de liveness van de server en wat aan dit apparaat of scherm hangt); alles wat de planning, accounts, backups en het logboek betreft doet de server", sorted(ids) == sorted(["serveronderhoud", "github", "online", "sync", "rechten", "limiet", "versie", "klok", "fouten", "opslag", "geladen", "stempel", "verplicht", "verjaardagen", "audit"]), json.dumps(ids))
+    # K10 lokaal herstel
+    p.evaluate("HEALTH.lastSync = Date.now() - 400000"); n_put = len(R.puts); p.evaluate("runChecks({ zwaar: true, repair: true })"); p.wait_for_timeout(3000)
     r = json.loads(p.evaluate("JSON.stringify(Object.fromEntries(CHECKS.map(c => [c.id, CHECK_RESULT[c.id] ? [CHECK_RESULT[c.id].s, CHECK_RESULT[c.id].t, !!(CHECK_RESULT[c.id].hersteld && CHECK_RESULT[c.id].hersteld.gelukt)] : null])))"))
-    sk = [k for k, v in r.items() if k in ("statussen", "manueel", "vreemd") and v and v[0] == "let" and "serveronderhoud" in v[1]]
-    check("K9 de checks vinden de rommel (onbekende status, verweesde markering, planning van een niet-teamlid) en zeggen dat het serveronderhoud het herstelt, maar de pagina schrijft zelf niets aan de planning, backups of accounts (alleen het logboek mag; planning ongewijzigd)", sorted(sk) == ["manueel", "statussen", "vreemd"] and [x for x in R.puts[n_put:] if not x.startswith("audit/")] == [] and R.f["state.json"] == voor["state.json"], json.dumps([sk, R.puts[n_put:], {k: r[k][:2] for k in ("statussen", "manueel", "vreemd")}]))
-    check("K10 wat lokaal is, herstelt de pagina nog wel zelf: een achterstand in de synchronisatie wordt ververst en de check meldt 'automatisch hersteld'", r["sync"][0] == "ok" and r["sync"][2], json.dumps(r["sync"]))
-    check("K11 elke check heeft een resultaat (ook de zware) en er zijn geen fouten in de pagina", all(v is not None for v in r.values()) and not fouten, json.dumps([[k for k, v in r.items() if v is None], fouten[:1]])); b.close()
-with sync_playwright() as pw:
-    # K13 het Checks-venster opent en toont alle checks met een vakje (direct na het openen bekeken: zonder ingelogde gebruiker ruimt de pagina vensters kort daarna weer op)
+    check("K10 wat lokaal is, herstelt de pagina nog wel zelf: een achterstand in de synchronisatie wordt ververst en de check meldt 'automatisch hersteld'; er wordt niets aan de planning, backups of accounts geschreven", r["sync"][0] == "ok" and r["sync"][2] and [x for x in R.puts[n_put:] if not x.startswith("audit/")] == [], json.dumps([r["sync"], R.puts[n_put:]]))
+    check("K11 elke eigen controle heeft een resultaat en er zijn geen fouten in de pagina", all(v is not None for v in r.values()) and not fouten, json.dumps([[k for k, v in r.items() if v is None], fouten[:1]])); b.close()
+    # K14 de server heeft nog nooit gedraaid
     R = nieuw(planning()); b, p, fouten = open_pagina(pw, R)
-    v = p.evaluate("(() => { canSeeInfo = () => true; showChecksWindow(); const o = document.getElementById('checks-overlay'); return o ? { rijen: o.querySelectorAll('[data-check]').length, vakjes: o.querySelectorAll('.ck-box').length, n: CHECKS.length } : null; })()")
-    check("K13 het Checks-venster opent en toont elke check met een eigen aanvinkvakje (plus een groot vakje bij de samenvatting), zonder fouten in de pagina", v and v["rijen"] == v["n"] and v["vakjes"] == v["n"] + 1 and not fouten, json.dumps([v, fouten[:1]])); b.close()
-# K12 statische controle op slapende code
-weg = ["TP_SERVER_ONDERHOUD", "serverModus", "LOKALE_HERSTEL", "SERVER_HERSTELT", "checkSchrijvenMag", "ckMaakBackup", "ckStatusOpschonen", "ckManueelOpschonen", "ckVreemdOpschonen", "ckVerwijderBackups", "ckWachtOpHerstel", "ckWachtOpstaan", "ckOudeWekenVerwijderen", "opts.prune", "opts.opschonen"]
+    v = p.evaluate("(async () => { canSeeInfo = () => true; await laadServerStatus(); showChecksWindow(); const o = document.getElementById('checks-overlay'); const srv = o ? [...o.querySelectorAll('[data-bron=server]')].map(e => [e.dataset.check, e.dataset.status, e.innerText.slice(0, 120)]) : null; return { srv, so: (await CHECKS.find(c => c.id === 'serveronderhoud').run()) }; })()")
+    check("K14 heeft de server nog nooit gedraaid (geen statusbestand), dan toont het venster een rode regel 'de server heeft nog nooit gedraaid' en de check 'Serveronderhoud' staat op fout", v["srv"] and v["srv"][0][1] == "fout" and "nog nooit gedraaid" in v["srv"][0][2] and v["so"]["s"] == "fout", json.dumps(v)[:400]); b.close()
+    # K13 het venster toont de uitslag van de server en de controles van dit apparaat
+    R = nieuw(planning()); sha_nu = None
+    status = {"v": 1, "t": "2026-10-19T09:20:00.000Z", "droog": False, "acties": [], "problemen": [], "meldingen": [], "state_sha": "x", "checks": [
+        {"id": "weken", "groep": 1, "naam": "Aantal weken in de planning", "s": "ok", "t": "58 weken, 2026-W36 t/m 2027-W52"},
+        {"id": "groups", "groep": 2, "naam": "Administrators", "s": "let", "t": "maar één Administrator (Hans)"},
+        {"id": "backups", "groep": 3, "naam": "Backups aanwezig", "s": "fout", "t": "er zijn geen backups"},
+        {"id": "wachtwoorden", "groep": 2, "naam": "Eigen wachtwoorden", "s": "info", "t": "nog het startwachtwoord: Wim"},
+        {"id": "serveronderhoud", "groep": 3, "naam": "Serveronderhoud (taak op GitHub)", "s": "ok", "t": "de server draait"}]}
+    R.f["onderhoud.json"] = json.dumps(status); b, p, fouten = open_pagina(pw, R)
+    v = p.evaluate("(async () => { canSeeInfo = () => true; await laadServerStatus(); showChecksWindow(); const o = document.getElementById('checks-overlay'); if(!o) return null; const rij = e => [e.dataset.check, e.dataset.status, e.dataset.bron]; return { srv: [...o.querySelectorAll('[data-bron=server]')].map(rij), app: o.querySelectorAll('[data-bron=apparaat]').length, vakjes: o.querySelectorAll('.ck-box').length, rijen: o.querySelectorAll('[data-check]').length, koppen: [...o.querySelectorAll('div')].filter(d => d.style.letterSpacing === '1px').map(d => d.textContent), n: CHECKS.length }; })()")
+    check("K13 het Checks-venster toont de uitslag van de server (met zijn kleuren: in orde, let op, fout, info; de eigen liveness-check van de server staat er niet dubbel in) en de eigen controles van dit apparaat, elk met een aanvinkvakje, in vijf groepen waarvan er vier 'gemeten door de server' en een 'gemeten door dit apparaat' heet", v and sorted(x[0] + ":" + x[1] for x in v["srv"]) == sorted(["srv_weken:ok", "srv_groups:let", "srv_backups:fout", "srv_wachtwoorden:info"]) and v["app"] == v["n"] and v["rijen"] == len(v["srv"]) + v["n"] and v["vakjes"] == v["rijen"] + 1 and len(v["koppen"]) == 5 and sum("gemeten door de server" in k for k in v["koppen"]) == 4 and "gemeten door dit apparaat" in v["koppen"][4], json.dumps(v)[:500]); b.close()
+    # K15 de liveness van de server
+    def so(minuten, sha="x", **extra):
+        s = dict(status); s["t"] = (dt.datetime(2026, 10, 19, 9, 30, tzinfo=dt.timezone.utc) - dt.timedelta(minutes=minuten)).strftime("%Y-%m-%dT%H:%M:%S.000Z"); s["state_sha"] = sha; s.update(extra); return s
+    for naam, s, verwacht, zoek in (("de server zag de huidige planning (state_sha gelijk), laatste ronde 10 uur geleden", "GELIJK", "ok", "huidige planning gezien"), ("er staat een probleem in de laatste ronde", None, "fout", "meldde een probleem")):
+        R = nieuw(planning()); b, p, fouten = open_pagina(pw, R); sha_nu = p.evaluate("ghSha"); st_ = so(600, sha_nu if s == "GELIJK" else "x", **({} if s == "GELIJK" else {"problemen": ["het controlegetal klopt niet"]})); R.f["onderhoud.json"] = json.dumps(st_)
+        res = p.evaluate("(async () => await CHECKS.find(c => c.id === 'serveronderhoud').run())()")
+        check(f"K15{verwacht[0]} de check 'Serveronderhoud': {naam}", res["s"] == verwacht and zoek in res["t"], json.dumps(res)); b.close()
+
+# K12 statische controle op slapende code en op controles die naar de server zijn verhuisd
+weg = ["TP_SERVER_ONDERHOUD", "serverModus", "LOKALE_HERSTEL", "SERVER_HERSTELT", "checkSchrijvenMag", "ckMaakBackup", "ckStatusOpschonen", "ckManueelOpschonen", "ckVreemdOpschonen", "ckVerwijderBackups", "ckWachtOpHerstel", "ckWachtOpstaan", "ckOudeWekenVerwijderen", "opts.prune", "opts.opschonen", "ckBackupLees", "ckManueelTelling", "function ckOudeWeken(", "ckLeesTekst"] + [f'{{ id: "{x}"' for x in ("accounts", "backups", "backup_geldig", "backup_actueel", "groups", "weken", "oudeweken", "statussen", "manueel", "vreemd", "namen", "team", "halvedag", "grootte", "logboek", "instellingen", "wachtwoorden", "remote", "uitrol")]
 aanwezig = {w: HTML.count(w) for w in weg if HTML.count(w)}
-print("INFO slapende code die nog in de pagina staat:", aanwezig or "geen")
-check("K12 er staat geen slapende opruimcode meer in de pagina (geen testvlag, geen herstelfuncties voor backups, planning of oude weken, geen prune/opschonen-opties bij het opslaan)", not aanwezig, json.dumps(aanwezig))
+print("INFO slapende code of verhuisde controles die nog in de pagina staan:", aanwezig or "geen")
+check("K12 er staat geen slapende opruimcode meer in de pagina en ook geen enkele controle meer die de server doet (planning, accounts, backups, logboek, uitrol)", not aanwezig, json.dumps(aanwezig))
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")
