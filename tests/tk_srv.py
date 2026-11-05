@@ -1,5 +1,5 @@
 """Tests van het serveronderhoud (onderhoud.py) tegen een nagebootste GitHub-API. Gebruik: python3 tk_srv.py   (onderhoud.py moet in dezelfde map staan)"""
-import base64, hashlib, importlib.util, json, os, re, subprocess, sys, threading
+import base64, datetime as dt, hashlib, importlib.util, json, os, re, subprocess, sys, threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 HIER = os.path.dirname(os.path.abspath(__file__)); SCRIPT = os.path.join(HIER, "onderhoud.py")
@@ -10,7 +10,7 @@ def check(naam, ok, detail=""):
     UIT.append(("PASS  " if ok else "FAIL  ") + naam + ("" if ok else "   -> " + str(detail)[:700])); print(UIT[-1], flush=True)
 class Repo:
     def __init__(self): self.reset()
-    def reset(self): self.f = {}; self.puts = []; self.dels = []; self.hook = None; self.tamper = None; self.stuk = set(); self.na_toepassen_502 = set(); self.pages = None; self.get_hook = None; self.gets = {}
+    def reset(self): self.f = {}; self.puts = []; self.dels = []; self.hook = None; self.tamper = None; self.stuk = set(); self.na_toepassen_502 = set(); self.pages = None; self.get_hook = None; self.gets = {}; self.token = None
     def sha(self, p): return hashlib.sha1(self.f[p].encode()).hexdigest()
     def dir(self, p): return sorted({k[len(p) + 1:].split("/")[0] for k in self.f if k.startswith(p + "/")})
 REPO = Repo()
@@ -22,6 +22,14 @@ class H(BaseHTTPRequestHandler):
         if self.path.startswith("/pages/"):   # een nagebootste GitHub Pages-site
             if REPO.pages is None: return self._j(404, {})
             b = REPO.pages.encode(); self.send_response(200); self.send_header("Content-Type", "text/html"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
+        if re.match(r"^/repos/[^/]+/[^/]+/?(\?.*)?$", self.path):   # het token van de pagina: rechten, limiet en vervaldatum
+            tk = REPO.token
+            if not tk: return self._j(404, {})
+            if tk["status"] != 200: return self._j(tk["status"], {"message": "Bad credentials"})
+            b = json.dumps({"permissions": {"push": tk.get("push", True)}}).encode(); self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(b)))
+            if tk.get("rest") is not None: self.send_header("x-ratelimit-remaining", str(tk["rest"])); self.send_header("x-ratelimit-limit", str(tk.get("limit", 5000)))
+            if tk.get("exp"): self.send_header("github-authentication-token-expiration", tk["exp"])
+            self.end_headers(); self.wfile.write(b); return
         p = self._pad(); r = REPO
         if p is None: return self._j(404, {})
         if p in r.f:
@@ -170,12 +178,18 @@ check("SV34 na een wijziging door de server zelf (oude weken verwijderd) wijst s
 # ── SV35-45: de controles die de server zelf doet (het Checks-venster toont deze uitslag) ──────────────────
 def checks(): return {c["id"]: c for c in json.loads(REPO.f["onderhoud.json"])["checks"]}
 LABEL_A = '<span id="app-version">versie 4 nov 2026 · 146</span>'; LABEL_B = '<span id="app-version">versie 4 nov 2026 · 147</span>'
+NU_T = dt.datetime(2026, 11, 4, 8, 0, tzinfo=dt.timezone.utc)
+def pagina(span=LABEL_A, locked=(), verj=None, token="github_pat_TESTTOKEN123456"):
+    verj = verj if verj is not None else {p: f"01-{i + 1:02d}" for i, p in enumerate(TEAM)}
+    return span + '\nconst GH_TOKEN = ["' + token[:12] + '", "' + token[12:] + '"].join("");\nconst LOCKED_DAYS = new Set([\n  // feestdagen\n  ' + ", ".join('"' + x + '"' for x in locked) + '\n]);\nlet VERJAARDAGEN = { ' + ", ".join(f'{p}: "{v}"' for p, v in verj.items()) + ' };'
+def token_ok(dagen=90, **kw):
+    d = dict(status=200, push=True, exp=(NU_T + dt.timedelta(days=dagen)).strftime("%Y-%m-%d %H:%M:%S UTC") if dagen is not None else None, rest=4900, limit=5000); d.update(kw); return d
 def basis(s=None, groepen=None):
-    nieuw(s or planning(36, 52)); REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A
+    nieuw(s or planning(36, 52)); REPO.f["index.html"] = pagina(LABEL_A); REPO.pages = LABEL_A; REPO.token = token_ok()
     if groepen is not None: REPO.f["groups.json"] = json.dumps({"v": 1, "administrators": groepen})
-nu_id = ["github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "groups", "accounts", "wachtwoorden", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek"]
+nu_id = ["github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "groups", "accounts", "wachtwoorden", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen"]
 basis(); rc, u = draai(); c = checks()
-check("SV35 de server doet 23 controles in vier groepen en legt de uitslag vast in het statusbestand; bij een gezonde planning is er geen enkele fout en zijn de uitslagen: alles in orde, behalve dat er maar een Administrator is (let op) en wie nog het startwachtwoord heeft (info)", rc == 0 and sorted(c) == sorted(nu_id) and {x["s"] for x in c.values()} <= {"ok", "info", "let"} and c["groups"]["s"] == "let" and "maar één Administrator" in c["groups"]["t"] and c["wachtwoorden"]["s"] == "info" and c["accounts"]["t"] == "2 accounts: 2 van de 10 teamleden hebben een eigen wachtwoord" and all(c[k]["s"] == "ok" for k in ("github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek")) and {x["groep"] for x in c.values()} == {0, 1, 2, 3}, json.dumps({k: (v["s"], v["t"][:50]) for k, v in c.items() if v["s"] != "ok"}))
+check("SV35 de server doet 27 controles in vier groepen en legt de uitslag vast in het statusbestand; bij een gezonde planning is er geen enkele fout en zijn de uitslagen: alles in orde, behalve dat er maar een Administrator is (let op) en wie nog het startwachtwoord heeft (info)", rc == 0 and sorted(c) == sorted(nu_id) and {x["s"] for x in c.values()} <= {"ok", "info", "let"} and c["groups"]["s"] == "let" and "maar één Administrator" in c["groups"]["t"] and c["wachtwoorden"]["s"] == "info" and c["accounts"]["t"] == "2 accounts: 2 van de 10 teamleden hebben een eigen wachtwoord" and all(c[k]["s"] == "ok" for k in ("github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen")) and {x["groep"] for x in c.values()} == {0, 1, 2, 3}, json.dumps({k: (v["s"], v["t"][:50]) for k, v in c.items() if v["s"] != "ok"}))
 for pages, hoofd, verwacht, zoek in ((LABEL_A, LABEL_A, "ok", "dezelfde versie"), (LABEL_A, LABEL_B, "let", "loopt achter"), (None, LABEL_A, "info", "niet te bereiken"), (LABEL_A, "geen label", "info", "niet te lezen")):
     basis(); REPO.f["index.html"] = hoofd; REPO.pages = pages; rc, u = draai(); r = checks()["uitrol"]
     check(f"SV36{verwacht[0]} de check 'Uitrol van de pagina' vergelijkt de versie op de site met die op main: {zoek} ({verwacht})", r["s"] == verwacht and zoek in r["t"], json.dumps(r))
@@ -261,4 +275,33 @@ check("SV57 is de planning pas 2 minuten geleden gewijzigd, dan wacht de server 
 nieuw(planning(36, 52)); REPO.f["state.json"] = json.dumps(laat_planning_wijzigen(2)); REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A; n0 = len(nieuwe_backups()); rc, u = draai()
 check("SV58 is de planning 2 minuten geleden gewijzigd en blijft het daarna stil, dan wacht de server en maakt dan een backup bij", len(nieuwe_backups()) == n0 + 1 and any("backup bijgemaakt" in a for a in u["acties"]), json.dumps([u["acties"], len(nieuwe_backups()) - n0]))
 
+
+# ── SV59-64: wat eerst het apparaat controleerde en nu de server doet: token en limiet, verplichte vrije dagen, verjaardagen, teruggezette stand ──
+for kw, verwacht, zoek in ((dict(), "ok", "geldig tot 2027-02-02"), (dict(dagen=20), "let", "verloopt over 20 dagen"), (dict(dagen=3), "fout", "verloopt over 3 dagen"), (dict(dagen=None), "info", "geen vervaldatum"), (dict(status=401), "fout", "werkt niet meer"), (dict(push=False), "fout", "mag niet schrijven")):
+    basis(); REPO.token = token_ok(**kw) if "status" not in kw and "push" not in kw else token_ok(**kw); rc, u = draai(); r = checks()["token"]
+    check(f"SV59{verwacht[0]} de check 'Token van de pagina' leest het token uit de pagina op main en meldt: {zoek} ({verwacht})", r["s"] == verwacht and zoek in r["t"] and "github_pat" not in json.dumps(json.loads(REPO.f["onderhoud.json"])), json.dumps(r))
+basis(); REPO.f["index.html"] = "<html>geen token hier</html>"; rc, u = draai(); r = checks()["token"]
+check("SV59n staat het token niet in de pagina, dan zegt de check dat (info) en kan de limiet niet worden gemeten; het token zelf komt nooit in het statusbestand", r["s"] == "info" and "niet te vinden" in r["t"] and checks()["limiet"]["s"] == "info", json.dumps([r, checks()["limiet"]]))
+for rest, verwacht, zoek in ((4900, "ok", "ruim voldoende"), (200, "let", "nog maar 200 van 5000"), (20, "fout", "nog maar 20 van 5000"), (None, "info", "niet door")):
+    basis(); REPO.token = token_ok(rest=rest); rc, u = draai(); r = checks()["limiet"]
+    check(f"SV60{verwacht[0]} de check 'Ruimte in de API-limiet' meet de limiet van het token van de pagina (voor alle gebruikers samen): {zoek} ({verwacht})", r["s"] == verwacht and zoek in r["t"], json.dumps(r))
+LOCKED = ("2026-W52-DO", "2026-W52-VR", "2026-W40-WO")
+basis(); REPO.f["index.html"] = pagina(LABEL_A, locked=LOCKED); rc, u = draai(); s = st()
+check("SV61 de verplichte vrije dagen (uit de pagina op main) zet de server voor iedereen op Vrij, ongeacht de werkweek: 3 dagen x 10 teamleden = 30 cellen; andere dagen blijven ongemoeid; de check meldt dat alles op Vrij staat", all(s["store"][w][p][d] == ["vrij"] for w, d in (("2026-W52", "DO"), ("2026-W52", "VR"), ("2026-W40", "WO")) for p in TEAM) and s["store"]["2026-W40"]["Wim"]["DI"] == ["kantoor"] and any("30 cellen op een verplichte vrije dag op Vrij gezet" in a for a in u["acties"]) and checks()["verplicht"]["s"] == "ok" and "3 verplichte vrije dagen" in checks()["verplicht"]["t"] and OND.stempel_status(s) == "ok", json.dumps([u["acties"], checks()["verplicht"]]))
+basis(); REPO.f["index.html"] = pagina(LABEL_A, locked=LOCKED); voor = REPO.f["state.json"]; rc, u = draai(droog=True)
+check("SV61d in een droogloop zet de server de verplichte vrije dagen niet om (planning ongewijzigd), maar de check meldt dat 30 cellen niet op Vrij staan", REPO.f["state.json"] == voor and checks()["verplicht"]["s"] == "let" and "30 cellen" in checks()["verplicht"]["t"], json.dumps(checks()["verplicht"]))
+for verj, verwacht, zoek in ((None, "ok", "alle 10 teamleden"), ({p: "01-01" for p in TEAM if p != "Ted"}, "let", "geen verjaardag bekend voor Ted"), (dict({p: "01-01" for p in TEAM}, Sam="02-30"), "let", "ongeldige verjaardag voor Sam"), (dict({p: "01-01" for p in TEAM}, Sam="02-29"), "ok", "alle 10")):
+    basis(); REPO.f["index.html"] = pagina(LABEL_A, verj=verj); rc, u = draai(); r = checks()["verjaardagen"]
+    check(f"SV62{verwacht[0]} de check 'Verjaardag bekend voor iedereen' leest de verjaardagen uit de pagina op main en meldt: {zoek} ({verwacht})", r["s"] == verwacht and zoek in r["t"], json.dumps(r))
+# een teruggezette oudere stand: het volgnummer is lager dan eerder gezien
+def eerder(n, bev=0): return json.dumps({"v": 1, "t": "2026-11-04T07:00:00.000Z", "droog": False, "acties": [], "problemen": [], "meldingen": [], "checks": [], "state_sha": "x", "stempel_n": n, "stempel_bev": bev})
+basis(); REPO.f["onderhoud.json"] = eerder(9); rc, u = draai(); r = checks()["stempel"]
+check("SV63 is het volgnummer van het controlegetal lager dan de server eerder zag (hier 4 tegen 9) en heeft niemand het bevestigd, dan is dat een fout: een oudere stand is teruggezet buiten de app om; omdat het nieuw is wordt de Action rood", r["s"] == "fout" and "lager dan eerder gezien" in r["t"] and rc == 1 and any("Controlegetal" in p for p in u["problemen"]), json.dumps([rc, r, u["problemen"]]))
+basis(); s_ = json.loads(REPO.f["state.json"]); s_["integriteit"]["bev"] = 1; REPO.f["state.json"] = json.dumps(s_); REPO.f["onderhoud.json"] = eerder(9, 0); rc, u = draai(); r = checks()["stempel"]
+check("SV63b heeft een Administrator de stand bevestigd (de bevestigingsteller is hoger dan eerder), dan is het lagere volgnummer geen fout meer", r["s"] == "ok" and rc == 0, json.dumps([rc, r]))
+basis(); REPO.f["onderhoud.json"] = eerder(3); rc, u = draai()
+check("SV63c een gewoon hoger volgnummer dan eerder (4 na 3) is in orde", checks()["stempel"]["s"] == "ok" and rc == 0, json.dumps(checks()["stempel"]))
+
+basis(); rc, u = draai(nu="2026-11-04T08:00:00Z"); REPO.token = token_ok(rest=3100); n_p = len(REPO.puts); rc, u = draai(nu="2026-11-04T08:10:00Z")
+check("SV64 een veranderend aantal resterende API-verzoeken of verstrijkende dagen tot de vervaldatum zorgt bij een gezonde stand niet voor een nieuw statusbestand (geen commit per ronde)", len(REPO.puts) == n_p, json.dumps([len(REPO.puts) - n_p]))
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")
