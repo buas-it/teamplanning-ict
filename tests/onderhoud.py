@@ -34,6 +34,9 @@ MIN_GOEDE_BACKUPS = 5    # een beschadigde backup wordt alleen verwijderd als er
 ACHTERSTAND_MIN = 30     # een backup loopt zoveel minuten achter voordat de server er een bijmaakt
 STATUS_VERVERSEN_MIN = 55
 WEEKSLEUTEL = re.compile(r"^\d{4}-W\d{2}$")
+PAGES_URL = os.environ.get("PAGES_URL", "https://buas-it.github.io/teamplanning-ict/")
+LABEL = re.compile(r'id="app-version"[^>]*>\s*(versie [^<]+?)\s*<')
+GROEPEN = ["Verbinding en versie", "Planning", "Team, accounts en rechten", "Backups en logboek"]
 
 
 def nu():
@@ -79,6 +82,22 @@ def lees(pad):
     if s != 200 or j.get("encoding") != "base64":
         raise RuntimeError(f"{pad} kon niet worden gelezen (HTTP {s})")
     return {"sha": j["sha"], "tekst": base64.b64decode(j["content"]).decode("utf-8")}
+
+
+def lees_ref(pad, ref):
+    """Zoals lees(), maar van een andere branch (bijvoorbeeld main)."""
+    s, j = call("GET", f"contents/{pad}?ref={ref}&t={int(time.time() * 1000)}")
+    if s == 404:
+        return None
+    if s != 200 or j.get("encoding") != "base64":
+        raise RuntimeError(f"{pad} ({ref}) kon niet worden gelezen (HTTP {s})")
+    return {"sha": j["sha"], "tekst": base64.b64decode(j["content"]).decode("utf-8")}
+
+
+def http_tekst(url, timeout=20):
+    req = urllib.request.Request(url, headers={"User-Agent": "bezetting-onderhoud", "Cache-Control": "no-cache"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read().decode("utf-8", "replace")
 
 
 def lijst(pad):
@@ -320,7 +339,7 @@ def log_schrijf(regels):
     print("let op: het logboek kon niet worden bijgewerkt", file=sys.stderr)
 
 
-def schrijf_status(acties, problemen, meldingen, extra):
+def schrijf_status(acties, problemen, meldingen, extra, checks=None):
     if ALLEEN_LEZEN:
         return
     f = lees("onderhoud.json"); vorig = None
@@ -329,11 +348,11 @@ def schrijf_status(acties, problemen, meldingen, extra):
             vorig = json.loads(f["tekst"])
         except Exception:
             vorig = None
-    st = {"v": 1, "t": nu().strftime("%Y-%m-%dT%H:%M:%S.000Z"), "droog": DROOG, "acties": acties, "problemen": problemen, "meldingen": meldingen}
+    st = {"v": 1, "t": nu().strftime("%Y-%m-%dT%H:%M:%S.000Z"), "droog": DROOG, "acties": acties, "problemen": problemen, "meldingen": meldingen, "checks": checks or []}
     st.update(extra)
     if vorig:
         oud = dt.datetime.fromisoformat(vorig.get("t", "2000-01-01T00:00:00+00:00").replace("Z", "+00:00"))
-        gelijk = vorig.get("acties") == acties and vorig.get("problemen") == problemen and vorig.get("meldingen") == meldingen and vorig.get("droog") == DROOG and vorig.get("state_sha") == extra.get("state_sha")   # is de planning veranderd sinds de vorige ronde, dan komt er een nieuwe status
+        gelijk = vorig.get("acties") == acties and vorig.get("problemen") == problemen and vorig.get("meldingen") == meldingen and vorig.get("droog") == DROOG and vorig.get("state_sha") == extra.get("state_sha") and [(c["id"], c["s"], c["t"]) for c in (vorig.get("checks") or [])] == [(c["id"], c["s"], c["t"]) for c in (checks or [])]   # is de planning veranderd sinds de vorige ronde, dan komt er een nieuwe status
         if gelijk and (nu() - oud).total_seconds() < STATUS_VERVERSEN_MIN * 60:
             return   # niets nieuws en nog vers: geen extra commit
     schrijf("onderhoud.json", json.dumps(st, ensure_ascii=False, indent=1) + "\n", f["sha"] if f else None, "Serveronderhoud: status")
@@ -428,10 +447,19 @@ def ronde():
         except Exception:
             t_stempel = None
         if achter and (t_stempel is None or (nu() - t_stempel).total_seconds() > ACHTERSTAND_MIN * 60):
-            try:
-                acties.append(f"backup bijgemaakt: {maak_backup(f['tekst'], bestaand, 'Auto-backup (server)')[:-5]}")
-            except Exception as e:
-                problemen.append(f"een backup maken is niet gelukt ({e})")
+            grootste = 0
+            for naam_b in sorted(bestaand)[-5:]:
+                try:
+                    bb = lees(f"backups/{naam_b}"); grootste = max(grootste, len(json.loads(bb["tekst"])["store"])) if bb else grootste
+                except Exception:
+                    pass
+            if len(s["store"]) >= 10 and grootste >= 10 and len(s["store"]) < grootste * 0.5:   # nooit een backup maken van een planning die er beschadigd uitziet
+                problemen.append(f"de planning heeft opeens veel minder weken ({len(s['store'])}) dan de nieuwste backups ({grootste}): er is geen backup bijgemaakt, een Administrator moet dit beoordelen")
+            else:
+                try:
+                    acties.append(f"backup bijgemaakt: {maak_backup(f['tekst'], bestaand, 'Auto-backup (server)')[:-5]}")
+                except Exception as e:
+                    problemen.append(f"een backup maken is niet gelukt ({e})")
     # beschadigde backups: de nieuwste drie nakijken
     items = sorted(lijst("backups"), key=lambda x: x["name"])
     if items:
@@ -468,6 +496,157 @@ def ronde():
     return acties, problemen, meldingen, extra
 
 
+# ── de controles (alles wat niet van een apparaat afhangt) ──────────────────────────────────────
+def controles(acties, problemen):
+    """Geeft een lijst {id, groep, naam, s (ok|info|let|fout), t} van alle controles die de server kan doen. De pagina laat dit zien en doet zelf alleen wat bij het apparaat hoort."""
+    uit = []
+    def add(id, groep, naam, s, t):
+        uit.append({"id": id, "groep": groep, "naam": naam, "s": s, "t": t})
+    def veilig(naam_groep, f):
+        try:
+            f()
+        except Exception as e:
+            add(naam_groep, 3, naam_groep, "fout", f"de controle zelf is mislukt: {e}")
+    try:
+        f = lees("state.json"); s = json.loads(f["tekst"]) if f else None
+    except Exception:
+        f = None; s = None
+    ok_state = bool(s) and geldig(s); team = s["team"] if ok_state else []
+    if not ok_state:
+        add("github", 0, "GitHub bereikbaar", "fout", "de server kan de planning niet (goed) lezen"); return uit
+    add("github", 0, "GitHub bereikbaar", "ok", "de server kan de planning lezen")
+    # uitrol van de pagina
+    try:
+        m = lees_ref("index.html", "main"); lm = (LABEL.search(m["tekst"]) or [None, None])[1] if m else None
+        try:
+            pg = LABEL.search(http_tekst(PAGES_URL + "index.html?k=" + str(int(time.time())))); lp = pg.group(1) if pg else None; bereikbaar = True
+        except Exception:
+            lp = None; bereikbaar = False
+        if not lm: add("uitrol", 0, "Uitrol van de pagina (GitHub Pages)", "info", "de versie op main is niet te lezen")
+        elif not bereikbaar or not lp: add("uitrol", 0, "Uitrol van de pagina (GitHub Pages)", "info", "de site is vanaf de server niet te bereiken of toont geen versie")
+        elif lm == lp: add("uitrol", 0, "Uitrol van de pagina (GitHub Pages)", "ok", f"de site toont dezelfde versie als main ({lm})")
+        else: add("uitrol", 0, "Uitrol van de pagina (GitHub Pages)", "let", f"de site toont {lp}, main heeft {lm}: de uitrol loopt achter")
+    except Exception as e:
+        add("uitrol", 0, "Uitrol van de pagina (GitHub Pages)", "info", f"niet te controleren ({e})")
+    # planning
+    i = s.get("integriteit") or {}; stp = stempel_status(s)
+    add("stempel", 1, "Controlegetal", {"ok": "ok", "geen": "let", "fout": "fout"}[stp], {"ok": f"klopt (opslag {i.get('n')} door {i.get('door')})", "geen": "nog niet vastgelegd", "fout": f"klopt niet (opslag {i.get('n')} door {i.get('door')}): een Administrator moet dit beoordelen"}[stp])
+    items = sorted(lijst("backups"), key=lambda x: x["name"])
+    n = len(s["store"]); ks = sorted(s["store"]); nieuwste = None; grootste_b = 0
+    for it in items[-5:]:
+        try:
+            b = lees(f"backups/{it['name']}"); bj = json.loads(b["tekst"]) if b else None
+            if it is items[-1]: nieuwste = bj
+            if bj and geldig(bj): grootste_b = max(grootste_b, len(bj["store"]))
+        except Exception:
+            pass
+    if not ks: add("weken", 1, "Aantal weken in de planning", "fout", "geen enkele week")
+    elif n >= 10 and grootste_b >= 10 and n < grootste_b * 0.5: add("weken", 1, "Aantal weken in de planning", "fout", f"opeens veel minder weken ({n}) dan in de nieuwste backups ({grootste_b}): mogelijk beschadigd")
+    else: add("weken", 1, "Aantal weken in de planning", "ok", f"{n} weken, {ks[0]} t/m {ks[-1]}")
+    personen = set(team) | set(s.get("hidden", [])) | set(s.get("template", {})) | {p for w in s["store"].values() for p in w} | {split(k)[0] for l in s.get("manuallyEdited", {}).values() for k in l}
+    weg = sorted(p for p in personen if p in NAMEN_WEG)
+    add("namen", 1, "Verwijderde namen zijn weg", "fout" if weg else "ok", f"een verwijderde naam staat nog in de planning: {', '.join(weg)}" if weg else f"{', '.join(NAMEN_WEG)} komen nergens voor")
+    f_ = []
+    dub = sorted({p for p in team if team.count(p) > 1})
+    if dub: f_.append("dubbele namen: " + ", ".join(dub))
+    zonder = [p for p in team if p not in s.get("template", {}) or any(not isinstance(s["template"][p].get(d), list) for d in DAGEN)]
+    if zonder: f_.append("geen volledige werkweek voor " + ", ".join(zonder))
+    verb = [p for p in s.get("hidden", []) if p not in team]
+    if verb: f_.append("verborgen maar geen teamlid: " + ", ".join(verb))
+    add("team", 1, "Team en werkweken", "fout" if f_ else "ok", "; ".join(f_) if f_ else f"{len(team)} personen, iedereen heeft een werkweek" + (f"; {len(s['hidden'])} verborgen" if s.get("hidden") else ""))
+    vreemd = sorted({p for w in s["store"].values() for p in w if p not in team} | {p for p in s.get("template", {}) if p not in team})
+    add("vreemd", 1, "Geen planning voor niet-teamleden", "let" if vreemd else "ok", ("planning of werkweek van " + ", ".join(vreemd) + ", die niet in het team staan") if vreemd else "alleen het team")
+    slecht = []; leeg = []
+    for wk in s["store"]:
+        for p, dd in s["store"][wk].items():
+            for d, v in dd.items():
+                if isinstance(v, list) and any(k not in STATUSSEN for k in v): (slecht if any(k in STATUSSEN for k in v) else leeg).append(f"{wk} {p} {d}")
+    if slecht: add("statussen", 1, "Alle statussen zijn geldig", "let", f"{len(slecht)} cellen met een onbekende status (bijv. {slecht[0]})")
+    elif leeg: add("statussen", 1, "Alle statussen zijn geldig", "let", f"{len(leeg)} cellen bestaan alleen uit een onbekende status (bijv. {leeg[0]})")
+    else: add("statussen", 1, "Alle statussen zijn geldig", "ok", "alle cellen hebben een geldige status")
+    wees = sum(1 for wk, l in s.get("manuallyEdited", {}).items() for k in (l if wk in s["store"] else [None]) if k is None or split(k)[0] not in team or split(k)[1] not in DAGEN)
+    add("manueel", 1, "Handmatige markeringen kloppen", "let" if wees else "ok", f"{wees} {'markering verwijst' if wees == 1 else 'markeringen verwijzen'} naar een week, persoon of dag die niet bestaat" if wees else "alle markeringen verwijzen naar bestaande dagen")
+    vandaag = nu().astimezone(AMS).date(); half = {}
+    for wk, l in s.get("manuallyEdited", {}).items():
+        if wk not in s["store"] or not WEEKSLEUTEL.match(wk): continue
+        for k in l:
+            p, d = split(k)
+            if p not in team or d not in DAGEN: continue
+            v = s["store"][wk].get(p, {}).get(d)
+            if v in (["vm_vrij"], ["nm_vrij"]):
+                try: dag = dt.date.fromisocalendar(int(wk[:4]), int(wk[6:]), DAGEN.index(d) + 1)
+                except ValueError: continue
+                if dag >= vandaag: half[p] = half.get(p, 0) + 1
+    add("halvedag", 1, "Halve dagen zijn aangevuld", "let" if half else "ok", ("nog niet aangevuld: " + ", ".join(f"{p} ({c})" for p, c in sorted(half.items())) + ". Zij krijgen de vraag zodra ze de pagina openen") if half else "alle halve dagen zijn aangevuld")
+    oud = [wk for wk in s["store"] if WEEKSLEUTEL.match(wk) and (week_einde(wk) or dt.date.max) < grens()]
+    add("oudeweken", 1, "Roosters ouder dan 2 maanden", "info" if oud else "ok", f"{len(oud)} {'week' if len(oud) == 1 else 'weken'} ouder dan 2 maanden; de server verwijdert ze in de volgende ronde" if oud else f"geen weken ouder dan 2 maanden (de oudste is {ks[0] if ks else '-'})")
+    kb = round(len(f["tekst"].encode("utf-8")) / 1024)
+    add("grootte", 1, "Grootte van de planning", "fout" if kb > 900 else "let" if kb > 700 else "ok", f"{kb} KB van maximaal 1000 KB" + (": GitHub levert bestanden boven 1000 KB niet meer uit" if kb > 900 else ": de planning wordt te groot" if kb > 700 else ""))
+    # team, accounts en rechten
+    try:
+        g = lees("groups.json"); lst = (json.loads(g["tekst"]).get("administrators") or []) if g else []
+        echte = [a for a in lst if a in team]; vr = [a for a in lst if a not in team and a != MONITOR]
+        if not echte: add("groups", 2, "Administrators", "fout", "geen enkele Administrator die teamlid is")
+        elif vr: add("groups", 2, "Administrators", "let", "Administrators die niet in het team staan: " + ", ".join(vr))
+        elif MONITOR not in lst: add("groups", 2, "Administrators", "let", "het Monitor-account staat niet als Administrator in de lijst")
+        elif len(echte) < 2: add("groups", 2, "Administrators", "let", f"maar één Administrator ({echte[0]}): bij uitval kan niemand beheren")
+        else: add("groups", 2, "Administrators", "ok", f"{len(echte)} Administrators ({', '.join(echte)}) en het Monitor-account")
+    except Exception as e:
+        add("groups", 2, "Administrators", "fout", f"groups.json niet leesbaar ({e})")
+    try:
+        u = lees("users.json"); acc = list((json.loads(u["tekst"]).get("users") or {}).keys()) if u else []
+        w2 = [a for a in acc if a in NAMEN_WEG]; vr2 = [a for a in acc if a not in team and a != MONITOR and a not in NAMEN_WEG]
+        eigen = [p for p in team if p in acc]
+        if w2: add("accounts", 2, "Accounts", "fout", "account van een verwijderde naam: " + ", ".join(w2))
+        elif vr2: add("accounts", 2, "Accounts", "let", "accounts van mensen die niet in het team staan: " + ", ".join(vr2))
+        else: add("accounts", 2, "Accounts", "ok", f"{len(acc)} {'account' if len(acc) == 1 else 'accounts'}: {len(eigen)} van de {len(team)} teamleden {'heeft' if len(eigen) == 1 else 'hebben'} een eigen wachtwoord" + (", plus het Monitor-account" if MONITOR in acc else ""))
+        zw = [p for p in team if p not in acc]
+        add("wachtwoorden", 2, "Eigen wachtwoorden", "info" if zw else "ok", ("nog het startwachtwoord: " + ", ".join(zw)) if zw else "iedereen heeft een eigen wachtwoord")
+    except Exception as e:
+        add("accounts", 2, "Accounts", "fout", f"users.json niet leesbaar ({e})")
+    try:
+        st_ = lees("settings.json")
+        if not st_: add("instellingen", 2, "Instellingen (boodschap en talen)", "ok", "nog niet aangemaakt: standaardwaarden gelden")
+        else:
+            d = json.loads(st_["tekst"]); sl = {p for k in ("talen", "personen", "campus", "monitor", "persoonlijk") for p in (d.get(k) or {})}
+            w3 = sorted(p for p in sl if p in NAMEN_WEG); v3 = sorted(p for p in sl if p not in team and p != MONITOR and p not in NAMEN_WEG)
+            if w3: add("instellingen", 2, "Instellingen (boodschap en talen)", "let", "instellingen van een verwijderde naam: " + ", ".join(w3))
+            elif v3: add("instellingen", 2, "Instellingen (boodschap en talen)", "let", "instellingen voor mensen die niet in het team staan: " + ", ".join(v3))
+            else: add("instellingen", 2, "Instellingen (boodschap en talen)", "ok", "leesbaar en alleen voor het team")
+    except Exception as e:
+        add("instellingen", 2, "Instellingen (boodschap en talen)", "fout", f"settings.json niet leesbaar ({e})")
+    # backups en logboek
+    add("serveronderhoud", 3, "Serveronderhoud (taak op GitHub)", "fout" if problemen else "ok", ("de laatste ronde meldde een probleem: " + "; ".join(problemen)[:300]) if problemen else ("de server draait" + (f"; deze ronde: {len(acties)} {'actie' if len(acties) == 1 else 'acties'}" if acties else "; niets te doen")))
+    if not items: add("backups", 3, "Backups aanwezig", "fout", "er zijn geen backups")
+    else:
+        nm = items[-1]["name"][:-5].replace("_", " "); nm = nm[:-3] + ":" + nm[-2:]
+        add("backups", 3, "Backups aanwezig", "let" if len(items) > 80 else "ok", f"{len(items)} backups: dat worden er veel (oude worden niet automatisch opgeruimd)" if len(items) > 80 else f"{len(items)} {'backup' if len(items) == 1 else 'backups'}, de nieuwste van {nm}")
+        if not nieuwste: add("backup_actueel", 3, "Laatste backup bevat de laatste opslag", "let", "de nieuwste backup is niet leesbaar")
+        elif planning_hash(nieuwste) == planning_hash(s): add("backup_actueel", 3, "Laatste backup bevat de laatste opslag", "ok", "gelijk aan de huidige planning")
+        else:
+            try: ts = dt.datetime.fromisoformat(i["t"].replace("Z", "+00:00"))
+            except Exception: ts = None
+            if ts and (nu() - ts).total_seconds() < ACHTERSTAND_MIN * 60: add("backup_actueel", 3, "Laatste backup bevat de laatste opslag", "ok", "loopt iets achter op de laatste opslag (normaal: de server maakt er binnen een half uur een bij)")
+            else: add("backup_actueel", 3, "Laatste backup bevat de laatste opslag", "let", "de planning is gewijzigd sinds de nieuwste backup")
+        slecht_b = []
+        for it in items[-3:]:
+            b = lees(f"backups/{it['name']}"); r = backup_oordeel(b["tekst"], n) if b else "niet leesbaar"
+            if r: slecht_b.append(f"{it['name'][:-5]} ({r})")
+        add("backup_geldig", 3, "Nieuwste backups zijn in orde", "fout" if slecht_b else "ok", ("beschadigd: " + "; ".join(slecht_b)) if slecht_b else f"de {min(3, len(items))} nieuwste backups zijn leesbaar en volledig")
+    try:
+        a = lees(f"audit/{nu().strftime('%Y-%m-%d')}.jsonl")
+        if not a: add("logboek", 3, "Logboek van vandaag is leesbaar", "ok", "nog geen regels vandaag")
+        else:
+            regels = [l for l in a["tekst"].split("\n") if l.strip()]; kapot = 0
+            for l in regels:
+                try: json.loads(l)
+                except Exception: kapot += 1
+            add("logboek", 3, "Logboek van vandaag is leesbaar", "let" if kapot else "ok", f"{kapot} van de {len(regels)} regels van vandaag zijn kapot" if kapot else f"{len(regels)} regels, allemaal leesbaar")
+    except Exception as e:
+        add("logboek", 3, "Logboek van vandaag is leesbaar", "let", f"niet te lezen ({e})")
+    return uit
+
+
 def lees_config():
     """onderhoud-config.json op de data-branch: {"droog": true} laat de taak alleen kijken. Ontbreekt het bestand, dan wordt er gewoon onderhouden; is het onleesbaar, dan wordt er niets gewijzigd."""
     global DROOG
@@ -497,9 +676,22 @@ def main():
     else:
         acties, problemen, meldingen, extra = [], ["er is steeds tegelijk een andere wijziging binnengekomen: niets gewijzigd, volgende ronde opnieuw"], [], {}
     meldingen = (meldingen or []) + config_meldingen
+    checks = []
+    try:
+        checks = controles(acties or [], problemen or [])
+        try:
+            vorig_st = lees("onderhoud.json"); vorige = json.loads(vorig_st["tekst"]) if vorig_st else {}
+        except Exception:
+            vorige = {}
+        eerder_fout = {c["id"] for c in (vorige.get("checks") or []) if c["s"] == "fout"}
+        for c in checks:
+            if c["s"] == "fout" and c["id"] not in eerder_fout and c["id"] != "serveronderhoud":
+                problemen = (problemen or []) + [f"controle '{c['naam']}': {c['t']}"]
+    except Exception as e:
+        meldingen.append(f"de controles zijn niet gelukt ({e})")
     log_schrijf([log_regel("onderhoud: " + a) for a in acties] + [log_regel("onderhoud: PROBLEEM: " + p) for p in problemen])
     try:
-        schrijf_status(acties, problemen, meldingen, extra or {})
+        schrijf_status(acties, problemen, meldingen, extra or {}, checks)
     except Exception as e:
         print(f"let op: het statusbestand kon niet worden geschreven ({e})", file=sys.stderr)
     print(json.dumps({"acties": acties, "problemen": problemen, "meldingen": meldingen, "droog": DROOG}, ensure_ascii=False, indent=1))
