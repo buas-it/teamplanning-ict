@@ -31,7 +31,12 @@ MIN_WEKEN = 8            # er blijven altijd minstens zoveel weken over
 MAX_DEEL = 0.4           # hooguit 40% van de weken per ronde
 MAX_PER_RONDE = 26
 MIN_GOEDE_BACKUPS = 5    # een beschadigde backup wordt alleen verwijderd als er nog zoveel goede overblijven
-ACHTERSTAND_MIN = 30     # een backup loopt zoveel minuten achter voordat de server er een bijmaakt
+ACHTERSTAND_MIN = 5      # de server maakt een backup zodra er zoveel minuten niets meer is gewijzigd (de pagina deed dat vroeger elke 10 minuten)
+BACKUP_BEWAAR_DAGEN = 14  # backups worden zoveel dagen bewaard (op UTC-datum in de naam, zoals de pagina vroeger deed)
+AUDIT_BEWAAR_DAGEN = 31   # dagbestanden van het logboek worden zoveel dagen bewaard
+MIN_BEWAARD = 5           # bij het opruimen blijven er altijd minstens zoveel backups over
+MAX_OPRUIMEN = 20         # hooguit zoveel bestanden per ronde opruimen
+WACHT_FACTOR = float(os.environ.get("ONDERHOUD_WACHT_FACTOR", "0" if os.environ.get("ONDERHOUD_NU") else "1"))   # voor tests: niet echt wachten
 STATUS_VERVERSEN_MIN = 55
 WEEKSLEUTEL = re.compile(r"^\d{4}-W\d{2}$")
 PAGES_URL = os.environ.get("PAGES_URL", "https://buas-it.github.io/teamplanning-ict/")
@@ -446,7 +451,14 @@ def ronde():
             t_stempel = dt.datetime.fromisoformat(s["integriteit"]["t"].replace("Z", "+00:00"))
         except Exception:
             t_stempel = None
-        if achter and (t_stempel is None or (nu() - t_stempel).total_seconds() > ACHTERSTAND_MIN * 60):
+        wacht_af = False
+        if achter and t_stempel is not None and (nu() - t_stempel).total_seconds() < ACHTERSTAND_MIN * 60:
+            rest = ACHTERSTAND_MIN * 60 - (nu() - t_stempel).total_seconds() + 3   # wachten tot er 5 minuten niets is gewijzigd (de Action mag 10 minuten duren)
+            time.sleep(min(rest, 330) * WACHT_FACTOR)
+            f2 = lees("state.json")
+            if not f2 or f2["sha"] != f["sha"]:
+                meldingen.append("de planning is tijdens het wachten gewijzigd: de volgende ronde maakt de backup"); wacht_af = True
+        if achter and not wacht_af:
             grootste = 0
             for naam_b in sorted(bestaand)[-5:]:
                 try:
@@ -477,6 +489,34 @@ def ronde():
                 acties.append(f"beschadigde backup verwijderd: {tekst}")
             else:
                 problemen.append(f"beschadigde backup: {tekst} (niet verwijderd: te weinig goede backups of droogloop)")
+    # bewaartermijnen: backups (14 dagen) en dagbestanden van het logboek (31 dagen)
+    try:
+        cut_b = (nu() - dt.timedelta(days=BACKUP_BEWAAR_DAGEN)).strftime("%Y-%m-%d")
+        items_b = sorted(lijst("backups"), key=lambda x: x["name"])
+        oud_b = [it for it in items_b if it["name"][:10] < cut_b]
+        weg_b = oud_b[:max(0, min(MAX_OPRUIMEN, len(items_b) - MIN_BEWAARD))]
+        if weg_b and DROOG:
+            meldingen.append(f"droogloop: {len(weg_b)} backups ouder dan {BACKUP_BEWAAR_DAGEN} dagen zouden worden verwijderd")
+        elif weg_b:
+            for it in weg_b:
+                verwijder(f"backups/{it['name']}", it["sha"], f"Verwijder oude backup {it['name'][:10]} (server, bewaartermijn {BACKUP_BEWAAR_DAGEN} dagen)")
+            acties.append(f"{len(weg_b)} {'backup' if len(weg_b) == 1 else 'backups'} ouder dan {BACKUP_BEWAAR_DAGEN} dagen verwijderd ({weg_b[0]['name'][:10]}{' t/m ' + weg_b[-1]['name'][:10] if len(weg_b) > 1 else ''})")
+        rest_b = len(oud_b) - len(weg_b)
+        if rest_b > 0 and not DROOG:
+            meldingen.append(f"nog {rest_b} {'backup' if rest_b == 1 else 'backups'} ouder dan {BACKUP_BEWAAR_DAGEN} dagen te verwijderen in een volgende ronde")
+        cut_a = (nu() - dt.timedelta(days=AUDIT_BEWAAR_DAGEN)).strftime("%Y-%m-%d")
+        oud_a = sorted((it for it in lijst("audit") if re.match(r"^\d{4}-\d\d-\d\d\.jsonl$", it["name"]) and it["name"][:10] < cut_a), key=lambda x: x["name"])
+        weg_a = oud_a[:MAX_OPRUIMEN]
+        if weg_a and DROOG:
+            meldingen.append(f"droogloop: {len(weg_a)} dagbestanden van het logboek ouder dan {AUDIT_BEWAAR_DAGEN} dagen zouden worden verwijderd")
+        elif weg_a:
+            for it in weg_a:
+                verwijder(f"audit/{it['name']}", it["sha"], f"Audit opgeruimd: {it['name'][:10]} (server, bewaartermijn {AUDIT_BEWAAR_DAGEN} dagen)")
+            acties.append(f"{len(weg_a)} {'dagbestand' if len(weg_a) == 1 else 'dagbestanden'} van het logboek ouder dan {AUDIT_BEWAAR_DAGEN} dagen verwijderd ({weg_a[0]['name'][:10]}{' t/m ' + weg_a[-1]['name'][:10] if len(weg_a) > 1 else ''})")
+    except Conflict:
+        raise
+    except Exception as e:
+        meldingen.append(f"het opruimen van oude backups en logboekbestanden is niet gelukt ({e})")
     # accounts van verwijderde namen
     u = lees("users.json")
     if u:
@@ -626,13 +666,20 @@ def controles(acties, problemen):
         else:
             try: ts = dt.datetime.fromisoformat(i["t"].replace("Z", "+00:00"))
             except Exception: ts = None
-            if ts and (nu() - ts).total_seconds() < ACHTERSTAND_MIN * 60: add("backup_actueel", 3, "Laatste backup bevat de laatste opslag", "ok", "loopt iets achter op de laatste opslag (normaal: de server maakt er binnen een half uur een bij)")
+            if ts and (nu() - ts).total_seconds() < ACHTERSTAND_MIN * 60: add("backup_actueel", 3, "Laatste backup bevat de laatste opslag", "ok", "loopt iets achter op de laatste opslag (normaal: de server maakt een backup zodra er 5 minuten niets is gewijzigd)")
             else: add("backup_actueel", 3, "Laatste backup bevat de laatste opslag", "let", "de planning is gewijzigd sinds de nieuwste backup")
         slecht_b = []
         for it in items[-3:]:
             b = lees(f"backups/{it['name']}"); r = backup_oordeel(b["tekst"], n) if b else "niet leesbaar"
             if r: slecht_b.append(f"{it['name'][:-5]} ({r})")
         add("backup_geldig", 3, "Nieuwste backups zijn in orde", "fout" if slecht_b else "ok", ("beschadigd: " + "; ".join(slecht_b)) if slecht_b else f"de {min(3, len(items))} nieuwste backups zijn leesbaar en volledig")
+    try:
+        cut_b2 = (nu() - dt.timedelta(days=BACKUP_BEWAAR_DAGEN)).strftime("%Y-%m-%d"); n_oud_b = sum(1 for it in items if it["name"][:10] < cut_b2)
+        add("backups_termijn", 3, f"Backups binnen de bewaartermijn ({BACKUP_BEWAAR_DAGEN} dagen)", "info" if n_oud_b else "ok", f"{n_oud_b} {'backup is' if n_oud_b == 1 else 'backups zijn'} ouder dan {BACKUP_BEWAAR_DAGEN} dagen; de server ruimt ze in de volgende ronde op" if n_oud_b else f"geen backups ouder dan {BACKUP_BEWAAR_DAGEN} dagen")
+        cut_a2 = (nu() - dt.timedelta(days=AUDIT_BEWAAR_DAGEN)).strftime("%Y-%m-%d"); n_oud_a = sum(1 for it in lijst("audit") if re.match(r"^\d{4}-\d\d-\d\d\.jsonl$", it["name"]) and it["name"][:10] < cut_a2)
+        add("logboek_termijn", 3, f"Logboek binnen de bewaartermijn ({AUDIT_BEWAAR_DAGEN} dagen)", "info" if n_oud_a else "ok", f"{n_oud_a} {'dagbestand is' if n_oud_a == 1 else 'dagbestanden zijn'} ouder dan {AUDIT_BEWAAR_DAGEN} dagen; de server ruimt ze in de volgende ronde op" if n_oud_a else f"geen dagbestanden ouder dan {AUDIT_BEWAAR_DAGEN} dagen")
+    except Exception as e:
+        add("backups_termijn", 3, f"Backups binnen de bewaartermijn ({BACKUP_BEWAAR_DAGEN} dagen)", "info", f"niet te controleren ({e})")
     try:
         a = lees(f"audit/{nu().strftime('%Y-%m-%d')}.jsonl")
         if not a: add("logboek", 3, "Logboek van vandaag is leesbaar", "ok", "nog geen regels vandaag")
