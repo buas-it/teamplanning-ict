@@ -1,6 +1,6 @@
 {
  "v": 1,
- "t": "2026-11-05T18:43:42.000Z",
+ "t": "2026-11-05T21:38:27.000Z",
  "droog": false,
  "acties": [],
  "problemen": [],
@@ -189,16 +189,31 @@
    "t": "geen dagbestanden ouder dan 31 dagen"
   },
   {
+   "id": "logboek_server",
+   "groep": 3,
+   "naam": "Wijzigingsregels worden door de server geschreven",
+   "s": "ok",
+   "t": "de server zet elke wijziging van de planning in het logboek (de pagina schrijft alleen bezoeken en inloggen)"
+  },
+  {
+   "id": "logboek_onbekend",
+   "groep": 3,
+   "naam": "Wijzigingen zonder bekende gebruiker (24 uur)",
+   "s": "ok",
+   "t": "alle wijzigingen van de laatste 24 uur hebben een bekende gebruiker"
+  },
+  {
    "id": "logboek",
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "15 regels, allemaal leesbaar"
+   "t": "18 regels, allemaal leesbaar"
   }
  ],
  "weken": 58,
  "team": 10,
  "state_sha": "61a55c83eb9f152be956d3a892e310fd690d1848",
  "stempel_n": 5,
- "stempel_bev": 0
+ "stempel_bev": 0,
+ "audit_commit": "c6211abab68d378c3876cc8d5fef429216fdb905"
 }
