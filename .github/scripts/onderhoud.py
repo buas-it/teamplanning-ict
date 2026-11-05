@@ -105,6 +105,41 @@ def http_tekst(url, timeout=20):
         return r.read().decode("utf-8", "replace")
 
 
+def pagina_main():
+    """De tekst van index.html op main (of None): daar staan de verplichte vrije dagen, de verjaardagen, het versielabel en het token van de pagina in."""
+    try:
+        m = lees_ref("index.html", "main"); return m["tekst"] if m else None
+    except Exception:
+        return None
+
+
+def parse_locked(html):
+    m = re.search(r"const LOCKED_DAYS = new Set\(\[(.*?)\]\);", html or "", re.S)
+    return set(re.findall(r'"(\d{4}-W\d{2}-[A-Z]{2})"', m.group(1))) if m else None
+
+
+def parse_verjaardagen(html):
+    m = re.search(r"let VERJAARDAGEN = \{(.*?)\};", html or "", re.S)
+    return dict(re.findall(r'(\w+)\s*:\s*"(\d\d-\d\d)"', m.group(1))) if m else None
+
+
+def parse_token(html):
+    m = re.search(r"const GH_TOKEN\s*=\s*(.*?);", html or "", re.S)
+    if not m: return None
+    t = "".join(re.findall(r'"([^"]*)"', m.group(1)))
+    return t if t.startswith(("github_pat_", "ghp_")) else None
+
+
+def token_info(token):
+    """(status, koppen in kleine letters, json) van een verzoek met het token van de pagina. Het token wordt nergens getoond of bewaard."""
+    req = urllib.request.Request(f"{API}/repos/{REPO}", headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "User-Agent": "bezetting-onderhoud"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return r.status, {k.lower(): v for k, v in r.headers.items()}, json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        return e.code, {k.lower(): v for k, v in e.headers.items()}, {}
+
+
 def lijst(pad):
     s, j = call("GET", f"contents/{pad}?ref={BRANCH}&t={int(time.time() * 1000)}")
     return j if s == 200 and isinstance(j, list) else []
@@ -216,7 +251,7 @@ def week_einde(wk):
         return None
 
 
-def opschonen(s):
+def opschonen(s, locked=None):
     """Haalt weg wat niet hoort; geeft (nieuwe planning, acties, meldingen). Weken ouder dan 2 maanden worden hier nog niet verwijderd."""
     n = copy.deepcopy(s); acties = []; meldingen = []
     team = n["team"]; n.setdefault("template", {}); n.setdefault("manuallyEdited", {}); n.setdefault("hidden", [])
@@ -273,6 +308,17 @@ def opschonen(s):
         k0 = len(n["manuallyEdited"][wk]); n["manuallyEdited"][wk] = [k for k in n["manuallyEdited"][wk] if split(k)[0] in team and split(k)[1] in DAGEN]; wees += k0 - len(n["manuallyEdited"][wk])
     if wees:
         acties.append(f"{wees} verweesde {'markeringen' if wees != 1 else 'markering'} opgeruimd")
+    # 5. verplichte vrije dagen (feestdagen, kerstperiode): voor iedereen Vrij, ongeacht de werkweek
+    if locked:
+        gezet = 0
+        for wk in n["store"]:
+            for d in DAGEN:
+                if f"{wk}-{d}" in locked:
+                    for p in team:
+                        if p in n["store"][wk] and n["store"][wk][p].get(d) != ["vrij"]:
+                            n["store"][wk][p][d] = ["vrij"]; gezet += 1
+        if gezet:
+            acties.append(f"{gezet} {'cel' if gezet == 1 else 'cellen'} op een verplichte vrije dag op Vrij gezet")
     return n, acties, meldingen
 
 
@@ -380,7 +426,8 @@ def ronde():
     if st == "fout":
         return acties, [f"het controlegetal van de planning klopt niet (laatste opslag nr. {s['integriteit'].get('n')} door {s['integriteit'].get('door')}): er is niets gewijzigd, een Administrator moet dit eerst beoordelen"], meldingen, extra
     extra["weken"] = len(s["store"]); extra["team"] = len(s["team"]); extra["state_sha"] = f["sha"]   # de versie van de planning die de server nu ziet
-    n, a1, m1 = opschonen(s); acties += a1; meldingen += m1
+    locked = parse_locked(pagina_main())   # de verplichte vrije dagen staan in de pagina op main
+    n, a1, m1 = opschonen(s, locked); acties += a1; meldingen += m1
     teWissen, alle_oud = oude_weken(n)
     if teWissen:
         for wk in teWissen:
@@ -428,7 +475,7 @@ def ronde():
             except Exception as e2:
                 fouten.append(f"terugzetten lukte niet ({e2}): zet backup {naam[:-5]} terug")
             return acties, ["controle na opslaan mislukt: " + "; ".join(fouten)], meldingen, extra
-        extra["weken"] = len(n["store"]); extra["team"] = len(n["team"]); extra["stempel_n"] = n["integriteit"]["n"]; extra["state_sha"] = t["sha"]   # de planning zoals de server hem zojuist heeft achtergelaten
+        extra["weken"] = len(n["store"]); extra["team"] = len(n["team"]); extra["stempel_n"] = n["integriteit"]["n"]; extra["state_sha"] = t["sha"]; extra["stempel_bev"] = n["integriteit"].get("bev", 0)   # de planning zoals de server hem zojuist heeft achtergelaten
         bestaand = {x["name"] for x in lijst("backups")}
         try:
             naam2 = maak_backup(nieuw_tekst, bestaand, "Auto-backup (server, na onderhoud)"); acties.append(f"backup achteraf: {naam2[:-5]}")
@@ -436,7 +483,7 @@ def ronde():
             meldingen.append(f"de backup achteraf is niet gelukt ({e})")
         s = n
     else:
-        extra["stempel_n"] = (s.get("integriteit") or {}).get("n")
+        extra["stempel_n"] = (s.get("integriteit") or {}).get("n"); extra["stempel_bev"] = (s.get("integriteit") or {}).get("bev", 0)
     # backups bijhouden: loopt de nieuwste achter op de planning, dan er een bijmaken
     if not DROOG and not gewijzigd_bestand:
         bestaand = {x["name"] for x in lijst("backups")}; nieuwste = sorted(bestaand)[-1] if bestaand else None; achter = True
@@ -556,8 +603,9 @@ def controles(acties, problemen):
         add("github", 0, "GitHub bereikbaar", "fout", "de server kan de planning niet (goed) lezen"); return uit
     add("github", 0, "GitHub bereikbaar", "ok", "de server kan de planning lezen")
     # uitrol van de pagina
+    pagina = pagina_main()
     try:
-        m = lees_ref("index.html", "main"); lm = (LABEL.search(m["tekst"]) or [None, None])[1] if m else None
+        lm = (LABEL.search(pagina) or [None, None])[1] if pagina else None
         try:
             pg = LABEL.search(http_tekst(PAGES_URL + "index.html?k=" + str(int(time.time())))); lp = pg.group(1) if pg else None; bereikbaar = True
         except Exception:
@@ -568,9 +616,43 @@ def controles(acties, problemen):
         else: add("uitrol", 0, "Uitrol van de pagina (GitHub Pages)", "let", f"de site toont {lp}, main heeft {lm}: de uitrol loopt achter")
     except Exception as e:
         add("uitrol", 0, "Uitrol van de pagina (GitHub Pages)", "info", f"niet te controleren ({e})")
+    # het token van de pagina (dat alle gebruikers delen): werkt het nog, mag het schrijven, wanneer verloopt het, hoeveel API-ruimte is er over
+    tok = parse_token(pagina)
+    if not tok:
+        add("token", 0, "Token van de pagina", "info", "het token is niet te vinden in de pagina (of de pagina is niet te lezen)")
+        add("limiet", 0, "Ruimte in de API-limiet", "info", "niet te meten zonder het token van de pagina")
+    else:
+        try:
+            st_t, hd, js = token_info(tok)
+        except Exception as e:
+            st_t, hd, js = None, {}, {}; add("token", 0, "Token van de pagina", "info", f"niet te controleren ({e})"); add("limiet", 0, "Ruimte in de API-limiet", "info", "niet te meten")
+        if st_t is not None:
+            if st_t != 200:
+                add("token", 0, "Token van de pagina", "fout", f"het token van de pagina werkt niet meer (HTTP {st_t}): wijzigingen kunnen niet worden opgeslagen"); add("limiet", 0, "Ruimte in de API-limiet", "info", "niet te meten: het token werkt niet")
+            else:
+                push = (js.get("permissions") or {}).get("push", True); verloopt = hd.get("github-authentication-token-expiration"); dagen = None
+                if verloopt:
+                    try: dagen = (dt.datetime.strptime(verloopt.strip(), "%Y-%m-%d %H:%M:%S UTC").replace(tzinfo=dt.timezone.utc) - nu()).days
+                    except ValueError: dagen = None
+                if not push: add("token", 0, "Token van de pagina", "fout", "het token mag niet schrijven: wijzigingen kunnen niet worden opgeslagen")
+                elif dagen is not None and dagen <= 7: add("token", 0, "Token van de pagina", "fout", f"het token verloopt over {max(dagen, 0)} dagen ({verloopt.strip()[:10]}): maak een nieuw token en zet het in de pagina")
+                elif dagen is not None and dagen <= 30: add("token", 0, "Token van de pagina", "let", f"het token verloopt over {dagen} dagen ({verloopt.strip()[:10]}): maak op tijd een nieuw token")
+                elif dagen is not None: add("token", 0, "Token van de pagina", "ok", f"het token werkt, mag schrijven en is geldig tot {verloopt.strip()[:10]}")
+                else: add("token", 0, "Token van de pagina", "info", "het token werkt en mag schrijven; er is geen vervaldatum bekend (een token zonder vervaldatum)")
+                try: rest, maxi = int(hd.get("x-ratelimit-remaining")), int(hd.get("x-ratelimit-limit"))
+                except (TypeError, ValueError): rest = maxi = None
+                if rest is None: add("limiet", 0, "Ruimte in de API-limiet", "info", "GitHub gaf de limiet niet door")
+                else: add("limiet", 0, "Ruimte in de API-limiet", "fout" if rest < 50 else "let" if rest < 300 else "ok", (f"nog maar {rest} van {maxi} verzoeken per uur over: bijna op" if rest < 300 else f"ruim voldoende (de limiet is {maxi} verzoeken per uur)"))
     # planning
     i = s.get("integriteit") or {}; stp = stempel_status(s)
-    add("stempel", 1, "Controlegetal", {"ok": "ok", "geen": "let", "fout": "fout"}[stp], {"ok": f"klopt (opslag {i.get('n')} door {i.get('door')})", "geen": "nog niet vastgelegd", "fout": f"klopt niet (opslag {i.get('n')} door {i.get('door')}): een Administrator moet dit beoordelen"}[stp])
+    n_s = i.get("n") or 0; bev_s = i.get("bev") or 0
+    try:
+        vs = lees("onderhoud.json"); vorig_s = json.loads(vs["tekst"]) if vs else {}
+    except Exception:
+        vorig_s = {}
+    eerder_n = vorig_s.get("stempel_n"); teruggezet = stp == "ok" and isinstance(eerder_n, int) and n_s < eerder_n and bev_s <= (vorig_s.get("stempel_bev") or 0)
+    if teruggezet: add("stempel", 1, "Controlegetal", "fout", f"het volgnummer ({n_s}) is lager dan eerder gezien ({eerder_n}): een oudere stand is teruggezet buiten de app om; een Administrator moet dit beoordelen en bevestigen")
+    else: add("stempel", 1, "Controlegetal", {"ok": "ok", "geen": "let", "fout": "fout"}[stp], {"ok": f"klopt (opslag {i.get('n')} door {i.get('door')})", "geen": "nog niet vastgelegd", "fout": f"klopt niet (opslag {i.get('n')} door {i.get('door')}): een Administrator moet dit beoordelen"}[stp])
     items = sorted(lijst("backups"), key=lambda x: x["name"])
     n = len(s["store"]); ks = sorted(s["store"]); nieuwste = None; grootste_b = 0
     for it in items[-5:]:
@@ -620,6 +702,11 @@ def controles(acties, problemen):
     add("halvedag", 1, "Halve dagen zijn aangevuld", "let" if half else "ok", ("nog niet aangevuld: " + ", ".join(f"{p} ({c})" for p, c in sorted(half.items())) + ". Zij krijgen de vraag zodra ze de pagina openen") if half else "alle halve dagen zijn aangevuld")
     oud = [wk for wk in s["store"] if WEEKSLEUTEL.match(wk) and (week_einde(wk) or dt.date.max) < grens()]
     add("oudeweken", 1, "Roosters ouder dan 2 maanden", "info" if oud else "ok", f"{len(oud)} {'week' if len(oud) == 1 else 'weken'} ouder dan 2 maanden; de server verwijdert ze in de volgende ronde" if oud else f"geen weken ouder dan 2 maanden (de oudste is {ks[0] if ks else '-'})")
+    locked = parse_locked(pagina)
+    if locked is None: add("verplicht", 1, "Verplichte vrije dagen staan op Vrij", "info", "de lijst met verplichte vrije dagen is niet te lezen uit de pagina")
+    else:
+        fout_v = sum(1 for wk in s["store"] for d in DAGEN if f"{wk}-{d}" in locked for p in team if p in s["store"][wk] and s["store"][wk][p].get(d) != ["vrij"]); dagen_v = sum(1 for wk in s["store"] for d in DAGEN if f"{wk}-{d}" in locked)
+        add("verplicht", 1, "Verplichte vrije dagen staan op Vrij", "let" if fout_v else "ok", f"{fout_v} {'cel' if fout_v == 1 else 'cellen'} op een verplichte vrije dag {'staat' if fout_v == 1 else 'staan'} niet op Vrij (de server zet ze in de volgende ronde recht)" if fout_v else (f"{dagen_v} verplichte vrije dagen in de planning, voor iedereen Vrij" if dagen_v else "geen verplichte vrije dagen in de geladen weken"))
     kb = round(len(f["tekst"].encode("utf-8")) / 1024)
     add("grootte", 1, "Grootte van de planning", "fout" if kb > 900 else "let" if kb > 700 else "ok", f"{kb} KB van maximaal 1000 KB" + (": GitHub levert bestanden boven 1000 KB niet meer uit" if kb > 900 else ": de planning wordt te groot" if kb > 700 else ""))
     # team, accounts en rechten
@@ -655,6 +742,15 @@ def controles(acties, problemen):
             else: add("instellingen", 2, "Instellingen (boodschap en talen)", "ok", "leesbaar en alleen voor het team")
     except Exception as e:
         add("instellingen", 2, "Instellingen (boodschap en talen)", "fout", f"settings.json niet leesbaar ({e})")
+    vj = parse_verjaardagen(pagina)
+    if vj is None: add("verjaardagen", 2, "Verjaardag bekend voor iedereen", "info", "de verjaardagen zijn niet te lezen uit de pagina")
+    else:
+        def md_ok(v):
+            try: dt.date(2024, int(v[:2]), int(v[3:])); return True   # 2024 is een schrikkeljaar: 29 februari mag
+            except ValueError: return False
+        ontbr = [p for p in team if p not in vj]; ongl = [p for p in team if p in vj and not md_ok(vj[p])]
+        if ontbr or ongl: add("verjaardagen", 2, "Verjaardag bekend voor iedereen", "let", "; ".join(x for x in ((("geen verjaardag bekend voor " + ", ".join(ontbr)) if ontbr else ""), (("ongeldige verjaardag voor " + ", ".join(ongl)) if ongl else "")) if x))
+        else: add("verjaardagen", 2, "Verjaardag bekend voor iedereen", "ok", f"alle {len(team)} teamleden")
     # backups en logboek
     add("serveronderhoud", 3, "Serveronderhoud (taak op GitHub)", "fout" if problemen else "ok", ("de laatste ronde meldde een probleem: " + "; ".join(problemen)[:300]) if problemen else ("de server draait" + (f"; deze ronde: {len(acties)} {'actie' if len(acties) == 1 else 'acties'}" if acties else "; niets te doen")))
     if not items: add("backups", 3, "Backups aanwezig", "fout", "er zijn geen backups")
