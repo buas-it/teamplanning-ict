@@ -1,8 +1,10 @@
 {
  "v": 1,
- "t": "2026-11-05T17:45:29.000Z",
+ "t": "2026-11-05T18:19:37.000Z",
  "droog": false,
- "acties": [],
+ "acties": [
+  "6 backups ouder dan 14 dagen verwijderd (2026-10-21 t/m 2026-10-21)"
+ ],
  "problemen": [],
  "meldingen": [],
  "checks": [
@@ -18,7 +20,7 @@
    "groep": 0,
    "naam": "Uitrol van de pagina (GitHub Pages)",
    "s": "ok",
-   "t": "de site toont dezelfde versie als main (versie 4 nov 2026 · 146)"
+   "t": "de site toont dezelfde versie als main (versie 5 nov 2026 · 147)"
   },
   {
    "id": "stempel",
@@ -123,14 +125,14 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; niets te doen"
+   "t": "de server draait; deze ronde: 1 actie"
   },
   {
    "id": "backups",
    "groep": 3,
    "naam": "Backups aanwezig",
    "s": "ok",
-   "t": "37 backups, de nieuwste van 2026-11-05 08:30"
+   "t": "31 backups, de nieuwste van 2026-11-05 08:30"
   },
   {
    "id": "backup_actueel",
@@ -145,6 +147,20 @@
    "naam": "Nieuwste backups zijn in orde",
    "s": "ok",
    "t": "de 3 nieuwste backups zijn leesbaar en volledig"
+  },
+  {
+   "id": "backups_termijn",
+   "groep": 3,
+   "naam": "Backups binnen de bewaartermijn (14 dagen)",
+   "s": "ok",
+   "t": "geen backups ouder dan 14 dagen"
+  },
+  {
+   "id": "logboek_termijn",
+   "groep": 3,
+   "naam": "Logboek binnen de bewaartermijn (31 dagen)",
+   "s": "ok",
+   "t": "geen dagbestanden ouder dan 31 dagen"
   },
   {
    "id": "logboek",
