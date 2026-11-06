@@ -231,7 +231,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 6 nov 2026 · 152</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 6 nov 2026 · 153</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -1088,43 +1088,24 @@ function auditDecode(b64){
 
 // Na elke geslaagde opslag: wat is er veranderd, door wie, vanaf welke machine
 
-// Regels toevoegen aan audit/<dag>.jsonl (lezen, toevoegen, schrijven; bij conflict opnieuw)
-async function auditAppend(day, entries){
-  const url = `https://api.github.com/repos/${GH_REPO}/contents/audit/${day}.jsonl`;
-  const hdr = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
-  for(let attempt=0; attempt<4; attempt++){
-    let sha, text = "";
-    const g = await fetch(url + `?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers: hdr});
-    if(g.status === 200){ const d = await g.json(); sha = d.sha; text = auditDecode(d.content); }
-    else if(g.status !== 404){ return false; }
-    const have = new Set();
-    text.split("\n").forEach(l=>{ if(!l.trim()) return; try{ have.add(JSON.parse(l).eid); }catch(e){} });
-    let add = entries.filter(e=>!have.has(e.eid));
-    // iemand zonder naam kan het logboek niet vullen: hooguit 3 regels 'niet ingelogd' per 10 minuten in het hele logboek (de rest wordt weggelaten)
-    const bestaand = text.split("\n").filter(Boolean).map(l=>{ try{ return JSON.parse(l); }catch(e){ return null; } }).filter(e=>e && e.anon && Date.now() - Date.parse(e.t) < 10 * 60 * 1000);
-    let ruimte = 3 - bestaand.filter(e=>!e.blok).length, ruimteBlok = 3 - bestaand.filter(e=>e.blok).length;   // een blokkade van een apparaat heeft een eigen, even kleine ruimte: die gaat niet verloren als de gewone regels 'niet ingelogd' de ruimte al hebben ingenomen
-    add = add.filter(e=>{ if(!e.anon) return true; if(e.blok){ if(ruimteBlok > 0){ ruimteBlok--; return true; } return false; } if(ruimte > 0){ ruimte--; return true; } return false; });
-    if(!add.length) return true;
-    const newText = text + (text && !text.endsWith("\n") ? "\n" : "") + add.map(e=>JSON.stringify(e)).join("\n") + "\n";
-    const body = {message: commitMessage("Audit " + day), content: encodeBase64(newText), branch: GH_BRANCH};
-    if(sha) body.sha = sha;
-    const p = await ghWriteFetch(url, {method:"PUT", headers:{...hdr, "Content-Type":"application/json"}, body: JSON.stringify(body)});
-    if(p.ok) return true;
-    if(p.status === 409 || p.status === 422) continue;   // iemand was ons voor: opnieuw lezen en nogmaals proberen
-    return false;
-  }
-  return false;
-}
 
+// Bezoeken en inloggen: de pagina schrijft het logboek niet meer zelf maar meldt ze aan GitHub (repository_dispatch, type 'logboek').
+// Een taak op GitHub (logboek.yml) schrijft ze met de tijd van GitHub in audit/<dag>.jsonl en past de beperking voor regels zonder naam toe.
+// De melding blijft in de wachtrij van dit apparaat staan tot GitHub 'ontvangen' (204) zegt; de regel-id voorkomt dubbelen.
+async function auditSend(entries){
+  try{
+    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/dispatches`, {method: "POST", headers: {"Authorization": `Bearer ${GH_TOKEN}`, "Accept": "application/vnd.github+json", "Content-Type": "application/json"}, body: JSON.stringify({event_type: "logboek", client_payload: {events: entries}})});
+    return r.status === 204;
+  }catch(e){ return false; }
+}
 async function auditFlush(){
   if(auditFlushing || !auditQueue.length){ updateAuditDot(); return; }
   auditFlushing = true; updateAuditDot();
   try{
     let guard = 0;
     while(auditQueue.length && guard++ < 10){
-      const day = auditQueue[0].t.slice(0,10);
-      const batch = auditQueue.filter(e=>e.t.slice(0,10) === day);
-      const ok = await auditAppend(day, batch);
+      const batch = auditQueue.slice(0, 20);
+      const ok = await auditSend(batch);
       auditLastOk = ok;
       if(!ok) break;
       const done = new Set(batch.map(e=>e.eid));
