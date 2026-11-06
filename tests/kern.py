@@ -11,14 +11,17 @@ PAGE = "https://buas-it.github.io/teamplanning-ict/"; API = re.compile(r"^https:
 TEAM = ["Wim", "Wouter", "Annies", "Bas", "Bram", "Marco", "Hans", "Sercan", "Ted", "Sam"]; DG = ["MA", "DI", "WO", "DO", "VR"]
 CORS = {"access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET,PUT,POST,DELETE,PATCH,HEAD,OPTIONS"}
 class Repo:
-    def __init__(self): self.f = {}; self.puts = []; self.hook = None; self.tamper = None; self.na_put = False; self.msgs = []; self.dispatches = []; self.dispatch_status = 204
+    def __init__(self): self.f = {}; self.puts = []; self.hook = None; self.tamper = None; self.na_put = False; self.msgs = []; self.dispatches = []; self.dispatch_status = 204; self.klok_extra = 0; self.klok_stuk = False; self.klok_fake = None; self.klok_real0 = 0
     def sha(self, p): return hashlib.sha1(self.f[p].encode()).hexdigest()
 def handler_voor(R):
     def h(route, request):
         u, m = request.url, request.method
         if m == "OPTIONS": return route.fulfill(status=204, headers=CORS, body="")
         if u.rstrip("/") == PAGE.rstrip("/"): return route.fulfill(status=200, content_type="text/html", body=HTML)
-        if u.startswith(PAGE + "index.html?klok="): return route.fulfill(status=200, headers={"Date": __import__("email.utils").utils.formatdate(time.time(), usegmt=True)}, body="")
+        if u.startswith(PAGE + "index.html?klok="):   # de servertijd van GitHub Pages: gelijk aan de nagebootste klok van het apparaat plus R.klok_extra seconden
+            if R.klok_stuk: return route.fulfill(status=404, body="")
+            nu_s = (R.klok_fake + (time.time() - R.klok_real0) if R.klok_fake is not None else time.time()) + R.klok_extra
+            return route.fulfill(status=200, headers={"Date": __import__("email.utils").utils.formatdate(int(nu_s), usegmt=True)}, body="")
         if u == "https://api.github.com/repos/buas-it/teamplanning-ict/dispatches" and m == "POST":   # een melding aan de server (logboek)
             if R.dispatch_status == 204: R.dispatches.append(request.post_data_json)
             return route.fulfill(status=R.dispatch_status, headers=CORS, content_type="application/json", body="" if R.dispatch_status == 204 else "{}")
@@ -55,9 +58,11 @@ def planning(weken=("2026-W43", "2026-W44"), n=4, extra=None, stempel=True):
     return s
 def nieuw(s):
     R = Repo(); R.f["state.json"] = json.dumps(s); R.f["users.json"] = json.dumps({"v": 1, "users": {}}); R.f["groups.json"] = json.dumps({"v": 1, "administrators": ["Hans", "Monitor"]}); return R
-def open_pagina(pw, R):
-    b = pw.chromium.launch(); ctx = b.new_context(viewport={"width": 1200, "height": 1300}, timezone_id="UTC"); ctx.route("**/*", handler_voor(R)); p = ctx.new_page(); fouten = []; p.on("pageerror", lambda e: fouten.append(str(e)[:140]))
-    p.clock.install(time=dt.datetime(2026, 10, 19, 9, 30, tzinfo=dt.timezone.utc)); p.goto(PAGE); p.wait_for_timeout(4500); return b, p, fouten
+def open_pagina(pw, R, klok_extra=None, breedte=1200, klok_stuk=False):
+    if klok_extra is not None: R.klok_extra = klok_extra
+    R.klok_stuk = klok_stuk
+    b = pw.chromium.launch(); ctx = b.new_context(viewport={"width": breedte, "height": 1300}, timezone_id="UTC"); ctx.route("**/*", handler_voor(R)); p = ctx.new_page(); fouten = []; p.on("pageerror", lambda e: fouten.append(str(e)[:140]))
+    p.clock.install(time=dt.datetime(2026, 10, 19, 9, 30, tzinfo=dt.timezone.utc)); R.klok_fake = dt.datetime(2026, 10, 19, 9, 30, tzinfo=dt.timezone.utc).timestamp(); R.klok_real0 = time.time(); p.goto(PAGE); p.wait_for_timeout(4500); return b, p, fouten
 def staat(R): return json.loads(R.f["state.json"])
 BANNER = "(id) => !!document.getElementById(id)"
 EDIT = "async (a) => { const [wk, p, d, v] = a; store[wk][p][d] = v; (manuallyEdited[wk] || (manuallyEdited[wk] = new Set())).add(p + '-' + d); await saveToGitHub({}); }"
@@ -161,6 +166,17 @@ with sync_playwright() as pw:
     p.evaluate("for(let i = 0; i < 45; i++) auditQueue.push({ v: 1, eid: 'batch-' + String(i).padStart(3, '0') + '-xxxx', t: new Date().toISOString(), user: 'Hans', ws: '', device: '', id: '', wsinfo: '', action: 'site geopend', n: 0, trunc: false, changes: [] }); auditFlush()"); p.wait_for_timeout(2500)
     groottes = [len(d_["client_payload"]["events"]) for d_ in R.dispatches[-3:]]
     check("K21 een lange wachtrij gaat in aanvragen van hooguit 20 regels, in volgorde: 45 regels worden 20, 20 en 5", groottes == [20, 20, 5] and p.evaluate("auditQueue.length") == 0 and not fouten, json.dumps([groottes, p.evaluate("auditQueue.length"), fouten[:1]])); b.close()
+with sync_playwright() as pw:
+    # K22 de tijd van de server linksboven, in Nederlandse tijd
+    JS_KLOK = "(() => { const c = document.getElementById('srv-clock'), b = document.getElementById('who-btn'), h = document.querySelector('.header h1'), r = c.getBoundingClientRect(), br = b.getBoundingClientRect(); return { t: c.textContent, fs: getComputedStyle(c).fontSize, bfs: getComputedStyle(b).fontSize, kl: getComputedStyle(c).color, hk: getComputedStyle(h).color, l: r.left, tp: r.top, cy: r.top + r.height / 2, by: br.top + br.height / 2, title: c.title, op: c.style.opacity }; })()"
+    INLOG = "document.documentElement.classList.remove('tp-gated'); currentIdentity = makeIdentity('Hans', 'MacBook', ''); showLockIndicator();"
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_extra=3600); p.evaluate(INLOG); p.wait_for_timeout(600); i1 = p.evaluate(JS_KLOK); p.wait_for_timeout(2300); t2 = p.evaluate("document.getElementById('srv-clock').textContent")
+    check("K22 linksboven staat een klok die doorloopt: in dezelfde lettergrootte als 'Ingelogd als' (12 px), in dezelfde kleur als de titel (wit), linksboven in beeld, en hij verspringt elke seconde", re.match(r"^\d\d:\d\d:\d\d$", i1["t"]) and i1["fs"] == i1["bfs"] == "12px" and i1["kl"] == i1["hk"] and i1["l"] < 40 and i1["tp"] < 40 and t2 != i1["t"], json.dumps([i1, t2])[:400])
+    check("K22b de klok toont de tijd van de SERVER in Nederlandse tijd: loopt de server 1 uur voor op het apparaat (apparaat 09:30 UTC, server 10:30 UTC) dan staat er 12:3x (zomertijd, UTC+2) en niet de tijd van het apparaat; de uitleg (bij het aanwijzen) noemt de bron, de nauwkeurigheid, het verschil met het apparaat en de datum", i1["t"].startswith("12:3") and "Tijd van de server (GitHub)" in i1["title"] and "ongeveer 1 s nauwkeurig" in i1["title"] and "Dit apparaat loopt 1 u achter" in i1["title"] and "maandag 19 oktober 2026" in i1["title"] and i1["op"] == "", json.dumps(i1)[:400]); b.close()
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_stuk=True); p.evaluate(INLOG); p.wait_for_timeout(600); i3 = p.evaluate(JS_KLOK)
+    check("K22c kan de tijd van de server niet worden gemeten, dan toont de klok de tijd van het apparaat (in Nederlandse tijd), gedempt, met de uitleg dat de servertijd niet beschikbaar is", i3["t"].startswith("11:3") and i3["op"] == "0.45" and "niet beschikbaar" in i3["title"], json.dumps(i3)[:300]); b.close()
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_extra=0, breedte=390); p.evaluate(INLOG); p.wait_for_timeout(600); i4 = p.evaluate(JS_KLOK)
+    check("K22d op een smal scherm (telefoon) staat de klok links op dezelfde hoogte als 'Ingelogd als' (hooguit 3 pixels verschil in het midden) en blijft links in beeld", abs(i4["cy"] - i4["by"]) <= 3 and i4["l"] < 40 and i4["fs"] == "12px" and not fouten, json.dumps([i4, fouten[:1]])[:300]); b.close()
 # K12 statische controle op slapende code en op controles die naar de server zijn verhuisd
 weg = ["TP_SERVER_ONDERHOUD", "serverModus", "LOKALE_HERSTEL", "SERVER_HERSTELT", "checkSchrijvenMag", "ckMaakBackup", "ckStatusOpschonen", "ckManueelOpschonen", "ckVreemdOpschonen", "ckVerwijderBackups", "ckWachtOpHerstel", "ckWachtOpstaan", "ckOudeWekenVerwijderen", "opts.prune", "opts.opschonen", "auditAppend", "ckBackupLees", "ckManueelTelling", "function ckOudeWeken(", "ckLeesTekst", "auditDiff", "auditAfterSave", "auditRebase", "auditWho", "auditBase", "healRemoved", "auditCleanup", "retryPendingBackup", "Verwijder oude backup", "Backup na bewerken", "Verwijder backups ouder dan 14 dagen"] + [f'{{ id: "{x}"' for x in ("accounts", "backups", "backup_geldig", "backup_actueel", "groups", "weken", "oudeweken", "statussen", "manueel", "vreemd", "namen", "team", "halvedag", "grootte", "logboek", "instellingen", "wachtwoorden", "remote", "uitrol", "rechten", "limiet", "stempel", "verplicht", "verjaardagen", "online", "github", "sync", "geladen")] + ["chkNet"]
 aanwezig = {w: HTML.count(w) for w in weg if HTML.count(w)}
