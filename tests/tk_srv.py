@@ -389,4 +389,39 @@ check("SV83 staat de klok van het apparaat dat de planning opsloeg ver voor (het
 nieuw(planning(36, 52)); sj_ = laat_planning_wijzigen(0); sj_["integriteit"]["t"] = "2026-11-04T05:00:00.000Z"; REPO.opslag(sj_, "Update planning \u2014 Hans@dev1 (MacBook)", "2026-11-04T07:58:00Z"); REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A; REPO.get_hook = ("state.json", 2, lambda: REPO.f.__setitem__("state.json", json.dumps(laat_planning_wijzigen(0)))); n0 = len(nieuwe_backups()); rc, u = draai()
 check("SV84 staat de klok van het apparaat juist ver achter (het controlegetal zegt 05:00, de opslag was volgens GitHub 2 minuten geleden), dan wacht de server toch tot er 5 minuten niets is gewijzigd en maakt dan geen backup als er intussen weer iets is gewijzigd", len(nieuwe_backups()) == n0 and any("tijdens het wachten gewijzigd" in m for m in u["meldingen"]), json.dumps([u["meldingen"], len(nieuwe_backups()) - n0]))
 
+
+# ── SV90-99: bezoeken en inloggen: de pagina meldt ze, de server schrijft ze met de tijd van GitHub (logboek.py) ──────────
+import tempfile
+LOGBOEK = os.path.join(HIER, "logboek.py")
+def draai_logboek(events, nu="2026-11-04T08:00:00Z", extra_env=None, ruw=None):
+    pad = tempfile.mktemp(suffix=".json"); open(pad, "w", encoding="utf-8").write(json.dumps(ruw if ruw is not None else {"action": "logboek", "client_payload": {"events": events}}))
+    env = dict(os.environ, GITHUB_API_URL=f"http://127.0.0.1:{PORT}", GITHUB_REPOSITORY="o/r", GITHUB_TOKEN="t", ONDERHOUD_NU=nu, GITHUB_EVENT_PATH=pad); env.pop("ONDERHOUD_ALLEEN_LEZEN", None)
+    if extra_env: env.update(extra_env)
+    p = subprocess.run([sys.executable, LOGBOEK], env=env, capture_output=True, text=True, timeout=120); os.remove(pad); return p.returncode, p.stdout + p.stderr
+def ev(eid="abc123def456", actie="ingelogd", t="2026-11-04T07:59:30.000Z", **kw):
+    d = {"v": 1, "eid": eid, "t": t, "user": "Hans", "ws": "MacBook", "device": "dev1", "id": "Hans@dev1", "wsinfo": "macOS \u00b7 Chrome", "action": actie, "n": 0, "trunc": False, "changes": []}; d.update(kw); return d
+def dsp_regels(): return [r for r in audit_regels() if r.get("bron") == "dispatch"]
+basis(); rc, uit = draai_logboek([ev()]); r = dsp_regels()
+check("SV90 een bezoek of inlog dat de pagina meldt, schrijft de server in het logboek met alle velden die de pagina gebruikte (gebruiker, werkplek, apparaat, id, browser, soort) en met de TIJD VAN GITHUB; een tijdstip van het apparaat dat binnen 2 minuten klopt wordt niet apart bewaard", rc == 0 and len(r) == 1 and r[0]["user"] == "Hans" and r[0]["ws"] == "MacBook" and r[0]["device"] == "dev1" and r[0]["id"] == "Hans@dev1" and r[0]["wsinfo"] == "macOS \u00b7 Chrome" and r[0]["action"] == "ingelogd" and r[0]["t"] == "2026-11-04T08:00:00.000Z" and "t_apparaat" not in r[0] and r[0]["eid"] == "abc123def456" and r[0]["n"] == 0 and r[0]["changes"] == [], json.dumps([rc, r, uit])[:500])
+basis(); rc, uit = draai_logboek([ev(t="2026-11-04T07:52:00.000Z")]); r = dsp_regels()
+check("SV90b gaf het apparaat een tijd die meer dan 2 minuten afwijkt (een melding die lang in de wachtrij stond, of een klok die niet klopt), dan blijft de tijd van GitHub de tijd van de regel en bewaart de server het tijdstip van het apparaat apart", len(r) == 1 and r[0]["t"] == "2026-11-04T08:00:00.000Z" and r[0]["t_apparaat"] == "2026-11-04T07:52:00.000Z", json.dumps(r)[:300])
+basis(); draai_logboek([ev(), ev()]); draai_logboek([ev()], nu="2026-11-04T08:05:00Z")
+check("SV91 dezelfde melding twee keer (dubbel in een aanvraag, of opnieuw verstuurd omdat het antwoord niet aankwam) geeft een regel", len(dsp_regels()) == 1, str(len(dsp_regels())))
+basis(); rc, uit = draai_logboek([ev(eid="ok-eid-0001", user="H" * 200, wsinfo="x" * 500, n=99, trunc=True, changes=[{"s": "cel"}], bron="server", buiten_app=True, extra="nee"), ev(eid="kapot eid!", actie="site geopend"), ev(eid="geen-actie-01", actie=""), "geen object", {"action": 5}]); r = dsp_regels()
+check("SV92 de server neemt alleen bekende velden over en kapt lengtes af: een aantal of wijzigingen van de pagina worden genegeerd (n=0, geen wijzigingen: die komen uit de opslagen), 'bron' en 'buiten_app' kan de pagina niet zelf zetten, een ongeldige regel-id wordt vervangen, meldingen zonder soort of geen object worden overgeslagen", len(r) == 2 and all(x["n"] == 0 and x["changes"] == [] and x["bron"] == "dispatch" and "buiten_app" not in x and "extra" not in x for x in r) and len(r[0]["user"]) == 60 and len(r[0]["wsinfo"]) == 160 and r[1]["eid"].startswith("dsp-") and r[1]["action"] == "site geopend", json.dumps([[(x["eid"], len(x["user"])) for x in r], uit])[:300])
+basis(); rc, uit = draai_logboek(None, ruw={"action": "logboek", "client_payload": {"events": "geen lijst"}}); rc2, uit2 = draai_logboek(None, ruw={"action": "logboek"})
+check("SV92b een kapotte of lege aanvraag schrijft niets en laat de taak niet rood worden", rc == 0 and rc2 == 0 and not dsp_regels(), json.dumps([rc, rc2, uit, uit2])[:200])
+basis(); draai_logboek([ev(eid=f"anon-{i:03d}-aaaa", user="(niet ingelogd)", actie="poort geopend", anon=True) for i in range(5)]); n1 = len(dsp_regels()); draai_logboek([ev(eid="anon-late-1111", user="(niet ingelogd)", actie="poort geopend", anon=True)], nu="2026-11-04T08:05:00Z"); n2 = len(dsp_regels())
+draai_logboek([ev(eid="anon-na-10-min", user="(niet ingelogd)", actie="poort geopend", anon=True)], nu="2026-11-04T08:11:00Z"); n3 = len(dsp_regels())
+draai_logboek([ev(eid=f"blok-{i:03d}-aaaa", user="(niet ingelogd)", actie="geblokkeerd", anon=True, blok=True) for i in range(5)], nu="2026-11-04T08:11:30Z"); n4 = len(dsp_regels())
+check("SV93 iemand zonder naam kan het logboek niet vullen: hooguit 3 regels 'niet ingelogd' per 10 minuten (de rest wordt weggelaten, ook in een volgende aanvraag), na 10 minuten kan er weer een bij; een blokkade van een apparaat heeft een eigen ruimte van 3", n1 == 3 and n2 == 3 and n3 == 4 and n4 == 7, json.dumps([n1, n2, n3, n4]))
+basis(); draai_logboek([ev(eid=f"gewoon-{i:03d}-bb", actie="site geopend") for i in range(30)]); n_ = len(dsp_regels())
+check("SV94 bij heel veel meldingen in een aanvraag worden er hooguit 25 verwerkt", n_ == 25, str(n_))
+basis(); REPO.stuk = {"audit/"}; rc, uit = draai_logboek([ev()])
+check("SV95 lukt het schrijven niet (een fout van GitHub), dan wordt de taak rood, zodat de melding niet stil verdwijnt (de pagina houdt de regel in de wachtrij en stuurt hem opnieuw als de aanvraag niet aankwam)", rc == 1, json.dumps([rc, uit[-200:]]))
+REPO.stuk = set(); basis(); rc, uit = draai_logboek([ev()], extra_env={"ONDERHOUD_ALLEEN_LEZEN": "1"})
+check("SV96 in de alleen-lezen-stand schrijft ook deze taak niets", rc == 0 and not dsp_regels(), json.dumps([rc, uit]))
+basis(); draai_logboek([ev(eid="vroeg-000001", t="2026-11-03T23:59:00.000Z", actie="ingelogd")], nu="2026-11-04T00:00:30Z"); r = dsp_regels()
+check("SV97 de regel gaat in het dagbestand van de dag volgens GitHub (UTC), niet van de dag die het apparaat meldt", len(r) == 1 and "audit/2026-11-04.jsonl" in REPO.f and r[0]["t"].startswith("2026-11-04"), json.dumps([r, [k for k in REPO.f if k.startswith("audit/")]]))
+
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")
