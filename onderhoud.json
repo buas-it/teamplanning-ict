@@ -1,8 +1,10 @@
 {
  "v": 1,
- "t": "2026-11-05T21:38:27.000Z",
+ "t": "2026-11-06T00:14:19.000Z",
  "droog": false,
- "acties": [],
+ "acties": [
+  "4 backups ouder dan 14 dagen verwijderd (2026-10-22 t/m 2026-10-22)"
+ ],
  "problemen": [],
  "meldingen": [],
  "checks": [
@@ -18,7 +20,7 @@
    "groep": 0,
    "naam": "Uitrol van de pagina (GitHub Pages)",
    "s": "ok",
-   "t": "de site toont dezelfde versie als main (versie 5 nov 2026 · 149)"
+   "t": "de site toont dezelfde versie als main (versie 5 nov 2026 · 150)"
   },
   {
    "id": "token",
@@ -151,14 +153,14 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; niets te doen"
+   "t": "de server draait; deze ronde: 1 actie"
   },
   {
    "id": "backups",
    "groep": 3,
    "naam": "Backups aanwezig",
    "s": "ok",
-   "t": "31 backups, de nieuwste van 2026-11-05 08:30"
+   "t": "27 backups, de nieuwste van 2026-11-05 08:30"
   },
   {
    "id": "backup_actueel",
@@ -207,7 +209,7 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "18 regels, allemaal leesbaar"
+   "t": "nog geen regels vandaag"
   }
  ],
  "weken": 58,
