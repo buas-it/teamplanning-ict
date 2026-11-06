@@ -140,6 +140,23 @@ def token_info(token):
         return e.code, {k.lower(): v for k, v in e.headers.items()}, {}
 
 
+_LAATSTE = {}
+def laatste_opslag_tijd(s=None):
+    """Wanneer is de planning voor het laatst opgeslagen, volgens GitHub (de tijd van de commit). Alleen als dat niet te lezen is gebruiken we het tijdstip dat de pagina in het controlegetal zette."""
+    if "t" in _LAATSTE: return _LAATSTE["t"]
+    t = None
+    try:
+        st_, j = call("GET", f"commits?sha={BRANCH}&path=state.json&per_page=1")
+        if st_ == 200 and isinstance(j, list) and j: t = dt.datetime.fromisoformat(j[0]["commit"]["committer"]["date"].replace("Z", "+00:00"))
+    except Exception:
+        t = None
+    if t is None and s:
+        try: t = dt.datetime.fromisoformat(s["integriteit"]["t"].replace("Z", "+00:00"))
+        except Exception: t = None
+    _LAATSTE["t"] = t
+    return t
+
+
 def lijst(pad):
     s, j = call("GET", f"contents/{pad}?ref={BRANCH}&t={int(time.time() * 1000)}")
     return j if s == 200 and isinstance(j, list) else []
@@ -588,11 +605,7 @@ def ronde():
                 achter = not b or planning_hash(json.loads(b["tekst"])) != planning_hash(s)
             except Exception:
                 achter = True
-        t_stempel = None
-        try:
-            t_stempel = dt.datetime.fromisoformat(s["integriteit"]["t"].replace("Z", "+00:00"))
-        except Exception:
-            t_stempel = None
+        t_stempel = laatste_opslag_tijd(s)   # de tijd van GitHub bij de laatste opslag: de klok van een apparaat telt niet mee
         wacht_af = False
         if achter and t_stempel is not None and (nu() - t_stempel).total_seconds() < ACHTERSTAND_MIN * 60:
             rest = ACHTERSTAND_MIN * 60 - (nu() - t_stempel).total_seconds() + 3   # wachten tot er 5 minuten niets is gewijzigd (de Action mag 10 minuten duren)
@@ -855,8 +868,7 @@ def controles(acties, problemen):
         if not nieuwste: add("backup_actueel", 3, "Laatste backup bevat de laatste opslag", "let", "de nieuwste backup is niet leesbaar")
         elif planning_hash(nieuwste) == planning_hash(s): add("backup_actueel", 3, "Laatste backup bevat de laatste opslag", "ok", "gelijk aan de huidige planning")
         else:
-            try: ts = dt.datetime.fromisoformat(i["t"].replace("Z", "+00:00"))
-            except Exception: ts = None
+            _LAATSTE.clear(); ts = laatste_opslag_tijd(s)
             if ts and (nu() - ts).total_seconds() < ACHTERSTAND_MIN * 60: add("backup_actueel", 3, "Laatste backup bevat de laatste opslag", "ok", "loopt iets achter op de laatste opslag (normaal: de server maakt een backup zodra er 5 minuten niets is gewijzigd)")
             else: add("backup_actueel", 3, "Laatste backup bevat de laatste opslag", "let", "de planning is gewijzigd sinds de nieuwste backup")
         slecht_b = []
