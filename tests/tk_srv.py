@@ -240,7 +240,7 @@ check("SV45 zijn er helemaal geen backups, dan is dat een fout; zijn het er meer
 basis()
 for i in range(1, 85): REPO.f[f"backups/2026-09-{(i % 28) + 1:02d}_{i // 28:02d}-00.json"] = json.dumps(planning(36, 52))
 rc, u = draai(droog=True); check("SV46 meer dan 80 backups is een aandachtspunt", checks()["backups"]["s"] == "let" and "veel" in checks()["backups"]["t"], json.dumps(checks()["backups"]))
-basis(planning(36, 52, t="2026-11-04T05:00:00.000Z")); REPO.f["backups/2026-10-28_09-00.json"] = json.dumps(planning(36, 52, extra=lambda s: s["store"]["2026-W40"]["Wim"]["MA"].__setitem__(0, "vrij"))); rc, u = draai(droog=True)
+basis(planning(36, 52, t="2026-11-04T05:00:00.000Z")); REPO.opslag(json.loads(REPO.f["state.json"]), "Update planning \u2014 Hans@dev1 (MacBook)", "2026-11-04T05:00:00Z"); REPO.f["backups/2026-10-28_09-00.json"] = json.dumps(planning(36, 52, extra=lambda s: s["store"]["2026-W40"]["Wim"]["MA"].__setitem__(0, "vrij"))); rc, u = draai(droog=True)
 check("SV47 verschilt de nieuwste backup van de planning en is de laatste opslag al ruim een half uur oud, dan is dat een aandachtspunt in 'Laatste backup bevat de laatste opslag' (in een droogloop maakt de server geen backup bij)", checks()["backup_actueel"]["s"] == "let", json.dumps(checks()["backup_actueel"]))
 for inhoud, verwacht, zoek in ((None, "ok", "nog geen regels"), ('{"a":1}\n{"b":2}\n', "ok", "allemaal leesbaar"), ('{"a":1}\n{kapot\n{"b":2}\n', "let", "1 van de 3")):
     basis()
@@ -281,11 +281,11 @@ def laat_planning_wijzigen(minuten_geleden):
     s = planning(36, 52, t=(dt.datetime(2026, 11, 4, 8, 0, tzinfo=dt.timezone.utc) - dt.timedelta(minutes=minuten_geleden)).strftime("%Y-%m-%dT%H:%M:%S.000Z")); s["store"]["2026-W40"]["Wim"]["MA"] = ["vrij"]; s["manuallyEdited"]["2026-W40"] = ["Wim-MA"]
     OND.stempel(s, {"integriteit": {"n": 4, "bev": 0}}); s["integriteit"]["t"] = (dt.datetime(2026, 11, 4, 8, 0, tzinfo=dt.timezone.utc) - dt.timedelta(minutes=minuten_geleden)).strftime("%Y-%m-%dT%H:%M:%S.000Z"); return s
 import datetime as dt
-nieuw(planning(36, 52)); REPO.f["state.json"] = json.dumps(laat_planning_wijzigen(10)); REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A; n0 = len(nieuwe_backups()); rc, u = draai()
+nieuw(planning(36, 52)); REPO.opslag(laat_planning_wijzigen(10), "Update planning \u2014 Hans@dev1 (MacBook)", "2026-11-04T07:50:00Z"); REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A; n0 = len(nieuwe_backups()); rc, u = draai()
 check("SV56 is de planning 10 minuten geleden voor het laatst gewijzigd en verschilt de nieuwste backup ervan, dan maakt de server een backup bij (de pagina doet dat niet meer)", len(nieuwe_backups()) == n0 + 1 and any("backup bijgemaakt" in a for a in u["acties"]), json.dumps([u["acties"], len(nieuwe_backups())]))
-nieuw(planning(36, 52)); REPO.f["state.json"] = json.dumps(laat_planning_wijzigen(2)); REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A; REPO.get_hook = ("state.json", 2, lambda: REPO.f.__setitem__("state.json", json.dumps(laat_planning_wijzigen(0)))); n0 = len(nieuwe_backups()); rc, u = draai()
+nieuw(planning(36, 52)); REPO.opslag(laat_planning_wijzigen(2), "Update planning \u2014 Hans@dev1 (MacBook)", "2026-11-04T07:58:00Z"); REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A; REPO.get_hook = ("state.json", 2, lambda: REPO.f.__setitem__("state.json", json.dumps(laat_planning_wijzigen(0)))); n0 = len(nieuwe_backups()); rc, u = draai()
 check("SV57 is de planning pas 2 minuten geleden gewijzigd, dan wacht de server tot er 5 minuten niets is gewijzigd; wordt de planning tijdens dat wachten opnieuw gewijzigd, dan maakt hij geen backup bij maar meldt dat de volgende ronde dat doet", len(nieuwe_backups()) == n0 and any("tijdens het wachten gewijzigd" in m for m in u["meldingen"]), json.dumps([u["meldingen"], len(nieuwe_backups()) - n0]))
-nieuw(planning(36, 52)); REPO.f["state.json"] = json.dumps(laat_planning_wijzigen(2)); REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A; n0 = len(nieuwe_backups()); rc, u = draai()
+nieuw(planning(36, 52)); REPO.opslag(laat_planning_wijzigen(2), "Update planning \u2014 Hans@dev1 (MacBook)", "2026-11-04T07:58:00Z"); REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A; n0 = len(nieuwe_backups()); rc, u = draai()
 check("SV58 is de planning 2 minuten geleden gewijzigd en blijft het daarna stil, dan wacht de server en maakt dan een backup bij", len(nieuwe_backups()) == n0 + 1 and any("backup bijgemaakt" in a for a in u["acties"]), json.dumps([u["acties"], len(nieuwe_backups()) - n0]))
 
 
@@ -379,5 +379,14 @@ start(); opslag_door(zet_cel("2026-W40", "Wim", "MA", ["vrij"]), "Update plannin
 check("SV81 lukt het schrijven van het logboek niet, dan onthoudt de server niet dat hij de opslag heeft verwerkt (de volgende ronde probeert het opnieuw, er gaat niets verloren), meldt het en geeft de check 'Wijzigingsregels worden door de server geschreven' een fout (de Action wordt rood)", json.loads(REPO.f["onderhoud.json"])["audit_commit"] == pt and c["logboek_server"]["s"] == "fout" and rc == 1 and any("logboek van wijzigingen is niet bijgewerkt" in m for m in u["meldingen"]), json.dumps([rc, c["logboek_server"], u["meldingen"]])[:500])
 REPO.stuk = set(); rc, u = draai(nu="2026-11-04T08:40:00Z")
 check("SV81b zodra het schrijven weer lukt, komt de gemiste regel er alsnog in", len(srv_regels()) == 1 and checks()["logboek_server"]["s"] == "ok", json.dumps([len(srv_regels()), checks()["logboek_server"]]))
+
+
+# ── SV83-85: de server gebruikt de tijd van GitHub, niet de klok van een apparaat ────────────────────────────
+def apparaat_ver_voor(s_):   # het controlegetal zegt dat de opslag over 3 uur plaatsvindt (de klok van dat apparaat staat ver voor)
+    s_["integriteit"]["t"] = "2026-11-04T11:00:00.000Z"
+nieuw(planning(36, 52)); sj_ = laat_planning_wijzigen(30); sj_["integriteit"]["t"] = "2026-11-04T11:00:00.000Z"; REPO.opslag(sj_, "Update planning \u2014 Hans@dev1 (MacBook)", "2026-11-04T07:20:00Z"); REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A; n0 = len(nieuwe_backups()); rc, u = draai()
+check("SV83 staat de klok van het apparaat dat de planning opsloeg ver voor (het controlegetal zegt 11:00, de opslag was volgens GitHub om 07:20), dan maakt de server toch direct een backup bij: hij kijkt naar de tijd van GitHub, niet naar het apparaat", len(nieuwe_backups()) == n0 + 1 and any("backup bijgemaakt" in a for a in u["acties"]), json.dumps([u["acties"], len(nieuwe_backups()) - n0]))
+nieuw(planning(36, 52)); sj_ = laat_planning_wijzigen(0); sj_["integriteit"]["t"] = "2026-11-04T05:00:00.000Z"; REPO.opslag(sj_, "Update planning \u2014 Hans@dev1 (MacBook)", "2026-11-04T07:58:00Z"); REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A; REPO.get_hook = ("state.json", 2, lambda: REPO.f.__setitem__("state.json", json.dumps(laat_planning_wijzigen(0)))); n0 = len(nieuwe_backups()); rc, u = draai()
+check("SV84 staat de klok van het apparaat juist ver achter (het controlegetal zegt 05:00, de opslag was volgens GitHub 2 minuten geleden), dan wacht de server toch tot er 5 minuten niets is gewijzigd en maakt dan geen backup als er intussen weer iets is gewijzigd", len(nieuwe_backups()) == n0 and any("tijdens het wachten gewijzigd" in m for m in u["meldingen"]), json.dumps([u["meldingen"], len(nieuwe_backups()) - n0]))
 
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")
