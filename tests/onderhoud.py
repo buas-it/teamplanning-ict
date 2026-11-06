@@ -274,7 +274,9 @@ def log_schrijf_dagen(regels):
             for l in (f["tekst"] if f else "").split("\n"):
                 try: aanwezig.add(json.loads(l).get("eid"))
                 except Exception: pass
-            toe = [r for r in nieuw_r if r["eid"] not in aanwezig]
+            toe = []
+            for r in nieuw_r:   # geen dubbelen: niet tegen wat er al staat, en ook niet binnen deze regels zelf
+                if r["eid"] not in aanwezig: aanwezig.add(r["eid"]); toe.append(r)
             if not toe: break
             tekst = (f["tekst"] if f else "")
             if tekst and not tekst.endswith("\n"): tekst += "\n"
