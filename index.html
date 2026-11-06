@@ -233,7 +233,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 6 nov 2026 · 154</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 6 nov 2026 · 155</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -290,7 +290,22 @@ const STATUSES = [
 const STATUS_MAP = Object.fromEntries(STATUSES.map(s=>[s.key,s]));
 
 // ── Date helpers ─────────────────────────────────────────────────
-const today = new Date(); today.setHours(0,0,0,0);
+// ── De tijd van de server (GitHub) is bepalend ─────────────────────────────────────────────────────────────
+// De klok van het apparaat wordt alleen gebruikt voor duren en timers (hoe lang geleden, na 10 minuten zonder wijziging). Alles wat 'hoe laat / welke dag is het' is
+// (vandaag, de week, verjaardagen, tijdstempels in opslagen en het logboek) gebruikt de servertijd, in Nederlandse tijd. De afwijking wordt gemeten aan GitHub Pages
+// (zie srvTijdMeten) en bewaard, zodat de pagina vanaf de eerste seconde bijna goed zit.
+const NLTZ = "Europe/Amsterdam";
+let SRV_OFFSET = (()=>{ try{ const v = parseFloat(localStorage.getItem("tp_srv_offset")); return isFinite(v) ? v : null; }catch(e){ return null; } })();   // ms: de server loopt zoveel voor op dit apparaat
+function srvNowMs(){ return Date.now() + (SRV_OFFSET || 0); }
+function srvIso(){ return new Date(srvNowMs()).toISOString(); }
+const SRV_FMT_DELEN = new Intl.DateTimeFormat("en-GB", { timeZone: NLTZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+function nlDelen(ms){ const p = {}; SRV_FMT_DELEN.formatToParts(new Date(ms)).forEach(x=>{ p[x.type] = x.value; }); return p; }
+function nuNL(){   // een Date waarvan de lokale velden (jaar, maand, dag, uur) de Nederlandse tijd volgens de server zijn: daarmee rekenen de weken, dagen en verjaardagen in de pagina door
+  const ms = srvNowMs(), p = nlDelen(ms);
+  return new Date(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second, ((ms % 1000) + 1000) % 1000);
+}
+function nlDagSleutel(ms){ const p = nlDelen(ms); return p.year + "-" + p.month + "-" + p.day; }   // JJJJ-MM-DD in Nederlandse tijd
+let today = nuNL(); today.setHours(0,0,0,0);   // vandaag: de Nederlandse datum volgens de server (zie srvDagCheck: bij een nieuwe dag of een nieuwe meting wordt dit bijgesteld)
 function mondayOf(d){ const x=new Date(d); x.setHours(0,0,0,0); const day=x.getDay()||7; x.setDate(x.getDate()-(day-1)); return x; }
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 function addWeeks(d,n){ return addDays(d,n*7); }
@@ -592,7 +607,7 @@ async function settingsSetTalen(naam, lijst){   // de talen van één collega in
     const raw = cur.raw; raw.v = 1;
     const talen = raw.talen && typeof raw.talen === "object" && !Array.isArray(raw.talen) ? raw.talen : {};
     if(nieuw === null) delete talen[naam]; else talen[naam] = nieuw;
-    raw.talen = talen; raw.talenWijziging = { by: me, at: new Date().toISOString() };
+    raw.talen = talen; raw.talenWijziging = { by: me, at: srvIso() };
     const nu = complimentTalenVoor(naam, settingsParseTalen(talen)), tekst = complimentTalenTekst(nu) + (nieuw === null ? " (standaard)" : "");
     const body = { message: "Boodschap-talen van " + naam + ": " + complimentTalenTekst(nu) + (nieuw === null ? " (standaard)" : "") + " (door " + me + ")", content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
     if(cur.sha) body.sha = cur.sha;
@@ -619,7 +634,7 @@ async function settingsSetPersoon(naam, aan){   // de boodschap voor één colle
     const raw = cur.raw; raw.v = 1;
     const personen = raw.personen && typeof raw.personen === "object" && !Array.isArray(raw.personen) ? raw.personen : {};
     if(aan === !COMPLIMENT_NIET.includes(naam)) delete personen[naam]; else personen[naam] = aan;   // gelijk aan de standaard: geen eigen regel meer
-    raw.personen = personen; raw.personenWijziging = { by: me, at: new Date().toISOString() };
+    raw.personen = personen; raw.personenWijziging = { by: me, at: srvIso() };
     const body = { message: "Boodschap voor " + naam + (aan ? " aangezet" : " uitgezet") + " (door " + me + ")", content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
     if(cur.sha) body.sha = cur.sha;
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
@@ -772,7 +787,7 @@ async function restoreBackupTijd(bestand){   // het moment van de backup: de com
     const r = await fetch(`https://api.github.com/repos/${GH_REPO}/commits?sha=${GH_BRANCH}&path=${encodeURIComponent("backups/" + bestand)}&per_page=1&t=${Date.now()}`, { headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"} });
     if(r.ok){ const l = await r.json(); const d = l && l[0] && l[0].commit && l[0].commit.committer && l[0].commit.committer.date; if(d && !isNaN(Date.parse(d))) return d; }
   }catch(e){}
-  const m = /^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})/.exec(bestand); return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], 59).toISOString() : new Date().toISOString();
+  const m = /^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})/.exec(bestand); return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], 59).toISOString() : srvIso();
 }
 async function ghHistorisch(pad, tot){   // een bestand op de data-branch zoals het was op een moment (de laatste wijziging op of vóór 'tot'); null als het bestand er toen niet was
   const hd = {"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"};
@@ -810,7 +825,7 @@ async function settingsRestoreCollega(naam, hs){   // de boodschap-instellingen 
       gewijzigd.push(k);
     });
     if(!gewijzigd.length){ applySettings(cur); try{ complimentSync(); }catch(e){} return { ok: true, changed: false }; }   // stond al zo: niets schrijven
-    const nu = new Date().toISOString(); if(gewijzigd.includes("personen")) raw.personenWijziging = { by: me, at: nu }; if(gewijzigd.includes("talen")) raw.talenWijziging = { by: me, at: nu };
+    const nu = srvIso(); if(gewijzigd.includes("personen")) raw.personenWijziging = { by: me, at: nu }; if(gewijzigd.includes("talen")) raw.talenWijziging = { by: me, at: nu };
     const body = { message: "Boodschap-instellingen van " + naam + " teruggezet naar een backup (door " + me + ")", content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
     if(cur.sha) body.sha = cur.sha;
     const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
@@ -935,7 +950,7 @@ async function settingsSetEigen(naam, actie, e){   // een persoonlijke boodschap
   if(actie !== "verwijderen"){ nieuw = eigenValideer(naam, e && e.t, e && e.van, e && e.tot, e && e.jaarlijks, e && e.emoji, e && e.aftellen); if(nieuw.error) return nieuw; }
   const me = currentIdentity.user, kort = t=>t.length > 40 ? t.slice(0, 40) + "…" : t;
   for(let i = 0; i < 4; i++){
-    const cur = await settingsFetch(), lijst = (cur.persoonlijk[naam] || []).map(x=>({ ...x })), idx = actie === "toevoegen" ? -1 : lijst.findIndex(x=>x.id === e.id), nu = new Date().toISOString();
+    const cur = await settingsFetch(), lijst = (cur.persoonlijk[naam] || []).map(x=>({ ...x })), idx = actie === "toevoegen" ? -1 : lijst.findIndex(x=>x.id === e.id), nu = srvIso();
     let werkwoord, tekst;
     if(actie === "toevoegen"){
       if(lijst.length >= EIGEN_MAX_AANTAL) return { error: "Maximaal " + EIGEN_MAX_AANTAL + " persoonlijke boodschappen per collega." };
@@ -991,7 +1006,7 @@ function loginMislukt(){   // een mislukte poging met het startwachtwoord vastle
   loginSlotBewaar(s); return { aantal, geblokkeerd: blok, tot: s.tot };
 }
 function loginGelukt(){ loginSlotBewaar({ pogingen: [], tot: 0 }); }   // een echte inlog: de teller begint opnieuw
-function loginTijd(ts){ return new Date(ts).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }); }
+function loginTijd(ts){ return new Date(ts).toLocaleTimeString("nl-NL", { timeZone: NLTZ, hour: "2-digit", minute: "2-digit" }); }
 function loginDuur(ms){ const m = Math.max(1, Math.ceil(ms / 60000)), u = Math.floor(m / 60), r = m % 60; return u ? u + " uur" + (r ? " en " + r + " minuten" : "") : r + " minuten"; }
 function getDeviceId(){
   try{
@@ -1193,7 +1208,7 @@ function auditCellChains(saves){   // per cel de reeks waarden (van → … → 
 
 // ── Audit per dag; per gebruiker per dag één overzichtsregel; dagbestanden ouder dan een maand worden vanzelf opgeruimd ──
 const AUDIT_VIEW_DAYS = 30, AUDIT_KEEP_DAYS = 31;   // het venster en Statistics kijken 30 dagen terug; de dagbestanden blijven 31 dagen (de dagbestanden gaan op UTC-datum)
-function auditDayKey(ms){ const d = new Date(ms); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function auditDayKey(ms){ return nlDagSleutel(ms); }   // de dag in Nederlandse tijd
 function auditIsCelWijziging(e){ return e.action === "wijziging" && e.n > 0 && (e.changes || []).length && (e.changes || []).every(c=>c && c.s === "cel"); }
 function auditUserDay(u){   // wat deze gebruiker die dag heeft gedaan, in een paar kerncijfers
   let bezoeken = 0, wijzigingen = 0, opslagen = 0, first = Infinity, last = -Infinity; const extra = {}, apparaten = new Map(), plain = [];
@@ -1247,7 +1262,7 @@ async function showAuditModal(){
     const lr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit?ref=${GH_BRANCH}${nc()}`, {headers: hdrs});
     if(!lr.ok && lr.status !== 404){ list.textContent = "Laden mislukt (HTTP " + lr.status + "): het logboek kon niet worden opgehaald."; return; }   // niet doen alsof er niets is
     if(lr.ok){
-      const eersteDag = new Date(Date.now() - AUDIT_KEEP_DAYS * 86400000).toISOString().slice(0, 10);
+      const eersteDag = new Date(srvNowMs() - AUDIT_KEEP_DAYS * 86400000).toISOString().slice(0, 10);
       const files = (await lr.json()).filter(f=>/^\d{4}-\d\d-\d\d\.jsonl$/.test(f.name) && f.name.slice(0, 10) >= eersteDag).sort((a,b)=>b.name.localeCompare(a.name));
       const texts = await Promise.all(files.map(async f=>{
         const fr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit/${f.name}?ref=${GH_BRANCH}${nc()}`, {headers: hdrs});
@@ -1260,7 +1275,7 @@ async function showAuditModal(){
   { const gezien = new Set(); entries = entries.filter(e=>{ if(!e.eid) return true; if(gezien.has(e.eid)) return false; gezien.add(e.eid); return true; }); }   // een regel die tweemaal in het bestand staat, telt eenmaal
   const have = new Set(entries.map(e=>e.eid));
   auditQueue.forEach(e=>{ if(!have.has(e.eid)) entries.push({...e, pending:true}); });
-  entries = entries.filter(e=>Date.parse(e.t) >= Date.now() - AUDIT_VIEW_DAYS * 86400000);   // het venster toont de laatste 30 dagen
+  entries = entries.filter(e=>Date.parse(e.t) >= srvNowMs() - AUDIT_VIEW_DAYS * 86400000);   // het venster toont de laatste 30 dagen
   entries.sort((a,b)=> a.t < b.t ? 1 : -1);
 
   const addOpt = (sel, v, label)=>{ const o = document.createElement("option"); o.value = v; o.textContent = label; sel.appendChild(o); };
@@ -1288,7 +1303,7 @@ async function showAuditModal(){
     const dagen = auditDays(shown);
     count.textContent = dagen.length + (dagen.length === 1 ? " dag" : " dagen") + " · " + shown.length + " van " + entries.length + " (laatste 30 dagen)" + (samengevoegd > 0 ? " · " + samengevoegd + " regels per sessie samengevoegd" : "") + (mislukt ? " · ⚠ " + mislukt + " dagbestand" + (mislukt === 1 ? "" : "en") + " niet op te halen: het overzicht is mogelijk onvolledig" : "");
     if(!shown.length){ list.textContent = "Geen regels."; return; }
-    const hm = d=>d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"}), dm = d=>d.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit"});
+    const hm = d=>d.toLocaleTimeString("nl-NL", { timeZone: NLTZ,hour:"2-digit",minute:"2-digit"}), dm = d=>d.toLocaleDateString("nl-NL", { timeZone: NLTZ,day:"2-digit",month:"2-digit"});
     const span = (a, b)=>dm(a) + " " + hm(a) + (dm(b) !== dm(a) ? " – " + dm(b) + " " + hm(b) : (hm(b) !== hm(a) ? "–" + hm(b) : ""));   // van – tot, met de datum erbij als het over middernacht gaat
     const maakRij = g=>{   // één regel (een losse regel, een sessie met opslagen, of een periode van bezoeken), zoals altijd
       const row = document.createElement("div");
@@ -1312,7 +1327,7 @@ async function showAuditModal(){
         sum.textContent = g.saves.slice(0, 8).map(e=>hm(new Date(e.t))).join(", ") + (n > 8 ? " … +" + (n - 8) : "");
         if(e0.wsinfo){ const d = document.createElement("div"); d.style.color = "rgba(255,255,255,0.5)"; d.textContent = "Machine: " + e0.wsinfo; full.appendChild(d); }
         const uit = document.createElement("div"); uit.style.cssText = "color:rgba(255,255,255,0.45);margin-bottom:4px;"; uit.textContent = "Samengevoegd: keren openen, inloggen of terugkeren van dezelfde persoon op hetzelfde apparaat, met hooguit 30 minuten ertussen. De losse regels:"; full.appendChild(uit);
-        g.saves.forEach(e=>{ const k = document.createElement("div"); k.style.cssText = "color:#fff;"; k.textContent = new Date(e.t).toLocaleTimeString("nl-NL") + " · " + e.action; full.appendChild(k); });
+        g.saves.forEach(e=>{ const k = document.createElement("div"); k.style.cssText = "color:#fff;"; k.textContent = new Date(e.t).toLocaleTimeString("nl-NL", { timeZone: NLTZ }) + " · " + e.action; full.appendChild(k); });
       } else {   // een sessie: meerdere opslagen van dezelfde persoon op hetzelfde apparaat, achter elkaar
         row.dataset.groep = "1"; row.dataset.soort = "wijzigingen"; row.dataset.opslagen = String(g.saves.length);
         const e0 = g.saves[0], eN = g.saves[g.saves.length - 1], t0 = new Date(e0.t), tN = new Date(eN.t);
@@ -1325,7 +1340,7 @@ async function showAuditModal(){
         if(e0.wsinfo){ const d = document.createElement("div"); d.style.color = "rgba(255,255,255,0.5)"; d.textContent = "Machine: " + e0.wsinfo; full.appendChild(d); }
         const uit = document.createElement("div"); uit.style.cssText = "color:rgba(255,255,255,0.45);margin-bottom:4px;"; uit.textContent = "Samengevoegd: opslagen van dezelfde persoon op hetzelfde apparaat met hooguit 10 minuten ertussen. De losse opslagen:"; full.appendChild(uit);
         g.saves.forEach(e=>{
-          const k = document.createElement("div"); k.style.cssText = "margin:4px 0 0;color:#fff;"; k.textContent = new Date(e.t).toLocaleTimeString("nl-NL") + " · " + e.n + (e.n === 1 ? " wijziging" : " wijzigingen"); full.appendChild(k);
+          const k = document.createElement("div"); k.style.cssText = "margin:4px 0 0;color:#fff;"; k.textContent = new Date(e.t).toLocaleTimeString("nl-NL", { timeZone: NLTZ }) + " · " + e.n + (e.n === 1 ? " wijziging" : " wijzigingen"); full.appendChild(k);
           (e.changes||[]).forEach(c=>{ const d = document.createElement("div"); d.style.cssText = "padding-left:14px;"; d.textContent = chText(c); full.appendChild(d); });
           if(e.trunc){ const d = document.createElement("div"); d.style.paddingLeft = "14px"; d.textContent = "… ingekort: " + e.n + " wijzigingen in totaal"; full.appendChild(d); }
         });
@@ -1607,7 +1622,7 @@ async function verifyUserPw(pw, rec){
 }
 async function newUserRecord(pw){
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  return { salt: b64e(salt), hash: b64e(await adminDerive(pw, salt, USER_ITER)), iter: USER_ITER, set: new Date().toISOString() };
+  return { salt: b64e(salt), hash: b64e(await adminDerive(pw, salt, USER_ITER)), iter: USER_ITER, set: srvIso() };
 }
 function pwProblem(p1, p2){ if(p1.length < PW_MIN) return "Minimaal " + PW_MIN + " tekens"; if(p1 !== p2) return "De wachtwoorden komen niet overeen"; return null; }
 // Gebeurtenis zonder celwijziging (wachtwoord ingesteld/gewijzigd/gereset) in het logboek zetten
@@ -1615,7 +1630,7 @@ function auditEvent(action, opts){
   try{
     let who = currentIdentity; const anon = !!(opts && opts.anon);
     if(!who && anon) who = makeIdentity("(niet ingelogd)", guessWorkstation(), machineText(machineBase()));   // iemand bij de poort: wel apparaat en browser, geen naam
-    auditQueue.push({ v: 1, eid: auditEid(), t: new Date().toISOString(), user: who ? who.user : "onbekend", ws: who ? who.workstation : "", device: who ? who.device : "", id: who ? who.id : "", wsinfo: who ? (who.info || "") : "", action, n: 0, trunc: false, changes: [], ...(anon ? { anon: true } : {}), ...(anon && opts.blok ? { blok: true } : {}) });
+    auditQueue.push({ v: 1, eid: auditEid(), t: srvIso(), user: who ? who.user : "onbekend", ws: who ? who.workstation : "", device: who ? who.device : "", id: who ? who.id : "", wsinfo: who ? (who.info || "") : "", action, n: 0, trunc: false, changes: [], ...(anon ? { anon: true } : {}), ...(anon && opts.blok ? { blok: true } : {}) });
     auditPushed++;
     auditPersist(); auditFlush();
   }catch(e){ console.warn("audit fout:", e); }
@@ -1877,7 +1892,7 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
   const q = s=>overlay.querySelector(s), hint = q("#usr-hint"), list = q("#usr-list"), msg = q("#usr-msg"), acties = q("#usr-acties");
   q("#usr-titel").textContent = beheer ? "👤 Accounts" : "👤 Mijn account";
   const setMsg = (t, ok)=>{ msg.textContent = t || ""; msg.style.color = ok ? "#80cbc4" : "#f48fb1"; };
-  const fmt = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit",year:"numeric"}) + " " + d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"}); };
+  const fmt = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("nl-NL", { timeZone: NLTZ,day:"2-digit",month:"2-digit",year:"numeric"}) + " " + d.toLocaleTimeString("nl-NL", { timeZone: NLTZ,hour:"2-digit",minute:"2-digit"}); };
   const vinkCel = (soort, label, aan, uit, titel, cap)=>{   // een cel met een vinkje (en een korte naam die alleen op een smal scherm zichtbaar is)
     const cel = document.createElement("label"), i = document.createElement("input"), t = document.createElement("span");
     cel.className = "usr-cel " + soort; i.type = "checkbox"; i.checked = aan; i.disabled = uit; i.setAttribute("aria-label", label); if(titel) i.title = titel; t.className = "usr-cap"; t.textContent = cap || "";
@@ -2179,7 +2194,7 @@ function showReadOnlyBanner(blocked){
   if(!b){ b = document.createElement("div"); b.id = "readonly-banner"; document.body.appendChild(b); }
   let bron = "de laatst bekende planning";
   if(stateSource === "raw") bron = "de laatste kopie van de planning op GitHub";
-  else if(stateSource === "browser"){ const d = lastGoodTime ? new Date(lastGoodTime) : null; bron = "de laatste planning die dit apparaat kende" + (d ? " (" + d.toLocaleString("nl-NL", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}) + ")" : ""); }
+  else if(stateSource === "browser"){ const d = lastGoodTime ? new Date(lastGoodTime + (SRV_OFFSET || 0)) : null; bron = "de laatste planning die dit apparaat kende" + (d ? " (" + d.toLocaleString("nl-NL", { timeZone: NLTZ,day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}) + ")" : ""); }
   b.innerHTML = `<b>Alleen lezen.</b> De verbinding met GitHub lukt niet; je ziet ${bron}. ${blocked ? "Je wijziging is <b>niet</b> opgeslagen. " : ""}Wijzigen kan weer zodra de verbinding terug is; de pagina probeert het elke 15 seconden.`;
   b.style.cssText = "position:fixed;bottom:0;left:0;right:0;z-index:950;background:#e65100;color:#fff;padding:10px 16px;font:13px 'Courier New',monospace;text-align:center;box-shadow:0 -4px 20px rgba(230,81,0,0.5);";
 }
@@ -2302,7 +2317,7 @@ function cyrb53(str){
 }
 function canonKern(s){ return canonJSON({ team: s.team || [], store: s.store || {}, template: s.template || {}, manuallyEdited: s.manuallyEdited || {}, hidden: s.hidden || [] }); }
 function planningHash(s){ return cyrb53(canonKern(s)).toString(16).padStart(14, "0"); }
-function stempel(M, n, door, bev){ M.integriteit = { n: n, h: planningHash(M), t: new Date().toISOString(), door: door || "", bev: bev | 0 }; return M; }
+function stempel(M, n, door, bev){ M.integriteit = { n: n, h: planningHash(M), t: srvIso(), door: door || "", bev: bev | 0 }; return M; }
 function stempelStatus(s){ const i = s && s.integriteit; if(!i || typeof i.h !== "string") return "geen"; return planningHash(s) === i.h ? "ok" : "fout"; }
 const STEMPEL_KEY = "tp_stempel_n", STEMPEL_BEV_KEY = "tp_stempel_bev";
 function integriteitBeoordeel(data){   // geeft een tekst terug als er iets niet klopt, anders null; onthoudt per apparaat het hoogste volgnummer dat is gezien
@@ -2319,7 +2334,7 @@ function integriteitBeoordeel(data){   // geeft een tekst terug als er iets niet
 }
 function integriteitRegel(){
   const i = HEALTH.integriteit; if(!i) return "\u2014 Controlegetal: nog niet gecontroleerd";
-  const wanneer = i.t ? new Date(i.t).toLocaleString("nl-NL", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}) : "";
+  const wanneer = i.t ? new Date(i.t).toLocaleString("nl-NL", { timeZone: NLTZ,day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}) : "";
   if(i.status === "ok" && !i.probleem) return "\u2713 Controlegetal: klopt (opslag " + i.n + (i.door ? " door " + i.door : "") + (wanneer ? ", " + wanneer : "") + ")";
   if(i.status === "geen" && !i.probleem) return "\u2014 Controlegetal: nog niet vastgelegd (de eerstvolgende opslag doet dat)";
   return "\u2717 Controlegetal: " + (i.probleem || "klopt niet");
@@ -2436,7 +2451,7 @@ async function maybeBackup(stateJson, opts = {}){
     if(!opts.always && stateJson === lastBackupJson && !backupPending) return null;                   // de lopende backup bevatte al precies deze staat
   }
   backupBusy = true;
-  const now_dt = new Date();
+  const now_dt = nuNL();
   const date = now_dt.toISOString().slice(0,10);
   const time = now_dt.toTimeString().slice(0,5).replace(":","-");
   const filename = `${date}_${time}`;
@@ -2694,9 +2709,9 @@ function updateHealthBar(){
       const bState = HEALTH.lastBackupOk ? (bSecAgo < 20*60 ? "ok" : "warn") : "error";
       elBackup.style.color = dot(bState);
       const bLabel = HEALTH.lastBackupLabel || (() => {
-        const bDt = new Date(HEALTH.lastBackup);
-        return bDt.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit"})+" "+
-               bDt.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+        const bDt = new Date(HEALTH.lastBackup + (SRV_OFFSET || 0));
+        return bDt.toLocaleDateString("nl-NL", { timeZone: NLTZ,day:"2-digit",month:"2-digit"})+" "+
+               bDt.toLocaleTimeString("nl-NL", { timeZone: NLTZ,hour:"2-digit",minute:"2-digit"});
       })();
       elBackup.title = HEALTH.lastBackupOk ? `Backup OK — ${bLabel} (klik voor inhoud)` : `Laatste backup mislukt${HEALTH.lastBackupErr ? " (" + HEALTH.lastBackupErr + ")" : ""}; er wordt opnieuw geprobeerd. Laatste geslaagde backup: ${bLabel} (klik voor inhoud)`;
       el.detail.textContent += HEALTH.lastBackupOk ? "  backup ✓ " + bLabel : "  backup ✗ (laatste geslaagd: " + bLabel + ")";
@@ -2748,7 +2763,7 @@ function updateHealthBar(){
     elSync.onclick = ()=>{
       const secAgo = HEALTH.lastSync ? Math.round((Date.now()-HEALTH.lastSync)/1000) : null;
       const ago = secAgo===null ? "nog nooit" : secAgo < 60 ? secAgo+"s geleden" : Math.round(secAgo/60)+"m geleden";
-      const syncTime = HEALTH.lastSync ? new Date(HEALTH.lastSync).toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "-";
+      const syncTime = HEALTH.lastSync ? new Date(HEALTH.lastSync + (SRV_OFFSET || 0)).toLocaleTimeString("nl-NL", { timeZone: NLTZ,hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "-";
       showHealthPopup("Synchronisatie",
         secAgo!==null
           ? [HEALTH.lastSyncOk ? `✅ Laatste sync: ${ago}` : `❌ Sync mislukt: ${ago}`,`🕐 Tijdstip: ${syncTime}`,`🔄 Interval: elke 60 seconden`,`☁️ Bron: GitHub (remote wint altijd)`]
@@ -3596,7 +3611,7 @@ function eigenValideer(naam, t, van, tot, jaarlijks, emoji, aftellen){   // {t, 
   if(aftellen){
     if(!tot) return { error: "Kies de datum waarnaar je aftelt." };
     if(!dat(van) || !dat(tot)) return { error: "Kies een geldige datum." };
-    if(tot <= eigenDatum(new Date())) return { error: "Kies een datum in de toekomst." };
+    if(tot <= eigenDatum(nuNL())) return { error: "Kies een datum in de toekomst." };
     if(van && van >= tot) return { error: "‘Vanaf’ moet vóór de datum liggen waarnaar je aftelt." };
     return { t, van, tot: null, jaarlijks: null, doel: tot, emoji };
   }
@@ -3606,7 +3621,7 @@ function eigenValideer(naam, t, van, tot, jaarlijks, emoji, aftellen){   // {t, 
 }
 function eigenTekst(t){ return t.indexOf("{naam}") >= 0 ? t : "{naam}: " + t; }   // zonder {naam} in de tekst komt de naam er vooraan bij ("Wim: …"), in dezelfde opmaak als bij de gewone complimenten; met {naam} staat de naam waar de beheerder hem zette
 function eigenId(){ return Math.random().toString(36).slice(2, 10) || "x" + Date.now().toString(36); }
-function eigenDatum(now){ const p = n=>String(n).padStart(2, "0"); return now.getFullYear() + "-" + p(now.getMonth() + 1) + "-" + p(now.getDate()); }   // de datum van nu, in de tijd van deze computer
+function eigenDatum(now){ const p = n=>String(n).padStart(2, "0"); return now.getFullYear() + "-" + p(now.getMonth() + 1) + "-" + p(now.getDate()); }   // de datum van het Date-object dat je geeft (nuNL(): de Nederlandse datum volgens de server)
 function eigenJaarlijksVandaag(md, vandaag){   // is het vandaag de dag van 'elk jaar'? 29 februari komt in een jaar zonder schrikkeldag op 28 februari
   const j = parseInt(vandaag.slice(0, 4)), vmd = vandaag.slice(5), schrikkel = (j % 4 === 0 && j % 100 !== 0) || j % 400 === 0;
   return vmd === md || (md === "02-29" && !schrikkel && vmd === "02-28");
@@ -3655,12 +3670,12 @@ function verjaardagNaWeekend(md, vandaag){   // is vandaag de eerste werkdag na 
 }
 function verjaardagDagen(md, vandaag){ return eigenDagenTot(vandaag, verjaardagVolgende(md, vandaag)); }
 function verjaardagLijst(now){   // alle verjaardagen op volgorde van de eerstvolgende: [{naam, md, datum (JJJJ-MM-DD), dagen}]
-  const vandaag = eigenDatum(now || new Date());
+  const vandaag = eigenDatum(now || nuNL());
   return Object.keys(VERJAARDAGEN).map(naam=>{ const datum = verjaardagVolgende(VERJAARDAGEN[naam], vandaag); return { naam, md: VERJAARDAGEN[naam], datum, dagen: eigenDagenTot(vandaag, datum) }; }).sort((a, b)=>a.dagen - b.dagen || (a.naam < b.naam ? -1 : 1));
 }
 const NL_DAGEN = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"], NL_MAANDEN = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
 function verjaardagWanneer(e, now){   // 'zondag 25 oktober (over 6 dagen)'; een datum in een volgend jaar krijgt het jaartal erbij
-  const d = datumDeel(e.datum), jaar = (now || new Date()).getFullYear();
+  const d = datumDeel(e.datum), jaar = (now || nuNL()).getFullYear();
   return NL_DAGEN[d.getDay()] + " " + d.getDate() + " " + NL_MAANDEN[d.getMonth()] + (d.getFullYear() !== jaar ? " " + d.getFullYear() : "") + " (" + (e.dagen === 0 ? "vandaag" : e.dagen === 1 ? "morgen" : "over " + e.dagen + " dagen") + ")";
 }
 function verjaardagItems(now, verj, mom){   // mom: welke momenten aan staan (voor, op, na); standaard alle drie
@@ -3747,13 +3762,13 @@ function complimentToon(el, n){   // het volgende bericht in beeld: een gewoon c
   const kaart = document.getElementById("verjaardag-banner"), isKaart = !!kaart && (n.naam === VERJAARDAG_ID || !!(n.compliment && n.compliment.eigen)), wie = currentIdentity ? currentIdentity.user : "";
   el.classList.toggle("cmp-kaart", false);
   if(!isKaart){ kaartCyclusUit(); return; }
-  if(n.naam === VERJAARDAG_ID){ if(!kaartFeestInhoud(kaart, verjaardagenNu(new Date()), wie)){ kaartCyclusUit(); return; } } else kaartBerichtInhoud(kaart, n);
+  if(n.naam === VERJAARDAG_ID){ if(!kaartFeestInhoud(kaart, verjaardagenNu(nuNL()), wie)){ kaartCyclusUit(); return; } } else kaartBerichtInhoud(kaart, n);
   el.classList.add("cmp-kaart"); kaart.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
   kaart.dataset.modus = "cyc"; delete kaart.dataset.sleutel; kaart.style.display = ""; kaart.classList.remove("vjb-cyc"); void kaart.offsetWidth; kaart.classList.add("vjb-cyc");
 }
 function verjaardagBanner(){   // de vaste banner: zolang er een verjaardag is en er verder niets in de rotatie zit (een gewone gebruiker, of niemand op de campus); anders draait de banner mee met de andere berichten. Hij kan niet gesloten worden
   const el = document.getElementById("verjaardag-banner"); if(!el) return;
-  const nu = new Date(), items = currentIdentity ? verjaardagenNu(nu) : [], wie = currentIdentity ? currentIdentity.user : "";
+  const nu = nuNL(), items = currentIdentity ? verjaardagenNu(nu) : [], wie = currentIdentity ? currentIdentity.user : "";
   const vast = items.length > 0 && complimentAudience(nu).filter(n=>n !== VERJAARDAG_ID).length === 0;
   if(!vast){ if(el.dataset.modus === "vast"){ el.style.display = "none"; delete el.dataset.modus; delete el.dataset.sleutel; } return; }
   if(el.dataset.modus === "cyc") kaartCyclusUit();
@@ -4195,7 +4210,7 @@ function complimentRender(el, n){   // de tekst met de naam duidelijk gemarkeerd
 function complimentHide(el){ el.classList.remove("cmp-on", "cmp-kaart"); kaartCyclusUit(); el.style.display = "none"; el.dataset.on = ""; el.querySelector(".cmp-text").textContent = ""; el.dataset.naam = ""; el.dataset.taal = ""; el.title = ""; el.querySelector(".cmp-vertaling").textContent = ""; el.dataset.emoji = ""; el.querySelector(".cmp-emoji").textContent = ""; }
 function complimentReady(){ return firstLoadSettled && HEALTH.data === "ok"; }   // pas met de echte planning van GitHub: niet met het standaardrooster van vóór het laden, anders krijgt iemand een compliment die er helemaal niet is
 function complimentRestart(el){   // een nieuw compliment voor een andere collega, vanaf onzichtbaar
-  const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
+  const n = complimentNext(nuNL()); if(!n){ complimentHide(el); return; }
   el.classList.remove("cmp-on"); complimentToon(el, n); void el.offsetWidth; el.classList.add("cmp-on");
 }
 function complimentSync(){   // elke paar seconden: wie er aan de beurt kan komen (zie complimentAudience); is dat er niemand, dan verdwijnt het blok
@@ -4203,17 +4218,17 @@ function complimentSync(){   // elke paar seconden: wie er aan de beurt kan kome
   const el = document.getElementById("compliment"); if(!el) return;
   if(!currentIdentity){ if(el.dataset.on) complimentHide(el); return; }   // wie er aan de beurt kan komen (en dus wie wat ziet) bepaalt complimentAudience: de verjaardag voor iedere gebruiker, de rest alleen voor Monitor en Hans
   el.style.setProperty("--cmp-dur", COMPLIMENT_SECONDS + "s");
-  let aanwezig = complimentAudience(new Date()); if(aanwezig.every(n=>n === VERJAARDAG_ID)) aanwezig = [];   // alleen de verjaardag: dan staat de banner vast en draait er niets mee
+  let aanwezig = complimentAudience(nuNL()); if(aanwezig.every(n=>n === VERJAARDAG_ID)) aanwezig = [];   // alleen de verjaardag: dan staat de banner vast en draait er niets mee
   if(!el.dataset.on){
     if(!aanwezig.length) return;
-    const n = complimentNext(new Date()); if(!n) return;
+    const n = complimentNext(nuNL()); if(!n) return;
     complimentToon(el, n); el.style.display = ""; el.dataset.on = "1"; el.classList.add("cmp-on");
   } else if(!aanwezig.length) complimentHide(el);
   else if(!aanwezig.includes(el.dataset.naam)) complimentRestart(el);   // de collega in beeld is intussen ziek, vrij of weg gezet: meteen iemand anders
 }
 function complimentIteration(){   // op het moment dat het compliment helemaal gedoofd is: het volgende
   const el = document.getElementById("compliment"); if(!el || !el.dataset.on) return;
-  const n = complimentNext(new Date()); if(!n){ complimentHide(el); return; }
+  const n = complimentNext(nuNL()); if(!n){ complimentHide(el); return; }
   complimentToon(el, n);
 }
 
@@ -4283,7 +4298,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   const setMsgT = (t, kleur)=>{ const e = q("#msg-talen-msg"); e.textContent = t || ""; e.style.color = kleur === "ok" ? "#80cbc4" : (kleur === "fout" ? "#f48fb1" : "#999"); };
   const setMsgV = (t, c)=>{ const e = q("#msg-verj-msg"); e.textContent = t || ""; e.style.color = c === "fout" ? "#f48fb1" : (c === "ok" ? "#80cbc4" : "#aaa"); };
   const toonVolgende = ()=>{   // de eerstvolgende verjaardag (bij een gelijke datum allemaal)
-    const nu = new Date(), lijst = verjaardagLijst(nu), eerste = lijst.length ? lijst[0] : null, el = q("#msg-verj-volgende");
+    const nu = nuNL(), lijst = verjaardagLijst(nu), eerste = lijst.length ? lijst[0] : null, el = q("#msg-verj-volgende");
     if(!eerste){ el.textContent = ""; return; }
     el.textContent = "🎂 Eerstvolgende verjaardag: " + lijst.filter(e=>e.datum === eerste.datum).map(e=>e.naam).join(" en ") + " — " + verjaardagWanneer(eerste, nu);
   };
@@ -4361,7 +4376,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
       tr.appendChild(vink("Monitor", "monitor", null, monitorAan("Monitor", BOODSCHAP.monitor), "Monitorfunctie voor de Monitor", false)); tr.appendChild(leeg()); lijf.appendChild(tr); }
     tabel.appendChild(lijf); wrap.appendChild(tabel);
     const laatste = [[BOODSCHAP.talenAt, BOODSCHAP.talenBy], [BOODSCHAP.personenAt, BOODSCHAP.personenBy]].filter(x=>x[0] && !isNaN(Date.parse(x[0]))).sort((a, b)=>Date.parse(b[0]) - Date.parse(a[0]))[0], d = laatste ? new Date(laatste[0]) : null;
-    q("#msg-talen-last").textContent = d ? "Per collega laatst gewijzigd: " + d.toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + (laatste[1] ? " door " + laatste[1] : "") : "";
+    q("#msg-talen-last").textContent = d ? "Per collega laatst gewijzigd: " + d.toLocaleDateString("nl-NL", { timeZone: NLTZ, day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("nl-NL", { timeZone: NLTZ, hour: "2-digit", minute: "2-digit" }) + (laatste[1] ? " door " + laatste[1] : "") : "";
   };
   q("#msg-talen").onclick = async (ev)=>{
     const b = ev.target.closest && ev.target.closest("button, input[type=checkbox]"), wrap = q("#msg-talen"); if(!b || b.disabled || !mag || wrap.dataset.bezig) return;
@@ -4411,10 +4426,10 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     const t = eigenSchoon(q("#msg-eigen-tekst").value), naam = eigenWie(), n = t ? (naam === EIGEN_ALGEMEEN ? t.length : eigenTekst(t).replace(/\{naam\}/g, naam).length) : 0, el = q("#msg-eigen-teller");
     el.textContent = n + "/" + EIGEN_MAX_TEKST; el.style.color = n > EIGEN_MAX_TEKST ? "#f48fb1" : "#777";
     const vb = q("#msg-eigen-voorbeeld"); const doel = q("#msg-eigen-aftellen").checked ? q("#msg-eigen-tot").value : "";   // bij aftellen: het voorbeeld met het aantal dagen van vandaag
-    if(t) vulVoorbeeld(vb, doel ? eigenMetDagen({ t, doel }, eigenDatum(new Date())) : t, naam, q("#msg-eigen-emoji").value); else vb.textContent = "";
+    if(t) vulVoorbeeld(vb, doel ? eigenMetDagen({ t, doel }, eigenDatum(nuNL())) : t, naam, q("#msg-eigen-emoji").value); else vb.textContent = "";
   };
   const vandaagStand = ()=>{   // de knop 'Vandaag' staat aan als vanaf én tot en met allebei vandaag zijn (ook als de beheerder dat zelf zo invulde)
-    const b = q("#msg-eigen-vandaag"), v = q("#msg-eigen-van").value, t = q("#msg-eigen-tot").value, aan = !!v && v === eigenDatum(new Date()) && t === v;
+    const b = q("#msg-eigen-vandaag"), v = q("#msg-eigen-van").value, t = q("#msg-eigen-tot").value, aan = !!v && v === eigenDatum(nuNL()) && t === v;
     b.setAttribute("aria-pressed", String(aan)); b.textContent = aan ? "✓ Vandaag" : "Vandaag"; b.style.background = aan ? "#2e7d6b" : "transparent"; b.style.borderColor = aan ? "#80cbc4" : "rgba(255,255,255,0.25)"; b.style.color = aan ? "#fff" : "#bbb";
   };
   const jaarlijksStand = ()=>{   // 'eén dag': één datum, 'tot en met' laat dezelfde dag zien (uitgeschakeld); 'elk jaar herhalen': één datum (de dag), 'tot en met' en 'Vandaag' doen niet mee; 'aftellen': 'tot en met' wordt de dag waarnaar wordt afgeteld, 'Vandaag' doet niet mee; deze drie kunnen niet samen
@@ -4454,7 +4469,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   };
   const toonEigen = ()=>{   // het overzicht van alle actieve boodschappen en de lijst van de gekozen collega; het formulier zelf blijft zoals de beheerder het invulde
     const sel = q("#msg-eigen-wie"); if(!sel.options.length){ [EIGEN_ALGEMEEN].concat(TEAM).forEach(n=>{ const o = document.createElement("option"); o.value = n; o.textContent = n === EIGEN_ALGEMEEN ? "Algemeen (iedereen, zonder naam)" : n; sel.appendChild(o); }); sel.value = EIGEN_ALGEMEEN; }   // de keuze begint bij 'Algemeen' (een boodschap voor iedereen, zonder naam)
-    const naam = eigenWie(), lijst = BOODSCHAP.persoonlijk[naam] || [], vast = eigenVast(), vandaag = eigenDatum(new Date()), wrap = q("#msg-eigen-lijst");
+    const naam = eigenWie(), lijst = BOODSCHAP.persoonlijk[naam] || [], vast = eigenVast(), vandaag = eigenDatum(nuNL()), wrap = q("#msg-eigen-lijst");
     // het overzicht: alle actieve boodschappen van alle collega's (in de volgorde van het team), met een opmerking als een boodschap wel loopt maar niet in beeld komt
     const volgorde = n=>{ if(n === EIGEN_ALGEMEEN) return -1; const i = TEAM.indexOf(n); return i < 0 ? TEAM.length : i; }, ov = q("#msg-eigen-actief"), actief = [];
     Object.keys(BOODSCHAP.persoonlijk).sort((x, y)=>volgorde(x) - volgorde(y)).forEach(n=>BOODSCHAP.persoonlijk[n].forEach(e=>{ if(eigenStatus(e, vandaag) === "actief") actief.push([n, e]); }));
@@ -4497,7 +4512,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   const spiegelDag = ()=>{ if(q("#msg-eigen-eendag").checked) q("#msg-eigen-tot").value = q("#msg-eigen-van").value; vandaagStand(); };   // bij 'Eén dag' toont 'tot en met' dezelfde dag
   q("#msg-eigen-van").oninput = q("#msg-eigen-tot").oninput = q("#msg-eigen-van").onchange = q("#msg-eigen-tot").onchange = spiegelDag;
   q("#msg-eigen-vandaag").onclick = ()=>{   // alleen vandaag: vanaf en tot en met allebei vandaag; nog een keer klikken haalt ze weer weg (er wordt nog niets opgeslagen: dat doet 'Toevoegen')
-    if(eigenVast()) return; const v = q("#msg-eigen-van"), t = q("#msg-eigen-tot"), nu = eigenDatum(new Date());
+    if(eigenVast()) return; const v = q("#msg-eigen-van"), t = q("#msg-eigen-tot"), nu = eigenDatum(nuNL());
     if(v.value === nu && t.value === nu){ v.value = ""; t.value = ""; q("#msg-eigen-eendag").checked = false; }
     else { v.value = nu; t.value = nu; q("#msg-eigen-eendag").checked = true; q("#msg-eigen-jaarlijks").checked = false; q("#msg-eigen-aftellen").checked = false; }   // vandaag is één dag
     jaarlijksStand(); tellerE();
@@ -4520,7 +4535,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   q("#msg-eigen-lijst").onclick = (ev)=>{
     const b = ev.target.closest && ev.target.closest("button"); if(!b || b.disabled || !mag || overlay.dataset.eigenBezig) return;
     const e = (BOODSCHAP.persoonlijk[eigenWie()] || []).find(x=>x.id === b.dataset.id); if(!e) return;
-    if(b.dataset.actie === "wijzigen"){ q("#msg-eigen-tekst").value = e.t; q("#msg-eigen-jaarlijks").checked = !!e.jaarlijks; q("#msg-eigen-emoji").value = e.emoji || ""; q("#msg-eigen-van").value = e.jaarlijks ? (e.jaarlijks === "02-29" ? 2028 : new Date().getFullYear()) + "-" + e.jaarlijks : (e.van || ""); q("#msg-eigen-aftellen").checked = !!e.doel; q("#msg-eigen-eendag").checked = !e.jaarlijks && !e.doel && !!e.van && e.van === e.tot; q("#msg-eigen-tot").value = e.doel || e.tot || ""; q("#msg-eigen-form").dataset.edit = e.id; q("#msg-eigen-ok").textContent = "Wijziging opslaan"; q("#msg-eigen-annuleer").style.display = ""; jaarlijksStand(); tellerE(); setMsgE("", ""); q("#msg-eigen-tekst").focus(); }
+    if(b.dataset.actie === "wijzigen"){ q("#msg-eigen-tekst").value = e.t; q("#msg-eigen-jaarlijks").checked = !!e.jaarlijks; q("#msg-eigen-emoji").value = e.emoji || ""; q("#msg-eigen-van").value = e.jaarlijks ? (e.jaarlijks === "02-29" ? 2028 : nuNL().getFullYear()) + "-" + e.jaarlijks : (e.van || ""); q("#msg-eigen-aftellen").checked = !!e.doel; q("#msg-eigen-eendag").checked = !e.jaarlijks && !e.doel && !!e.van && e.van === e.tot; q("#msg-eigen-tot").value = e.doel || e.tot || ""; q("#msg-eigen-form").dataset.edit = e.id; q("#msg-eigen-ok").textContent = "Wijziging opslaan"; q("#msg-eigen-annuleer").style.display = ""; jaarlijksStand(); tellerE(); setMsgE("", ""); q("#msg-eigen-tekst").focus(); }
     else if(b.dataset.actie === "verwijderen") bewaarE("verwijderen", e);
   };
   setMsg("Laden...", ""); toonTalen(); toonEigen(); vandaagStand(); tellerE();
@@ -5073,7 +5088,7 @@ async function showStatsWindow(){
       k.onclick = ()=>showStatsWindow(); chart.append(t, k); return;
     }
     if(lr.ok){
-      const eersteDag = new Date(Date.now() - (STATS_DAYS + 1) * 86400000).toISOString().slice(0, 10);   // een dag ruimer: de dagbestanden gaan op UTC-datum
+      const eersteDag = new Date(srvNowMs() - (STATS_DAYS + 1) * 86400000).toISOString().slice(0, 10);   // een dag ruimer: de dagbestanden gaan op UTC-datum
       const files = (await lr.json()).filter(f=>/^\d{4}-\d\d-\d\d\.jsonl$/.test(f.name) && f.name.slice(0, 10) >= eersteDag);
       const texts = await Promise.all(files.map(async f=>{
         const fr = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/audit/${f.name}?ref=${GH_BRANCH}${nc()}`, {headers: hdrs});
@@ -5084,7 +5099,7 @@ async function showStatsWindow(){
     }
   }catch(e){ chart.textContent = "Laden mislukt: " + e.message; return; }
   auditQueue.forEach(e=>entries.push(e));   // wat nog niet is weggeschreven telt ook mee (dubbele regels vallen weg op eid)
-  const st = auditStats(entries, Date.now(), STATS_DAYS);
+  const st = auditStats(entries, srvNowMs(), STATS_DAYS);
   const sub = box.querySelector("#stat-sub"), subTekst = sub.textContent, legenda = box.querySelector("#stat-legend");
   const toonOverzicht = ()=>{
     chart.textContent = ""; sub.textContent = subTekst; foot.style.display = ""; legenda.style.display = "flex";
@@ -5110,7 +5125,7 @@ async function showStatsWindow(){
       const voor = soort === "zelf" ? "voor zichzelf" : soort === "ander" ? "voor " + anderen.slice(0, 3).join(", ") + (anderen.length > 3 ? " +" + (anderen.length - 3) : "") : (anderen.length ? "voor zichzelf en " + anderen.slice(0, 3).join(", ") + (anderen.length > 3 ? " +" + (anderen.length - 3) : "") : "voor zichzelf en een ander (niet te bepalen)");
       const d = new Date(t), kopregel = document.createElement("div"); kopregel.style.cssText = "color:#fff;";
       const tag = document.createElement("span"); tag.style.cssText = "color:" + STAT_KLEUR[soort] + ";font-weight:700;"; tag.textContent = voor;
-      kopregel.append(d.toLocaleDateString("nl-NL", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }) + " · ", tag, " · " + (e.action && e.action !== "wijziging" ? e.action + " · " : "") + e.n + (e.n === 1 ? " wijziging" : " wijzigingen"));
+      kopregel.append(d.toLocaleDateString("nl-NL", { timeZone: NLTZ, day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("nl-NL", { timeZone: NLTZ, hour: "2-digit", minute: "2-digit" }) + " · ", tag, " · " + (e.action && e.action !== "wijziging" ? e.action + " · " : "") + e.n + (e.n === 1 ? " wijziging" : " wijzigingen"));
       kaart.appendChild(kopregel);
       (e.changes || []).slice(0, 8).forEach(c=>{ const r = document.createElement("div"); r.style.color = "rgba(255,255,255,0.6)"; r.textContent = auditChText(c); kaart.appendChild(r); });
       if((e.changes || []).length > 8){ const r = document.createElement("div"); r.style.color = "rgba(255,255,255,0.4)"; r.textContent = "… en nog " + ((e.changes || []).length - 8) + " meer" + (e.trunc ? " (ingekort: " + e.n + " in totaal)" : ""); kaart.appendChild(r); }
@@ -5156,7 +5171,7 @@ async function laadServerStatus(){
 }
 
 // ── Oude roosters: het SERVERONDERHOUD verwijdert weken die helemaal ouder zijn dan 2 maanden (met een backup vooraf). Deze pagina laat alleen zien welke het zijn en ruimt ze na een synchronisatie uit het eigen geheugen. ──
-function ckCutoff(){ const d = new Date(); d.setHours(0, 0, 0, 0); d.setMonth(d.getMonth() - 2); return d; }
+function ckCutoff(){ const d = nuNL(); d.setHours(0, 0, 0, 0); d.setMonth(d.getMonth() - 2); return d; }
 function ckWeekEinde(wk){ const e = new Date(getMondayFromKey(wk)); e.setDate(e.getDate() + 6); e.setHours(23, 59, 59, 999); return e; }
 function ckLokaleOudeWekenWeg(data){   // na een synchronisatie: weken die GitHub niet meer heeft en ouder zijn dan 2 maanden, gaan ook uit het geheugen van dit scherm
   if(savePending || ghSaving) return; const c = ckCutoff();
@@ -5205,13 +5220,13 @@ const CHECKS = [
   { id: "serveronderhoud", groep: 3, zwaar: true, naam: "Serveronderhoud (taak op GitHub)", run: async ()=>{
       await laadServerStatus(); const o = { fout: SERVER_STATUS_FOUT, bestaat: !!SERVER_STATUS, data: SERVER_STATUS }; if(o.fout) return ck_let("het statusbestand van het serveronderhoud is niet te lezen (" + o.fout + ")");
       if(!o.bestaat) return ck_fout("het serveronderhoud heeft nog nooit gedraaid: de taak moet nog worden aangezet op GitHub (Actions \u25B8 Onderhoud planning)");
-      const d = o.data || {}, t = Date.parse(d.t || ""), min = isNaN(t) ? null : Math.round((Date.now() - t) / 60000);
+      const d = o.data || {}, t = Date.parse(d.t || ""), min = isNaN(t) ? null : Math.round((srvNowMs() - t) / 60000);
       if(min === null) return ck_let("het statusbestand van het serveronderhoud is onleesbaar");
-      const wanneer = new Date(t).toLocaleString("nl-NL", {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}), acties = (d.acties || []).length, meld = (d.meldingen || []).length;
+      const wanneer = new Date(t).toLocaleString("nl-NL", { timeZone: NLTZ,day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}), acties = (d.acties || []).length, meld = (d.meldingen || []).length;
       if((d.problemen || []).length) return ck_fout("de laatste ronde (" + wanneer + ") meldde een probleem: " + d.problemen.join("; ").slice(0, 300));
       if(d.state_sha){   // de server legt vast welke versie van de planning hij het laatst zag: zo is een stille periode (geen wijzigingen, dus geen ronde) geen alarm
         if(d.state_sha === ghSha) return ck_ok("de server heeft de huidige planning gezien (laatste ronde " + wanneer + (acties ? ", " + acties + " actie" + (acties === 1 ? "" : "s") : "") + ")" + (meld ? "; " + meld + " melding" + (meld === 1 ? "" : "en") + " (zie het statusbestand)" : ""));
-        const sT = HEALTH.integriteit && HEALTH.integriteit.t ? Date.parse(HEALTH.integriteit.t) : NaN, sinds = isNaN(sT) ? null : Math.round((Date.now() - sT) / 60000);
+        const sT = HEALTH.integriteit && HEALTH.integriteit.t ? Date.parse(HEALTH.integriteit.t) : NaN, sinds = isNaN(sT) ? null : Math.round((srvNowMs() - sT) / 60000);
         if(sinds !== null && sinds < 10) return ck_ok("de planning is net gewijzigd; de server verwerkt die zo (laatste ronde " + wanneer + ")");
         if(sinds !== null && sinds > 120) return ck_fout("de planning is " + ckAgo(sinds * 60) + " geleden gewijzigd, maar de server heeft die sindsdien niet gezien (laatste ronde " + wanneer + "): controleer Actions op GitHub");
         return ck_let("de planning is gewijzigd sinds de laatste serverronde (" + wanneer + "); de server hoort die binnen enkele minuten te verwerken");
@@ -5289,7 +5304,7 @@ async function showChecksWindow(){
   const sum = box.querySelector("#ck-sum"), lijst = box.querySelector("#ck-list"), knop = box.querySelector("#ck-run");
   const teken = ()=>{
     const t = checkTelling(), rijen = checkRijen(); sum.style.color = t.fout ? kleur.fout : t.let ? kleur.let : "#fff";
-    const sT = SERVER_STATUS && SERVER_STATUS.t ? Date.parse(SERVER_STATUS.t) : NaN, srvTekst = !isNaN(sT) ? "server: laatste ronde " + ckAgo(Math.max(0, Math.round((Date.now() - sT) / 1000))) + " geleden" : "server: nog geen uitslag";
+    const sT = SERVER_STATUS && SERVER_STATUS.t ? Date.parse(SERVER_STATUS.t) : NaN, srvTekst = !isNaN(sT) ? "server: laatste ronde " + ckAgo(Math.max(0, Math.round((srvNowMs() - sT) / 1000))) + " geleden" : "server: nog geen uitslag";
     const txt = (!CHECK_RUN_AT ? "Bezig met controleren\u2026" : t.fout ? "\u2717 " + t.fout + " fout" + (t.fout === 1 ? "" : "en") + (t.let ? " en " + t.let + " aandachtspunt" + (t.let === 1 ? "" : "en") : "") : t.let ? "\u26A0 " + t.let + " aandachtspunt" + (t.let === 1 ? "" : "en") : "\u2713 Alles in orde") + "  \u00B7  " + (t.totaal - t.nog) + " van " + t.totaal + " gecontroleerd" + (t.hersteld ? "  \u00B7  " + t.hersteld + " automatisch hersteld" : "") + "  \u00B7  " + srvTekst;
     sum.innerHTML = ""; sum.style.cssText += "display:flex;align-items:center;gap:10px;"; sum.appendChild(checkVakje(!CHECK_RUN_AT ? "nog" : t.fout ? "fout" : t.let ? "let" : "ok", 28)); const st = document.createElement("span"); st.textContent = txt; sum.appendChild(st);
     lijst.innerHTML = "";
@@ -5319,7 +5334,7 @@ setTimeout(()=>{ if(canSeeInfo() && stateTrusted && !document.hidden) runChecks(
 
 // ── De tijd van de server (GitHub) in Nederlandse tijd, linksboven: loopt door en wordt elke 10 minuten opnieuw gemeten ──
 // Niet de klok van dit apparaat: de tijd wordt gemeten aan GitHub Pages (zoals de klokcheck) en daarna door de klok van het apparaat doorgeteld.
-let SRV_OFFSET = null, SRV_MARGE = 1, SRV_METING_AT = 0, SRV_TITEL = "";
+let SRV_MARGE = 1, SRV_METING_AT = 0, SRV_TITEL = "";
 const SRV_FMT = new Intl.DateTimeFormat("nl-NL", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
 const SRV_FMT_DAG = new Intl.DateTimeFormat("nl-NL", { timeZone: "Europe/Amsterdam", weekday: "long", day: "numeric", month: "long", year: "numeric" });
 async function srvTijdMeten(){
@@ -5327,11 +5342,14 @@ async function srvTijdMeten(){
     CK_KLOK = null; const k = await ckKlok();
     if(k && !k.onbekend && !k.grof && typeof k.ms === "number"){
       const nieuw = -k.ms;   // de server loopt zoveel voor op dit apparaat (k.ms is: het apparaat loopt zoveel voor op de server)
-      if(SRV_OFFSET === null || Math.abs(nieuw - SRV_OFFSET) > 1500) SRV_OFFSET = nieuw;   // kleine schommelingen van de meting verspringen de klok niet
+      if(SRV_OFFSET === null || Math.abs(nieuw - SRV_OFFSET) > 1500){ SRV_OFFSET = nieuw; try{ localStorage.setItem("tp_srv_offset", String(SRV_OFFSET)); }catch(e){} }   // kleine schommelingen van de meting verspringen de klok niet
       SRV_MARGE = k.marge || 1; SRV_METING_AT = Date.now();
     }
   }catch(e){}
-  srvTijdTekenen();
+  srvTijdTekenen(); srvDagCheck();
+}
+function srvDagCheck(){   // is het volgens de server een andere dag dan waarmee de pagina rekent (nieuwe dag, of de eerste meting)? Dan 'vandaag' bijstellen en opnieuw tekenen
+  try{ const nieuw = nuNL(); nieuw.setHours(0, 0, 0, 0); if(nieuw.getTime() !== today.getTime()){ today = nieuw; if(typeof render === "function") render(); } }catch(e){ console.warn("dagcontrole:", e); }
 }
 function srvTijdTekenen(){
   const el = document.getElementById("srv-clock"); if(!el) return;
@@ -5341,7 +5359,8 @@ function srvTijdTekenen(){
   const titel = (exact ? "Tijd van de server (GitHub), Nederlandse tijd, gemeten op ongeveer " + SRV_MARGE + " s nauwkeurig" + (Math.abs(SRV_OFFSET) > 60000 ? "\nDit apparaat loopt " + ckVerschilTekst(SRV_OFFSET) + (SRV_OFFSET > 0 ? " achter" : " voor") : "") : "De tijd van de server is niet beschikbaar: dit is de tijd van dit apparaat") + "\n" + SRV_FMT_DAG.format(new Date(nuMs));
   if(titel !== SRV_TITEL){ SRV_TITEL = titel; el.title = titel; }
 }
-setInterval(()=>{ if(!document.hidden) srvTijdTekenen(); }, 1000);
+setInterval(()=>{ if(!document.hidden){ srvTijdTekenen(); if(!(Date.now() % 5)) srvDagCheck(); } }, 1000);
+setInterval(srvDagCheck, 60 * 1000);   // ook als de pagina op de achtergrond staat: bij het wisselen van de dag volgens de server
 setInterval(srvTijdMeten, 10 * 60 * 1000);
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden){ srvTijdTekenen(); if(Date.now() - SRV_METING_AT > 60000) srvTijdMeten(); } });
 srvTijdTekenen(); srvTijdMeten();
@@ -5631,7 +5650,7 @@ async function showPeriodeModal(){
   const box = document.createElement("div");
   box.style.cssText = "background:#111827;border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:24px;width:440px;max-width:95vw;font-family:'Courier New',monospace;";
 
-  const now = new Date();
+  const now = nuNL();
   const [curY, curW] = getISOWeek(now);
   const weekEnd = new Date(now); weekEnd.setDate(now.getDate()+(5-now.getDay()||5));
 
@@ -6023,7 +6042,7 @@ function closeAllOverlays(){
 }
 function goHome(){
   closeAllOverlays();
-  const now = new Date(), dow = now.getDay();
+  const now = nuNL(), dow = now.getDay();
   const def = (dow === 0 || dow === 6) ? addWeeks(mondayOf(now), 1) : mondayOf(now);   // zelfde startweek als bij het openen (in het weekend: komende week)
   try{ sessionStorage.removeItem("tp_baseMonday"); }catch(e){}
   if(baseMonday.getTime() !== def.getTime()){ baseMonday = def; renderAndSync(); }
