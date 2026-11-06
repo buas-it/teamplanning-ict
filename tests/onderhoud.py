@@ -449,8 +449,8 @@ def oude_weken(n):
 
 # ── backups ───────────────────────────────────────────────────────────────────────────────────
 def backup_naam(t):
-    # zoals de pagina: de datum volgens UTC, de tijd volgens Nederlandse tijd (zo blijven de namen op volgorde)
-    return f"{t.astimezone(dt.timezone.utc).strftime('%Y-%m-%d')}_{t.astimezone(AMS).strftime('%H-%M')}.json"
+    # de datum en de tijd in Nederlandse tijd (voorheen: de datum volgens UTC en de tijd volgens Nederlandse tijd, wat rond middernacht een dag scheelde)
+    return f"{t.astimezone(AMS).strftime('%Y-%m-%d_%H-%M')}.json"
 
 
 def maak_backup(tekst, bestaand, label):
@@ -648,7 +648,7 @@ def ronde():
                 problemen.append(f"beschadigde backup: {tekst} (niet verwijderd: te weinig goede backups of droogloop)")
     # bewaartermijnen: backups (14 dagen) en dagbestanden van het logboek (31 dagen)
     try:
-        cut_b = (nu() - dt.timedelta(days=BACKUP_BEWAAR_DAGEN)).strftime("%Y-%m-%d")
+        cut_b = (nu().astimezone(AMS) - dt.timedelta(days=BACKUP_BEWAAR_DAGEN)).strftime("%Y-%m-%d")   # de datum in de naam is Nederlandse datum
         items_b = sorted(lijst("backups"), key=lambda x: x["name"])
         oud_b = [it for it in items_b if it["name"][:10] < cut_b]
         weg_b = oud_b[:max(0, min(MAX_OPRUIMEN, len(items_b) - MIN_BEWAARD))]
@@ -879,7 +879,7 @@ def controles(acties, problemen):
             if r: slecht_b.append(f"{it['name'][:-5]} ({r})")
         add("backup_geldig", 3, "Nieuwste backups zijn in orde", "fout" if slecht_b else "ok", ("beschadigd: " + "; ".join(slecht_b)) if slecht_b else f"de {min(3, len(items))} nieuwste backups zijn leesbaar en volledig")
     try:
-        cut_b2 = (nu() - dt.timedelta(days=BACKUP_BEWAAR_DAGEN)).strftime("%Y-%m-%d"); n_oud_b = sum(1 for it in items if it["name"][:10] < cut_b2)
+        cut_b2 = (nu().astimezone(AMS) - dt.timedelta(days=BACKUP_BEWAAR_DAGEN)).strftime("%Y-%m-%d"); n_oud_b = sum(1 for it in items if it["name"][:10] < cut_b2)
         add("backups_termijn", 3, f"Backups binnen de bewaartermijn ({BACKUP_BEWAAR_DAGEN} dagen)", "info" if n_oud_b else "ok", f"{n_oud_b} {'backup is' if n_oud_b == 1 else 'backups zijn'} ouder dan {BACKUP_BEWAAR_DAGEN} dagen; de server ruimt ze in de volgende ronde op" if n_oud_b else f"geen backups ouder dan {BACKUP_BEWAAR_DAGEN} dagen")
         cut_a2 = (nu() - dt.timedelta(days=AUDIT_BEWAAR_DAGEN)).strftime("%Y-%m-%d"); n_oud_a = sum(1 for it in lijst("audit") if re.match(r"^\d{4}-\d\d-\d\d\.jsonl$", it["name"]) and it["name"][:10] < cut_a2)
         add("logboek_termijn", 3, f"Logboek binnen de bewaartermijn ({AUDIT_BEWAAR_DAGEN} dagen)", "info" if n_oud_a else "ok", f"{n_oud_a} {'dagbestand is' if n_oud_a == 1 else 'dagbestanden zijn'} ouder dan {AUDIT_BEWAAR_DAGEN} dagen; de server ruimt ze in de volgende ronde op" if n_oud_a else f"geen dagbestanden ouder dan {AUDIT_BEWAAR_DAGEN} dagen")
