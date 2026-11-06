@@ -115,6 +115,7 @@ button { font-family:inherit; cursor:pointer; }
 html.tp-gated, html.tp-gated body { background:#000 !important; }
 html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { display:none !important; }
 /* Wie is er ingelogd: rechtsboven in het scherm (niet aanklikbaar, dus nooit in de weg); op een smal scherm boven de titel */
+#srv-clock { position:fixed; top:10px; left:14px; z-index:100; font-size:12px; line-height:24px; color:#fff; font-variant-numeric:tabular-nums; white-space:nowrap; }   /* de tijd van de server, linksboven: even groot als 'Ingelogd als' en even wit als de titel */
 #who-badge { position:fixed; top:10px; right:14px; z-index:100; pointer-events:none; font-size:12px; }   /* de badge zelf laat klikken door; alleen de knop en het menu zijn aanklikbaar */
 #who-btn { pointer-events:auto; display:inline-flex; align-items:center; gap:4px; font:inherit; font-size:12px; color:rgba(255,255,255,0.5); background:rgba(13,13,26,0.88); border:1px solid rgba(128,203,196,0.35); border-radius:999px; padding:5px 12px 5px 13px; white-space:nowrap; max-width:60vw; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
 #who-btn:hover, #who-btn[aria-expanded="true"], #who-btn:focus-visible { border-color:rgba(128,203,196,0.75); color:rgba(255,255,255,0.8); outline:none; }
@@ -125,7 +126,8 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 #who-menu button { display:block; width:100%; text-align:left; font:inherit; font-size:12px; color:#e8e8f0; background:none; border:none; border-radius:7px; padding:8px 10px; cursor:pointer; }
 #who-menu button:hover, #who-menu button:focus { background:rgba(255,255,255,0.08); outline:none; }
 #who-menu button.out { color:#f48fb1; }
-@media (max-width:640px){ #who-badge { position:relative; display:block; width:max-content; max-width:100%; margin:0 0 8px auto; } }   /* smal scherm: boven de titel, het menu blijft eraan vast */
+@media (max-width:640px){ #srv-clock { position:absolute; top:30px; left:16px; } #who-badge {   /* top:30px = dezelfde hoogte als de knop 'Ingelogd als' op een smal scherm (20px opvulling + 10px verschuiving van de knop) */
+   position:relative; display:block; width:max-content; max-width:100%; margin:0 0 8px auto; } }   /* smal scherm: boven de titel, het menu blijft eraan vast */
 /* Toegangspoort: de campusfoto over de volle breedte in de echte beeldverhouding (1881:592; niets afgesneden of uitgerekt). De rest van het scherm is een uitgerekte, vervaagde en verduisterde versie van dezelfde foto; het venster staat in de ruimte onder de foto; zwart is de terugval als de foto niet laadt */
 .tp-overlay[data-gate] { background-color:#000; align-items:flex-start; overflow:auto; box-sizing:border-box; padding-top:max(0px, min(calc(100vw * 592 / 1881), calc(100vh - 290px))); }
 .tp-overlay[data-gate]::before { content:""; position:fixed; inset:-40px; z-index:0; background:url("login-achtergrond.jpg") center / cover no-repeat; filter:blur(26px) brightness(0.5) saturate(1.15); }
@@ -196,7 +198,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
 </style>
 </head>
 <body>
-<div class="header"><div id="who-badge" style="display:none;"></div><h1>Bezetting Teams</h1></div>
+<div class="header"><div id="srv-clock" aria-live="off"></div><div id="who-badge" style="display:none;"></div><h1>Bezetting Teams</h1></div>
 <div class="nav">
   <button class="nav-btn" id="btn-prev">◀◀</button>
   <button class="nav-btn" id="btn-prev1">◀</button>
@@ -231,7 +233,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 6 nov 2026 · 153</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 6 nov 2026 · 154</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -5314,6 +5316,35 @@ async function showChecksWindow(){
 let checkTick = 0;   // de checks lopen vanzelf op de pagina van elke Administrator: licht elke 2 minuten, zwaar elke 30 minuten
 setInterval(()=>{ if(!(canSeeInfo() && stateTrusted) || document.hidden) return; checkTick++; runChecks({ zwaar: checkTick % 15 === 1, repair: true }); }, 120000);
 setTimeout(()=>{ if(canSeeInfo() && stateTrusted && !document.hidden) runChecks({ zwaar: true, repair: true }); }, 25000);
+
+// ── De tijd van de server (GitHub) in Nederlandse tijd, linksboven: loopt door en wordt elke 10 minuten opnieuw gemeten ──
+// Niet de klok van dit apparaat: de tijd wordt gemeten aan GitHub Pages (zoals de klokcheck) en daarna door de klok van het apparaat doorgeteld.
+let SRV_OFFSET = null, SRV_MARGE = 1, SRV_METING_AT = 0, SRV_TITEL = "";
+const SRV_FMT = new Intl.DateTimeFormat("nl-NL", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+const SRV_FMT_DAG = new Intl.DateTimeFormat("nl-NL", { timeZone: "Europe/Amsterdam", weekday: "long", day: "numeric", month: "long", year: "numeric" });
+async function srvTijdMeten(){
+  try{
+    CK_KLOK = null; const k = await ckKlok();
+    if(k && !k.onbekend && !k.grof && typeof k.ms === "number"){
+      const nieuw = -k.ms;   // de server loopt zoveel voor op dit apparaat (k.ms is: het apparaat loopt zoveel voor op de server)
+      if(SRV_OFFSET === null || Math.abs(nieuw - SRV_OFFSET) > 1500) SRV_OFFSET = nieuw;   // kleine schommelingen van de meting verspringen de klok niet
+      SRV_MARGE = k.marge || 1; SRV_METING_AT = Date.now();
+    }
+  }catch(e){}
+  srvTijdTekenen();
+}
+function srvTijdTekenen(){
+  const el = document.getElementById("srv-clock"); if(!el) return;
+  const exact = SRV_OFFSET !== null, nuMs = Date.now() + (exact ? SRV_OFFSET : 0), tekst = SRV_FMT.format(new Date(nuMs));
+  if(el.textContent !== tekst) el.textContent = tekst;
+  el.style.opacity = exact ? "" : "0.45";   // zonder meting: de tijd van dit apparaat, gedempt
+  const titel = (exact ? "Tijd van de server (GitHub), Nederlandse tijd, gemeten op ongeveer " + SRV_MARGE + " s nauwkeurig" + (Math.abs(SRV_OFFSET) > 60000 ? "\nDit apparaat loopt " + ckVerschilTekst(SRV_OFFSET) + (SRV_OFFSET > 0 ? " achter" : " voor") : "") : "De tijd van de server is niet beschikbaar: dit is de tijd van dit apparaat") + "\n" + SRV_FMT_DAG.format(new Date(nuMs));
+  if(titel !== SRV_TITEL){ SRV_TITEL = titel; el.title = titel; }
+}
+setInterval(()=>{ if(!document.hidden) srvTijdTekenen(); }, 1000);
+setInterval(srvTijdMeten, 10 * 60 * 1000);
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden){ srvTijdTekenen(); if(Date.now() - SRV_METING_AT > 60000) srvTijdMeten(); } });
+srvTijdTekenen(); srvTijdMeten();
 
 async function showStatusWindow(){
   if(!canSeeInfo()) return;   // Status staat onder Admin en is alleen kijken: geen vraag om bewerken aan te zetten
