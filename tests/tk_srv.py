@@ -424,4 +424,18 @@ check("SV96 in de alleen-lezen-stand schrijft ook deze taak niets", rc == 0 and 
 basis(); draai_logboek([ev(eid="vroeg-000001", t="2026-11-03T23:59:00.000Z", actie="ingelogd")], nu="2026-11-04T00:00:30Z"); r = dsp_regels()
 check("SV97 de regel gaat in het dagbestand van de dag volgens GitHub (UTC), niet van de dag die het apparaat meldt", len(r) == 1 and "audit/2026-11-04.jsonl" in REPO.f and r[0]["t"].startswith("2026-11-04"), json.dumps([r, [k for k in REPO.f if k.startswith("audit/")]]))
 
+
+# ── SV85-88: de namen van backups in Nederlandse tijd (datum en tijd) ───────────────────────────────────────────
+def backup_door_server(nu_iso, commit_iso):   # een planning die al lang genoeg niet is gewijzigd en verschilt van de nieuwste backup: de server maakt een backup bij
+    nieuw(planning(36, 52)); sj_ = copy.deepcopy(st()); sj_["store"]["2026-W40"]["Wim"]["MA"] = ["vrij"]; OND.stempel(sj_, {"integriteit": {"n": 4, "bev": 0}}); REPO.opslag(sj_, "Update planning \u2014 Hans@dev1 (MacBook)", commit_iso)
+    REPO.f["index.html"] = LABEL_A; REPO.pages = LABEL_A; REPO.token = token_ok(); voor = set(backups()); rc, u = draai(nu=nu_iso); return rc, u, sorted(set(backups()) - voor)
+rc, u, nieuwe = backup_door_server("2026-11-04T23:30:00Z", "2026-11-04T23:10:00Z")
+check("SV85 de naam van een backup heeft de datum EN de tijd in Nederlandse tijd: om 23:30 UTC op 4 november (winter, UTC+1) is het in Nederland 00:30 op 5 november, dus 'backups/2026-11-05_00-30.json' (voorheen stond er de UTC-datum 2026-11-04 bij de Nederlandse tijd 00:30)", nieuwe == ["backups/2026-11-05_00-30.json"], json.dumps([nieuwe, u["acties"]]))
+rc, u, nieuwe = backup_door_server("2026-07-01T22:30:00Z", "2026-07-01T22:10:00Z")
+check("SV86 in de zomer (UTC+2) gaat het ook goed: 22:30 UTC op 1 juli is 00:30 op 2 juli in Nederland: 'backups/2026-07-02_00-30.json'", nieuwe == ["backups/2026-07-02_00-30.json"], json.dumps([nieuwe, u["acties"]]))
+basis(); backups_op_datums(["2026-10-21", "2026-10-22", "2026-10-30", "2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"]); rc, u = draai(nu="2026-11-04T23:30:00Z"); rest = sorted(b[8:18] for b in backups())
+check("SV87 de bewaartermijn van 14 dagen rekent met de Nederlandse datum: om 23:30 UTC op 4 november is het in Nederland al 5 november, dus gaat alles van voor 22 oktober weg (21 oktober gaat weg, 22 oktober blijft); met de UTC-datum bleef 21 oktober een dag te lang staan", "2026-10-21" not in rest and "2026-10-22" in rest, json.dumps([rest[:3], u["acties"]]))
+basis(); backups_op_datums(["2026-10-21", "2026-10-22", "2026-10-30", "2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"]); rc, u = draai(nu="2026-11-04T12:00:00Z"); rest = sorted(b[8:18] for b in backups())
+check("SV87b overdag (UTC-datum en Nederlandse datum gelijk) blijft het zoals het was: op 4 november gaat alles van voor 21 oktober weg (21 oktober blijft)", "2026-10-21" in rest, json.dumps([rest[:3], u["acties"]]))
+
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")
