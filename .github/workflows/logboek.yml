@@ -1,0 +1,29 @@
+# Logboek van bezoeken en inloggen van Bezetting Teams.
+# De pagina meldt een bezoek of een inlog aan GitHub (repository_dispatch, type "logboek"); deze taak schrijft de regel met de tijd van GitHub in audit/<dag>.jsonl
+# op de data-branch. De wijzigingen van de planning schrijft de taak "Onderhoud planning" (afgeleid uit de opslagen zelf).
+name: Logboek (bezoeken en inloggen)
+
+on:
+  repository_dispatch:
+    types: [logboek]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: logboek-${{ github.run_id }}   # elke melding krijgt een eigen run: bij een gedeelde groep houdt GitHub maar een wachtende run over en gaan meldingen verloren
+  cancel-in-progress: false
+
+jobs:
+  logboek:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: .github/scripts
+      - name: Logboek
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/logboek.py
