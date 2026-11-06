@@ -11,7 +11,7 @@ PAGE = "https://buas-it.github.io/teamplanning-ict/"; API = re.compile(r"^https:
 TEAM = ["Wim", "Wouter", "Annies", "Bas", "Bram", "Marco", "Hans", "Sercan", "Ted", "Sam"]; DG = ["MA", "DI", "WO", "DO", "VR"]
 CORS = {"access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET,PUT,POST,DELETE,PATCH,HEAD,OPTIONS"}
 class Repo:
-    def __init__(self): self.f = {}; self.puts = []; self.hook = None; self.tamper = None; self.na_put = False; self.msgs = []
+    def __init__(self): self.f = {}; self.puts = []; self.hook = None; self.tamper = None; self.na_put = False; self.msgs = []; self.dispatches = []; self.dispatch_status = 204
     def sha(self, p): return hashlib.sha1(self.f[p].encode()).hexdigest()
 def handler_voor(R):
     def h(route, request):
@@ -19,6 +19,9 @@ def handler_voor(R):
         if m == "OPTIONS": return route.fulfill(status=204, headers=CORS, body="")
         if u.rstrip("/") == PAGE.rstrip("/"): return route.fulfill(status=200, content_type="text/html", body=HTML)
         if u.startswith(PAGE + "index.html?klok="): return route.fulfill(status=200, headers={"Date": __import__("email.utils").utils.formatdate(time.time(), usegmt=True)}, body="")
+        if u == "https://api.github.com/repos/buas-it/teamplanning-ict/dispatches" and m == "POST":   # een melding aan de server (logboek)
+            if R.dispatch_status == 204: R.dispatches.append(request.post_data_json)
+            return route.fulfill(status=R.dispatch_status, headers=CORS, content_type="application/json", body="" if R.dispatch_status == 204 else "{}")
         mm = API.match(u)
         if mm:
             pad = mm.group(1)
@@ -146,8 +149,20 @@ with sync_playwright() as pw:
     p.evaluate(EDIT, ["2026-W43", "Wim", "WO", ["vrij"]]); p.wait_for_timeout(2500); m3 = [m for pad, m in R.msgs if pad == "state.json"][-1]
     wijz_regels = [pad for pad in R.puts if pad.startswith("audit/") and any('"action":"wijziging"' in R.f.get(pad, "") for _ in [0])]
     check("K18 de pagina schrijft geen wijzigingsregels meer in het logboek (dat doet de server na elke opslag); een gewone opslag heeft het commitbericht 'Update planning', een opslag met een toelichting (hier een Periode) draagt die toelichting in het commitbericht, en die geldt maar voor die ene opslag", m1.startswith("Update planning") and m2.startswith("periode: Wim vrij 12-11 t/m 14-11") and m3.startswith("Update planning") and not wijz_regels and '"action":"wijziging"' not in "".join(v for kk, v in R.f.items() if kk.startswith("audit/")) and not fouten, json.dumps([m1, m2, m3, wijz_regels, fouten[:1]])); b.close()
+with sync_playwright() as pw:
+    # K19-K21 bezoeken en inloggen: de pagina meldt ze aan de server (repository_dispatch) en schrijft het logboek niet meer zelf
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R)
+    p.evaluate("auditEvent('test: site geopend', { anon: true })"); p.wait_for_timeout(1500)
+    w = R.dispatches[0] if R.dispatches else None; q = p.evaluate("auditQueue.length")
+    check("K19 een bezoek of inlog wordt aan de server gemeld: een aanvraag 'logboek' met de regel (regel-id, soort, tijdstip van het apparaat, gebruiker, apparaat), de wachtrij is daarna leeg en de pagina schrijft zelf niets in het logboek", w and w["event_type"] == "logboek" and len(w["client_payload"]["events"]) == 1 and w["client_payload"]["events"][0]["action"] == "test: site geopend" and w["client_payload"]["events"][0]["eid"] and w["client_payload"]["events"][0]["anon"] is True and "t" in w["client_payload"]["events"][0] and q == 0 and not [x for x in R.puts if x.startswith("audit/")], json.dumps([w, q, [x for x in R.puts if x.startswith("audit/")]])[:400])
+    R.dispatch_status = 500; p.evaluate("auditEvent('test: tweede bezoek', { anon: true })"); p.wait_for_timeout(1500); q_fout = p.evaluate("auditQueue.length"); ok_fout = p.evaluate("auditLastOk")
+    R.dispatch_status = 204; p.evaluate("auditFlush()"); p.wait_for_timeout(1500); q_ok = p.evaluate("auditQueue.length"); w2 = [e for d_ in R.dispatches for e in d_["client_payload"]["events"] if e["action"] == "test: tweede bezoek"]
+    check("K20 komt de melding niet aan (GitHub geeft een fout), dan blijft hij in de wachtrij van het apparaat staan (de stip wordt rood) en wordt hij bij de volgende poging alsnog verstuurd, met dezelfde regel-id: er gaat niets verloren", q_fout == 1 and ok_fout is False and q_ok == 0 and len(w2) == 1, json.dumps([q_fout, ok_fout, q_ok, len(w2)]))
+    p.evaluate("for(let i = 0; i < 45; i++) auditQueue.push({ v: 1, eid: 'batch-' + String(i).padStart(3, '0') + '-xxxx', t: new Date().toISOString(), user: 'Hans', ws: '', device: '', id: '', wsinfo: '', action: 'site geopend', n: 0, trunc: false, changes: [] }); auditFlush()"); p.wait_for_timeout(2500)
+    groottes = [len(d_["client_payload"]["events"]) for d_ in R.dispatches[-3:]]
+    check("K21 een lange wachtrij gaat in aanvragen van hooguit 20 regels, in volgorde: 45 regels worden 20, 20 en 5", groottes == [20, 20, 5] and p.evaluate("auditQueue.length") == 0 and not fouten, json.dumps([groottes, p.evaluate("auditQueue.length"), fouten[:1]])); b.close()
 # K12 statische controle op slapende code en op controles die naar de server zijn verhuisd
-weg = ["TP_SERVER_ONDERHOUD", "serverModus", "LOKALE_HERSTEL", "SERVER_HERSTELT", "checkSchrijvenMag", "ckMaakBackup", "ckStatusOpschonen", "ckManueelOpschonen", "ckVreemdOpschonen", "ckVerwijderBackups", "ckWachtOpHerstel", "ckWachtOpstaan", "ckOudeWekenVerwijderen", "opts.prune", "opts.opschonen", "ckBackupLees", "ckManueelTelling", "function ckOudeWeken(", "ckLeesTekst", "auditDiff", "auditAfterSave", "auditRebase", "auditWho", "auditBase", "healRemoved", "auditCleanup", "retryPendingBackup", "Verwijder oude backup", "Backup na bewerken", "Verwijder backups ouder dan 14 dagen"] + [f'{{ id: "{x}"' for x in ("accounts", "backups", "backup_geldig", "backup_actueel", "groups", "weken", "oudeweken", "statussen", "manueel", "vreemd", "namen", "team", "halvedag", "grootte", "logboek", "instellingen", "wachtwoorden", "remote", "uitrol", "rechten", "limiet", "stempel", "verplicht", "verjaardagen", "online", "github", "sync", "geladen")] + ["chkNet"]
+weg = ["TP_SERVER_ONDERHOUD", "serverModus", "LOKALE_HERSTEL", "SERVER_HERSTELT", "checkSchrijvenMag", "ckMaakBackup", "ckStatusOpschonen", "ckManueelOpschonen", "ckVreemdOpschonen", "ckVerwijderBackups", "ckWachtOpHerstel", "ckWachtOpstaan", "ckOudeWekenVerwijderen", "opts.prune", "opts.opschonen", "auditAppend", "ckBackupLees", "ckManueelTelling", "function ckOudeWeken(", "ckLeesTekst", "auditDiff", "auditAfterSave", "auditRebase", "auditWho", "auditBase", "healRemoved", "auditCleanup", "retryPendingBackup", "Verwijder oude backup", "Backup na bewerken", "Verwijder backups ouder dan 14 dagen"] + [f'{{ id: "{x}"' for x in ("accounts", "backups", "backup_geldig", "backup_actueel", "groups", "weken", "oudeweken", "statussen", "manueel", "vreemd", "namen", "team", "halvedag", "grootte", "logboek", "instellingen", "wachtwoorden", "remote", "uitrol", "rechten", "limiet", "stempel", "verplicht", "verjaardagen", "online", "github", "sync", "geladen")] + ["chkNet"]
 aanwezig = {w: HTML.count(w) for w in weg if HTML.count(w)}
 print("INFO slapende code of verhuisde controles die nog in de pagina staan:", aanwezig or "geen")
 check("K12 er staat geen slapende opruimcode meer in de pagina, geen controle meer die de server doet, en ook geen automatische backups, backup- of logboekopruiming en geen schoonschrijven van verwijderde namen meer (dat doet allemaal de server)", not aanwezig, json.dumps(aanwezig))
