@@ -1,8 +1,13 @@
 {
  "v": 1,
- "t": "2026-11-06T21:04:31.000Z",
+ "t": "2026-11-07T00:55:25.000Z",
  "droog": false,
- "acties": [],
+ "acties": [
+  "backup vooraf: 2026-11-07_01-55",
+  "1 week ouder dan 2 maanden verwijderd (2026-W36)",
+  "backup achteraf: 2026-11-07_01-56",
+  "1 backup ouder dan 14 dagen verwijderd (2026-10-23)"
+ ],
  "problemen": [],
  "meldingen": [],
  "checks": [
@@ -39,14 +44,14 @@
    "groep": 1,
    "naam": "Controlegetal",
    "s": "ok",
-   "t": "klopt (opslag 7 door Hans)"
+   "t": "klopt (opslag 8 door Server (onderhoud))"
   },
   {
    "id": "weken",
    "groep": 1,
    "naam": "Aantal weken in de planning",
    "s": "ok",
-   "t": "58 weken, 2026-W36 t/m 2027-W52"
+   "t": "57 weken, 2026-W37 t/m 2027-W52"
   },
   {
    "id": "namen",
@@ -95,7 +100,7 @@
    "groep": 1,
    "naam": "Roosters ouder dan 2 maanden",
    "s": "ok",
-   "t": "geen weken ouder dan 2 maanden (de oudste is 2026-W36)"
+   "t": "geen weken ouder dan 2 maanden (de oudste is 2026-W37)"
   },
   {
    "id": "verplicht",
@@ -109,7 +114,7 @@
    "groep": 1,
    "naam": "Grootte van de planning",
    "s": "ok",
-   "t": "59 KB van maximaal 1000 KB"
+   "t": "65 KB van maximaal 1000 KB"
   },
   {
    "id": "groups",
@@ -151,14 +156,14 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; niets te doen"
+   "t": "de server draait; deze ronde: 4 acties"
   },
   {
    "id": "backups",
    "groep": 3,
    "naam": "Backups aanwezig",
    "s": "ok",
-   "t": "27 backups, de nieuwste van 2026-11-05 08:30"
+   "t": "28 backups, de nieuwste van 2026-11-07 01:56"
   },
   {
    "id": "backup_actueel",
@@ -207,13 +212,13 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "12 regels, allemaal leesbaar"
+   "t": "nog geen regels vandaag"
   }
  ],
- "weken": 58,
+ "weken": 57,
  "team": 10,
- "state_sha": "2a7b384914a8d6c25e500fef98cd016bb0fabdf4",
- "stempel_n": 7,
+ "state_sha": "b3464eca081b03cdcd5dabfd33a3e74efa5caa20",
+ "stempel_n": 8,
  "stempel_bev": 0,
  "audit_commit": "1163d5486e7c58e794747e4ead853e17e724555b"
 }
