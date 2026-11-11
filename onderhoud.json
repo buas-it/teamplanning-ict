@@ -1,8 +1,10 @@
 {
  "v": 1,
- "t": "2026-11-11T03:01:58.000Z",
+ "t": "2026-11-11T08:52:17.000Z",
  "droog": false,
- "acties": [],
+ "acties": [
+  "backup bijgemaakt: 2026-11-11_09-52"
+ ],
  "problemen": [],
  "meldingen": [],
  "checks": [
@@ -39,7 +41,7 @@
    "groep": 1,
    "naam": "Controlegetal",
    "s": "ok",
-   "t": "klopt (opslag 9 door Sam)"
+   "t": "klopt (opslag 11 door Marco)"
   },
   {
    "id": "weken",
@@ -151,14 +153,14 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; niets te doen"
+   "t": "de server draait; deze ronde: 1 actie"
   },
   {
    "id": "backups",
    "groep": 3,
    "naam": "Backups aanwezig",
    "s": "ok",
-   "t": "21 backups, de nieuwste van 2026-11-09 16:36"
+   "t": "22 backups, de nieuwste van 2026-11-11 09:52"
   },
   {
    "id": "backup_actueel",
@@ -207,13 +209,13 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "nog geen regels vandaag"
+   "t": "7 regels, allemaal leesbaar"
   }
  ],
  "weken": 57,
  "team": 10,
- "state_sha": "c4099be18934be24ce6c61bdd0232292e61a4326",
- "stempel_n": 9,
+ "state_sha": "be968a35539b40536f3d8a534b3520493e300a58",
+ "stempel_n": 11,
  "stempel_bev": 0,
- "audit_commit": "ea71a7897bce6bee7b983ba7fa8869490dfc7a36"
+ "audit_commit": "d77fe0dfef593840e7b061da7b115149f39f1f72"
 }
