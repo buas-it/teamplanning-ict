@@ -1,9 +1,9 @@
 {
  "v": 1,
- "t": "2026-11-12T01:02:56.000Z",
+ "t": "2026-11-12T07:33:47.000Z",
  "droog": false,
  "acties": [
-  "5 backups ouder dan 14 dagen verwijderd (2026-10-28 t/m 2026-10-28)"
+  "backup bijgemaakt: 2026-11-12_08-33"
  ],
  "problemen": [],
  "meldingen": [],
@@ -41,7 +41,7 @@
    "groep": 1,
    "naam": "Controlegetal",
    "s": "ok",
-   "t": "klopt (opslag 11 door Marco)"
+   "t": "klopt (opslag 13 door Marco)"
   },
   {
    "id": "weken",
@@ -160,7 +160,7 @@
    "groep": 3,
    "naam": "Backups aanwezig",
    "s": "ok",
-   "t": "17 backups, de nieuwste van 2026-11-11 09:52"
+   "t": "18 backups, de nieuwste van 2026-11-12 08:33"
   },
   {
    "id": "backup_actueel",
@@ -209,13 +209,13 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "nog geen regels vandaag"
+   "t": "4 regels, allemaal leesbaar"
   }
  ],
  "weken": 57,
  "team": 10,
- "state_sha": "be968a35539b40536f3d8a534b3520493e300a58",
- "stempel_n": 11,
+ "state_sha": "925b666ed480433338c2386e39a45881aa902696",
+ "stempel_n": 13,
  "stempel_bev": 0,
- "audit_commit": "d77fe0dfef593840e7b061da7b115149f39f1f72"
+ "audit_commit": "1f05ec52603da8566abcca6bd1461e3b96d9fa23"
 }
