@@ -1,8 +1,10 @@
 {
  "v": 1,
- "t": "2026-11-11T18:41:04.000Z",
+ "t": "2026-11-12T01:02:56.000Z",
  "droog": false,
- "acties": [],
+ "acties": [
+  "5 backups ouder dan 14 dagen verwijderd (2026-10-28 t/m 2026-10-28)"
+ ],
  "problemen": [],
  "meldingen": [],
  "checks": [
@@ -151,14 +153,14 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; niets te doen"
+   "t": "de server draait; deze ronde: 1 actie"
   },
   {
    "id": "backups",
    "groep": 3,
    "naam": "Backups aanwezig",
    "s": "ok",
-   "t": "22 backups, de nieuwste van 2026-11-11 09:52"
+   "t": "17 backups, de nieuwste van 2026-11-11 09:52"
   },
   {
    "id": "backup_actueel",
@@ -207,7 +209,7 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "10 regels, allemaal leesbaar"
+   "t": "nog geen regels vandaag"
   }
  ],
  "weken": 57,
