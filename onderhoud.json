@@ -1,8 +1,12 @@
 {
  "v": 1,
- "t": "2026-11-13T18:46:24.000Z",
+ "t": "2026-11-14T00:19:44.000Z",
  "droog": false,
- "acties": [],
+ "acties": [
+  "backup vooraf: 2026-11-14_01-19",
+  "1 week ouder dan 2 maanden verwijderd (2026-W37)",
+  "backup achteraf: 2026-11-14_01-20"
+ ],
  "problemen": [],
  "meldingen": [],
  "checks": [
@@ -39,14 +43,14 @@
    "groep": 1,
    "naam": "Controlegetal",
    "s": "ok",
-   "t": "klopt (opslag 13 door Marco)"
+   "t": "klopt (opslag 14 door Server (onderhoud))"
   },
   {
    "id": "weken",
    "groep": 1,
    "naam": "Aantal weken in de planning",
    "s": "ok",
-   "t": "57 weken, 2026-W37 t/m 2027-W52"
+   "t": "56 weken, 2026-W38 t/m 2027-W52"
   },
   {
    "id": "namen",
@@ -95,7 +99,7 @@
    "groep": 1,
    "naam": "Roosters ouder dan 2 maanden",
    "s": "ok",
-   "t": "geen weken ouder dan 2 maanden (de oudste is 2026-W37)"
+   "t": "geen weken ouder dan 2 maanden (de oudste is 2026-W38)"
   },
   {
    "id": "verplicht",
@@ -109,7 +113,7 @@
    "groep": 1,
    "naam": "Grootte van de planning",
    "s": "ok",
-   "t": "58 KB van maximaal 1000 KB"
+   "t": "64 KB van maximaal 1000 KB"
   },
   {
    "id": "groups",
@@ -151,14 +155,14 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; niets te doen"
+   "t": "de server draait; deze ronde: 3 acties"
   },
   {
    "id": "backups",
    "groep": 3,
    "naam": "Backups aanwezig",
    "s": "ok",
-   "t": "16 backups, de nieuwste van 2026-11-12 08:33"
+   "t": "18 backups, de nieuwste van 2026-11-14 01:20"
   },
   {
    "id": "backup_actueel",
@@ -207,13 +211,13 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "5 regels, allemaal leesbaar"
+   "t": "nog geen regels vandaag"
   }
  ],
- "weken": 57,
+ "weken": 56,
  "team": 10,
- "state_sha": "925b666ed480433338c2386e39a45881aa902696",
- "stempel_n": 13,
+ "state_sha": "ab700735b54b864fa1a63cd12eef527b26c9f7fc",
+ "stempel_n": 14,
  "stempel_bev": 0,
  "audit_commit": "1f05ec52603da8566abcca6bd1461e3b96d9fa23"
 }
