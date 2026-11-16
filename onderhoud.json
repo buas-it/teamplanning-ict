@@ -1,12 +1,12 @@
 {
  "v": 1,
- "t": "2026-11-16T07:26:14.000Z",
+ "t": "2026-11-16T07:27:19.000Z",
  "droog": false,
- "acties": [],
- "problemen": [],
- "meldingen": [
-  "de planning is tijdens het wachten gewijzigd: de volgende ronde maakt de backup"
+ "acties": [
+  "backup bijgemaakt: 2026-11-16_08-27"
  ],
+ "problemen": [],
+ "meldingen": [],
  "checks": [
   {
    "id": "github",
@@ -153,21 +153,21 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; niets te doen"
+   "t": "de server draait; deze ronde: 1 actie"
   },
   {
    "id": "backups",
    "groep": 3,
    "naam": "Backups aanwezig",
    "s": "ok",
-   "t": "18 backups, de nieuwste van 2026-11-14 01:20"
+   "t": "19 backups, de nieuwste van 2026-11-16 08:27"
   },
   {
    "id": "backup_actueel",
    "groep": 3,
    "naam": "Laatste backup bevat de laatste opslag",
    "s": "ok",
-   "t": "loopt iets achter op de laatste opslag (normaal: de server maakt een backup zodra er 5 minuten niets is gewijzigd)"
+   "t": "gelijk aan de huidige planning"
   },
   {
    "id": "backup_geldig",
@@ -209,13 +209,13 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "2 regels, allemaal leesbaar"
+   "t": "12 regels, allemaal leesbaar"
   }
  ],
  "weken": 56,
  "team": 10,
- "state_sha": "1c93fac2566a34857a892ca609317531805a0999",
- "stempel_n": 15,
+ "state_sha": "e5301fdbe067735e070adce77040768c03b216d4",
+ "stempel_n": 25,
  "stempel_bev": 0,
- "audit_commit": "02dc983e0dd1b9ddf32cf64da6044ab930ae296c"
+ "audit_commit": "14b67c9a004d17b7341d0c1c43343d8e1cb86450"
 }
