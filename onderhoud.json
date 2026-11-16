@@ -1,9 +1,9 @@
 {
  "v": 1,
- "t": "2026-11-16T09:57:25.000Z",
+ "t": "2026-11-16T14:44:21.000Z",
  "droog": false,
  "acties": [
-  "backup bijgemaakt: 2026-11-16_10-57"
+  "backup bijgemaakt: 2026-11-16_15-44"
  ],
  "problemen": [],
  "meldingen": [],
@@ -41,7 +41,7 @@
    "groep": 1,
    "naam": "Controlegetal",
    "s": "ok",
-   "t": "klopt (opslag 28 door Sam)"
+   "t": "klopt (opslag 29 door Sam)"
   },
   {
    "id": "weken",
@@ -160,7 +160,7 @@
    "groep": 3,
    "naam": "Backups aanwezig",
    "s": "ok",
-   "t": "20 backups, de nieuwste van 2026-11-16 10:57"
+   "t": "21 backups, de nieuwste van 2026-11-16 15:44"
   },
   {
    "id": "backup_actueel",
@@ -209,13 +209,13 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "22 regels, allemaal leesbaar"
+   "t": "26 regels, allemaal leesbaar"
   }
  ],
  "weken": 56,
  "team": 10,
- "state_sha": "2341e34a434d479ba9a09f70c5e1380814999f3c",
- "stempel_n": 28,
+ "state_sha": "2ec0c81407e8cd2bf65b005e87138fcb913f6e2c",
+ "stempel_n": 29,
  "stempel_bev": 0,
- "audit_commit": "bfca9a6420be0873b7c04d348929e8a47625e66d"
+ "audit_commit": "c57179774f4907b95e5152f84bebd4843c73e09f"
 }
