@@ -1,10 +1,12 @@
 {
  "v": 1,
- "t": "2026-11-16T09:37:10.000Z",
+ "t": "2026-11-16T09:56:55.000Z",
  "droog": false,
  "acties": [],
  "problemen": [],
- "meldingen": [],
+ "meldingen": [
+  "de planning is tijdens het wachten gewijzigd: de volgende ronde maakt de backup"
+ ],
  "checks": [
   {
    "id": "github",
@@ -39,7 +41,7 @@
    "groep": 1,
    "naam": "Controlegetal",
    "s": "ok",
-   "t": "klopt (opslag 25 door Monitor)"
+   "t": "klopt (opslag 28 door Sam)"
   },
   {
    "id": "weken",
@@ -164,8 +166,8 @@
    "id": "backup_actueel",
    "groep": 3,
    "naam": "Laatste backup bevat de laatste opslag",
-   "s": "ok",
-   "t": "gelijk aan de huidige planning"
+   "s": "let",
+   "t": "de planning is gewijzigd sinds de nieuwste backup"
   },
   {
    "id": "backup_geldig",
@@ -207,13 +209,13 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "17 regels, allemaal leesbaar"
+   "t": "19 regels, allemaal leesbaar"
   }
  ],
  "weken": 56,
  "team": 10,
- "state_sha": "e5301fdbe067735e070adce77040768c03b216d4",
- "stempel_n": 25,
+ "state_sha": "625448dbd5e78221b0a93b05d6116662210e634d",
+ "stempel_n": 27,
  "stempel_bev": 0,
- "audit_commit": "14b67c9a004d17b7341d0c1c43343d8e1cb86450"
+ "audit_commit": "67decbfb29a7684f204ebc7c9e74938ac5a95754"
 }
