@@ -10,7 +10,7 @@ def check(naam, ok, detail=""):
     UIT.append(("PASS  " if ok else "FAIL  ") + naam + ("" if ok else "   -> " + str(detail)[:700])); print(UIT[-1], flush=True)
 class Repo:
     def __init__(self): self.reset()
-    def reset(self): self.f = {}; self.puts = []; self.dels = []; self.hook = None; self.tamper = None; self.stuk = set(); self.na_toepassen_502 = set(); self.pages = None; self.get_hook = None; self.gets = {}; self.token = None; self.hist = []; self.msgs = []
+    def reset(self): self.f = {}; self.puts = []; self.dels = []; self.hook = None; self.tamper = None; self.stuk = set(); self.na_toepassen_502 = set(); self.pages = None; self.get_hook = None; self.gets = {}; self.token = None; self.hist = []; self.msgs = []; self.starts = []; self.start_status = 204
     def sha(self, p): return hashlib.sha1(self.f[p].encode()).hexdigest()
     def vastleggen(self, tekst, bericht, auteur="BUas-Admin", datum=None):   # een opslag van de planning in de commitgeschiedenis
         sha = hashlib.sha1((str(len(self.hist)) + bericht + tekst).encode()).hexdigest(); self.hist.append({"sha": sha, "parent": self.hist[-1]["sha"] if self.hist else None, "message": bericht, "author": auteur, "date": datum or "2026-11-04T07:30:00Z", "content": tekst}); return sha
@@ -67,6 +67,12 @@ class H(BaseHTTPRequestHandler):
         if any(p.startswith(x) for x in r.na_toepassen_502):
             r.na_toepassen_502 = {x for x in r.na_toepassen_502 if not p.startswith(x)}; return self._j(502, {"message": "Server Error"})
         return self._j(201 if not bestaat else 200, {"content": {"sha": r.sha(p)}, "commit": {"sha": "c0ffee"}})
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        if re.match(r"^/repos/[^/]+/[^/]+/actions/workflows/onderhoud\.yml/dispatches$", urlparse(self.path).path):   # een ronde van het serveronderhoud starten
+            if REPO.start_status == 204: REPO.starts.append(body)
+            b = b"" if REPO.start_status == 204 else b"{}"; self.send_response(REPO.start_status); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
+        return self._j(404, {})
     def do_DELETE(self):
         p = self._pad(); r = REPO; body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         if p not in r.f: return self._j(404, {})
@@ -437,5 +443,18 @@ basis(); backups_op_datums(["2026-10-21", "2026-10-22", "2026-10-30", "2026-11-0
 check("SV87 de bewaartermijn van 14 dagen rekent met de Nederlandse datum: om 23:30 UTC op 4 november is het in Nederland al 5 november, dus gaat alles van voor 22 oktober weg (21 oktober gaat weg, 22 oktober blijft); met de UTC-datum bleef 21 oktober een dag te lang staan", "2026-10-21" not in rest and "2026-10-22" in rest, json.dumps([rest[:3], u["acties"]]))
 basis(); backups_op_datums(["2026-10-21", "2026-10-22", "2026-10-30", "2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"]); rc, u = draai(nu="2026-11-04T12:00:00Z"); rest = sorted(b[8:18] for b in backups())
 check("SV87b overdag (UTC-datum en Nederlandse datum gelijk) blijft het zoals het was: op 4 november gaat alles van voor 21 oktober weg (21 oktober blijft)", "2026-10-21" in rest, json.dumps([rest[:3], u["acties"]]))
+
+# ── SV98-100: een bezoek start het serveronderhoud als de timer van GitHub achterloopt ──────────────────────────────
+def onderhoud_json(t): REPO.f["onderhoud.json"] = json.dumps({"v": 1, "t": t, "checks": []})
+basis(); onderhoud_json("2026-11-04T05:00:00.000Z"); rc, uit = draai_logboek([ev()])
+check("SV98 was de laatste serverronde meer dan 35 minuten geleden (hier 3 uur), dan start een bezoek of inlog zelf een ronde van het serveronderhoud (workflow 'onderhoud.yml' op main), na het schrijven van de logregel", rc == 0 and len(dsp_regels()) == 1 and REPO.starts == [{"ref": "main"}], json.dumps([rc, REPO.starts, uit[-200:]]))
+basis(); onderhoud_json("2026-11-04T07:40:00.000Z"); rc, uit = draai_logboek([ev()])
+check("SV99 was de laatste ronde korter dan 35 minuten geleden (hier 20 minuten), dan wordt er geen nieuwe gestart: een druk bezoek geeft geen stroom aan rondes", rc == 0 and len(dsp_regels()) == 1 and REPO.starts == [], json.dumps([REPO.starts, uit[-200:]]))
+basis(); REPO.start_status = 403; onderhoud_json("2026-11-04T05:00:00.000Z"); rc, uit = draai_logboek([ev()]); REPO.start_status = 204
+check("SV100 lukt het starten niet (bijvoorbeeld door ontbrekende rechten: HTTP 403), dan staat de logregel er toch en eindigt de taak zonder fout; de timer van GitHub blijft het back-upmechanisme", rc == 0 and len(dsp_regels()) == 1 and "kon niet worden gestart" in uit, json.dumps([rc, uit[-250:]]))
+basis(); rc, uit = draai_logboek([ev()])
+check("SV100b bestaat het statusbestand nog niet (het serveronderhoud draaide nog nooit), dan start een bezoek een ronde", rc == 0 and REPO.starts == [{"ref": "main"}], json.dumps([REPO.starts, uit[-200:]]))
+basis(); onderhoud_json("2026-11-04T05:00:00.000Z"); rc, uit = draai_logboek([ev(actie="")]); 
+check("SV100c een melding zonder geldige regel schrijft niets en start ook geen ronde", rc == 0 and not dsp_regels() and REPO.starts == [], json.dumps([REPO.starts, uit[-200:]]))
 
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")

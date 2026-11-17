@@ -14,6 +14,7 @@ import onderhoud as O   # dezelfde hulpfuncties (lezen, schrijven, tijd); main()
 MAX_EVENTS = 25            # hooguit zoveel meldingen per keer (de pagina stuurt er niet meer dan 20)
 ANON_VENSTER_MIN = 10      # iemand zonder naam kan het logboek niet vullen: hooguit 3 regels per 10 minuten (en 3 blokkades)
 ANON_MAX = 3
+ONDERHOUD_NA_MIN = 35     # GitHub slaat geplande rondes soms uren over: een bezoek start zelf een ronde als de laatste langer dan zoveel minuten geleden is
 AFWIJKING_S = 120          # het tijdstip van het apparaat bewaren we alleen als het meer dan 2 minuten afwijkt
 EID = re.compile(r"^[A-Za-z0-9_\-]{6,48}$")
 
@@ -43,6 +44,21 @@ def schoon(e, nu):
         if e.get("blok") is True:
             regel["blok"] = True
     return regel
+
+
+def start_onderhoud(nu):
+    """Start het serveronderhoud als de laatste ronde langer dan ONDERHOUD_NA_MIN minuten geleden is (de geplande timer van GitHub loopt soms uren achter).
+    Mislukt dit (bijvoorbeeld door ontbrekende rechten), dan blijft het logboek gewoon geschreven en doet de timer het zoals daarvoor."""
+    try:
+        f = O.lees("onderhoud.json")
+        if f:
+            t = dt.datetime.fromisoformat(json.loads(f["tekst"])["t"].replace("Z", "+00:00"))
+            if (nu - t).total_seconds() < ONDERHOUD_NA_MIN * 60:
+                print("het serveronderhoud draaide kort geleden: geen nieuwe ronde gestart"); return
+        s, j = O.call("POST", "actions/workflows/onderhoud.yml/dispatches", {"ref": "main"})
+        print("serveronderhoud gestart (de laatste ronde was langer dan %d minuten geleden)" % ONDERHOUD_NA_MIN if s in (200, 204) else "het serveronderhoud kon niet worden gestart (HTTP %s); de timer doet het" % s)
+    except Exception as e:
+        print(f"het serveronderhoud kon niet worden gestart ({e}); de timer doet het")
 
 
 def main():
@@ -79,6 +95,7 @@ def main():
         print("niets te schrijven (de beperking voor regels zonder naam)"); return 0
     O.log_schrijf_dagen(regels)
     print(f"{len(regels)} regels in het logboek gezet")
+    start_onderhoud(nu)
     return 0
 
 
