@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  actions: write   # een bezoek start het serveronderhoud als de timer van GitHub achterloopt (logboek.py)
 
 concurrency:
   group: logboek-${{ github.run_id }}   # elke melding krijgt een eigen run: bij een gedeelde groep houdt GitHub maar een wachtende run over en gaan meldingen verloren
