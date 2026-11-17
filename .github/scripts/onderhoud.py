@@ -33,7 +33,7 @@ MAX_PER_RONDE = 26
 MIN_GOEDE_BACKUPS = 5    # een beschadigde backup wordt alleen verwijderd als er nog zoveel goede overblijven
 ACHTERSTAND_MIN = 5      # de server maakt een backup zodra er zoveel minuten niets meer is gewijzigd (de pagina deed dat vroeger elke 10 minuten)
 BACKUP_BEWAAR_DAGEN = 14  # backups worden zoveel dagen bewaard (op UTC-datum in de naam, zoals de pagina vroeger deed)
-AUDIT_BEWAAR_DAGEN = 31   # dagbestanden van het logboek worden zoveel dagen bewaard
+AUDIT_BEWAAR_DAGEN = BACKUP_BEWAAR_DAGEN   # dagbestanden van het logboek worden net zo lang bewaard als backups (14 dagen); de bestanden gaan op UTC-datum
 MIN_BEWAARD = 5           # bij het opruimen blijven er altijd minstens zoveel backups over
 MAX_OPRUIMEN = 20         # hooguit zoveel bestanden per ronde opruimen
 WACHT_FACTOR = float(os.environ.get("ONDERHOUD_WACHT_FACTOR", "0" if os.environ.get("ONDERHOUD_NU") else "1"))   # voor tests: niet echt wachten
@@ -646,7 +646,7 @@ def ronde():
                 acties.append(f"beschadigde backup verwijderd: {tekst}")
             else:
                 problemen.append(f"beschadigde backup: {tekst} (niet verwijderd: te weinig goede backups of droogloop)")
-    # bewaartermijnen: backups (14 dagen) en dagbestanden van het logboek (31 dagen)
+    # bewaartermijnen: backups (14 dagen) en dagbestanden van het logboek (ook 14 dagen)
     try:
         cut_b = (nu().astimezone(AMS) - dt.timedelta(days=BACKUP_BEWAAR_DAGEN)).strftime("%Y-%m-%d")   # de datum in de naam is Nederlandse datum
         items_b = sorted(lijst("backups"), key=lambda x: x["name"])
