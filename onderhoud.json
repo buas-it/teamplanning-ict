@@ -1,10 +1,8 @@
 {
  "v": 1,
- "t": "2026-11-18T10:56:48.000Z",
+ "t": "2026-11-18T11:36:55.000Z",
  "droog": false,
- "acties": [
-  "backup bijgemaakt: 2026-11-18_11-56"
- ],
+ "acties": [],
  "problemen": [],
  "meldingen": [],
  "checks": [
@@ -153,7 +151,7 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; deze ronde: 1 actie"
+   "t": "de server draait; niets te doen"
   },
   {
    "id": "backups",
@@ -209,7 +207,7 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "14 regels, allemaal leesbaar"
+   "t": "15 regels, allemaal leesbaar"
   }
  ],
  "weken": 56,
