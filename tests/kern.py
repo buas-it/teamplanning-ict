@@ -290,7 +290,7 @@ with sync_playwright() as pw:
     check("K33h een andere instelling wijzigen (de talen van Wim) laat de verplichte vrije dag staan: in settings.json en in de pagina", res == [True, True, ["2026-W44-WO"]] and "2026-10-28" in st3.get("verplichteDagen", {}) and sorted(st3.get("talen", {}).get("Wim", [])) == ["nl", "tr"], [res, st3])
     p.evaluate("currentIdentity = makeIdentity('Hans', 'MacBook', '')"); p.evaluate("() => { showVerplichtModal(); }"); p.wait_for_timeout(300)
     html = p.evaluate("document.querySelector('.vp-overlay').innerHTML"); lijst = p.evaluate("document.getElementById('vp-lijst').innerText")
-    check("K33g het scherm Verplichte vrije dagen: een niet-Administrator krijgt het niet te zien; een Administrator ziet vaste en aangemaakte dagen met naam en wie, zonder ingevoegde HTML", geen == 0 and "<img" not in html and "Uitje" in lijst and "door Hans" in lijst and "Kerstavond" in lijst and "vast" in lijst, [geen, lijst[:300]])
+    check("K33g het scherm Verplicht Vrij: een niet-Administrator krijgt het niet te zien; een Administrator ziet vaste en aangemaakte dagen met naam en wie, zonder ingevoegde HTML", geen == 0 and "<img" not in html and "Uitje" in lijst and "door Hans" in lijst and "Kerstavond" in lijst and "vast" in lijst, [geen, lijst[:300]])
     b.close()
     # K33i het onderdeel staat onder Admin (naast Accounts en Boodschap), niet onder Info; een klik opent het scherm
     R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_extra=0); klaar(p)
@@ -300,7 +300,7 @@ with sync_playwright() as pw:
     na_klik = p.evaluate("(() => { const x = document.getElementById('menu-verplicht'), i = document.getElementById('menu-info'); const volgorde = [...document.querySelectorAll('#menu-admin ~ *')].map(e => e.id).filter(Boolean); return [x.hidden, volgorde.indexOf('menu-verplicht') > volgorde.indexOf('menu-backup-terugzetten'), volgorde.indexOf('menu-verplicht') < volgorde.indexOf('menu-info')]; })()")
     p.evaluate("document.getElementById('menu-verplicht').click()"); p.wait_for_timeout(800)
     open_ = p.evaluate("document.querySelectorAll('.vp-overlay').length")
-    check("K33i 'Verplichte vrije dagen' staat in het menu Admin, onder Backup/Restore (verborgen tot Admin openklapt) en opent het scherm", voor_klik and "c-admin" in voor_klik[0] and voor_klik[1] is True and "Verplichte vrije dagen" in voor_klik[2] and na_klik[:2] == [False, True] and open_ == 1, [voor_klik, na_klik, open_])
+    check("K33i 'Verplicht Vrij' staat in het menu Admin, onder Backup/Restore (verborgen tot Admin openklapt) en opent het scherm", voor_klik and "c-admin" in voor_klik[0] and voor_klik[1] is True and "Verplicht Vrij" in voor_klik[2] and na_klik[:2] == [False, True] and open_ == 1, [voor_klik, na_klik, open_])
     b.close()
     # K33j de oude stand komt terug: wie vóór het aanmaken iets (handmatig) had ingevuld krijgt dat terug, de rest de oorspronkelijke stand; wie intussen iets anders invulde blijft zoals hij is; in settings.json staat de stand voor de server
     R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_extra=0); klaar(p)
