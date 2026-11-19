@@ -223,6 +223,22 @@ with sync_playwright() as pw:
     check("K31 in de weken 52 en 53 van 2026 staat boven elke verplichte vrije dag de naam (Kerstavond, 1e Kerstdag, 4 keer Kerstvakantie, Nieuwjaarsdag), alleen boven die 7 van de 10 dagen; de 70 vakjes van die dagen (10 mensen) hebben het kenmerk en een tekstballon", kop == ["\U0001F38C Kerstavond", "\U0001F38C 1e Kerstdag", "\U0001F38C Kerstvakantie", "\U0001F38C Kerstvakantie", "\U0001F38C Kerstvakantie", "\U0001F38C Kerstvakantie", "\U0001F38C Nieuwjaarsdag"] and n_dag == 10 and n_vak == 70 and ballon.startswith("Verplichte vrije dag: ") and not fouten, json.dumps([kop, n_vak, n_dag, ballon, fouten]))
     sleutels = p.evaluate("({ zonder: [...LOCKED_DAYS].filter(k => !VERPLICHT_NAMEN[k]), teveel: Object.keys(VERPLICHT_NAMEN).filter(k => !LOCKED_DAYS.has(k)), gewoon: verplichtNaam('2026-W45', 'MA') })")
     check("K31b elke sleutel van LOCKED_DAYS heeft een naam en andersom (een nieuwe verplichte vrije dag zonder naam valt op), en een gewone dag geeft geen naam", sleutels == {"zonder": [], "teveel": [], "gewoon": ""}, json.dumps(sleutels))
+with sync_playwright() as pw:
+    # K32 het venster Geen Beheer geeft bij een opgelegde verplichte vrije dag ook de reden; een gewone dag zonder beheer krijgt geen reden
+    UTC = dt.timezone.utc; R = nieuw(planning())
+    b, p, fouten = open_pagina(pw, R, klok_extra=0, start=dt.datetime(2026, 12, 21, 12, 0, tzinfo=UTC))
+    p.evaluate("document.documentElement.classList.remove('tp-gated'); currentIdentity = makeIdentity('Hans', 'MacBook', ''); showLockIndicator(); TEAM.forEach(n => { store['2026-W52'][n]['WO'] = ['vrij']; });"); p.wait_for_timeout(800)
+    p.evaluate("() => { showGeenBeheerModal(); }"); p.wait_for_timeout(800)
+    rijen = p.evaluate("[...document.querySelectorAll('.tp-overlay')].pop().innerText.split('\\n').map(s => s.trim()).filter(Boolean)")
+    def na(label): i = rijen.index(label); return rijen[i + 1: i + 3]
+    ok = True; det = []
+    for label, naam in (("Donderdag 24 dec 2026", "Kerstavond"), ("Vrijdag 25 dec 2026", "1e Kerstdag"), ("Maandag 28 dec 2026", "Kerstvakantie"), ("Vrijdag 1 jan 2027", "Nieuwjaarsdag")):
+        try: r = na(label); good = len(r) == 2 and "Geen beheer" in r[0] and r[1].endswith("(" + naam + "), voor iedereen opgelegd") and "Reden: verplichte vrije dag" in r[1]
+        except ValueError: r = None; good = False
+        ok = ok and good; det.append([label, r])
+    try: gewoon = na("Woensdag 23 dec 2026")
+    except ValueError: gewoon = None
+    check("K32 Geen Beheer: bij de 4 opgelegde verplichte vrije dagen (Kerstavond, 1e Kerstdag, Kerstvakantie, Nieuwjaarsdag) staat de reden eronder; een gewone vrije woensdag zonder beheer staat er zonder reden bij", ok and gewoon is not None and "Geen beheer" in gewoon[0] and not any("Reden" in x for x in gewoon[:1]) and p.evaluate("document.querySelectorAll('.gb-reden').length") == 7 and not fouten, json.dumps([det, gewoon, fouten]))
 # K12 statische controle op slapende code en op controles die naar de server zijn verhuisd
 weg = ["TP_SERVER_ONDERHOUD", "serverModus", "LOKALE_HERSTEL", "SERVER_HERSTELT", "checkSchrijvenMag", "ckMaakBackup", "ckStatusOpschonen", "ckManueelOpschonen", "ckVreemdOpschonen", "ckVerwijderBackups", "ckWachtOpHerstel", "ckWachtOpstaan", "ckOudeWekenVerwijderen", "opts.prune", "opts.opschonen", "auditAppend", "new Date()", "ckBackupLees", "ckManueelTelling", "function ckOudeWeken(", "ckLeesTekst", "auditDiff", "auditAfterSave", "auditRebase", "auditWho", "auditBase", "healRemoved", "auditCleanup", "retryPendingBackup", "Verwijder oude backup", "Backup na bewerken", "Verwijder backups ouder dan 14 dagen"] + [f'{{ id: "{x}"' for x in ("accounts", "backups", "backup_geldig", "backup_actueel", "groups", "weken", "oudeweken", "statussen", "manueel", "vreemd", "namen", "team", "halvedag", "grootte", "logboek", "instellingen", "wachtwoorden", "remote", "uitrol", "rechten", "limiet", "stempel", "verplicht", "verjaardagen", "online", "github", "sync", "geladen")] + ["chkNet"]
 aanwezig = {w: HTML.count(w) for w in weg if HTML.count(w)}
