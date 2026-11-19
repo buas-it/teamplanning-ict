@@ -237,7 +237,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 19 nov 2026 · 160</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 19 nov 2026 · 161</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -332,7 +332,7 @@ function verplichtVrij(wk){   // zet voor deze week (sleutel) alle verplichte vr
       TEAM.forEach(p=>{ if(!store[wk][p]) store[wk][p] = {}; const c = store[wk][p][d]; if(!(Array.isArray(c) && c.length === 1 && c[0] === "vrij")){ store[wk][p][d] = ["vrij"]; aangepast = true; } }); });
   }catch(e){} return aangepast;
 }
-function verplichtVrijAlles(){ Object.keys(store).forEach(verplichtVrij); }
+function verplichtVrijAlles(){ let aangepast = false; Object.keys(store).forEach(k=>{ if(verplichtVrij(k)) aangepast = true; }); return aangepast; }
 function applyState(data, replace){
   if(data) stripVerwijderd(data);   // verwijderde medewerkers komen via geen enkele weg terug
   if(replace){   // een backup terugzetten vervangt de hele planning; geen samenvoeging met wat er al in het geheugen stond
@@ -581,17 +581,49 @@ function verjaardagInFase(nu){   // met een interval: de verjaardagsboodschap is
   const m0 = new Date(nu); m0.setHours(0, 0, 0, 0);
   return (nu.getTime() - m0.getTime()) % ((iv.aan + iv.uit) * 60000) < iv.aan * 60000;
 }
+function verplichtSchoon(t){ return String(t == null ? "" : t).replace(/[\u0000-\u001f\u007f<>&"]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40); }   // de naam van een verplichte vrije dag: één regel, hoogstens 40 tekens, zonder tekens die in de pagina iets kunnen doen
+function verplichtDatumOk(s){ if(typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false; const d = datumDeel(s); return !isNaN(d) && d.getFullYear() === +s.slice(0, 4) && d.getMonth() === +s.slice(5, 7) - 1 && d.getDate() === +s.slice(8, 10) && d.getDay() >= 1 && d.getDay() <= 5; }   // een echte werkdag (maandag t/m vrijdag)
+function verplichtVorige(m){   // de stand van elke persoon op die dag vóór de verplichte vrije dag: { naam: { s: ["kantoor"], m: true (handmatig ingevuld) } }; ongeldige regels vallen weg
+  const uit = {}; if(!m || typeof m !== "object" || Array.isArray(m)) return uit;
+  Object.keys(m).forEach(p=>{ const v = m[p]; if(v && typeof v === "object" && Array.isArray(v.s) && v.s.every(x=>typeof x === "string")) uit[p] = { s: v.s.slice(), m: !!v.m }; });
+  return uit;
+}
+function verplichtVorigeNu(wk, dag){   // de stand van iedereen op deze dag zoals die nu in de pagina staat (voordat de dag verplicht vrij wordt); personen zonder invulling ontbreken
+  const uit = {}; if(!store[wk]) return uit;
+  TEAM.forEach(p=>{ const c = store[wk][p] && store[wk][p][dag]; if(Array.isArray(c)) uit[p] = { s: c.slice(), m: !!(manuallyEdited[wk] && manuallyEdited[wk].has(p + "-" + dag)) }; });
+  return uit;
+}
+function verplichtTerugzet(datum, vorige){   // een verwijderde verplichte vrije dag: wie die dag nog op Vrij staat, krijgt de stand van daarvoor terug (zonder vastgelegde stand: de standaardbezetting); wie intussen iets anders heeft, blijft zoals hij is; geeft terug of er iets is teruggezet
+  const k = verplichtDatumOk(datum) ? verplichtSleutel(datum) : null; if(!k || LOCKED_DAYS.has(k)) return false;
+  const wk = k.slice(0, 8), dag = k.slice(9); if(!store[wk]) return false;
+  let gedaan = false;
+  TEAM.forEach(p=>{ const c = store[wk][p] && store[wk][p][dag]; if(!(Array.isArray(c) && c.length === 1 && c[0] === "vrij")) return;
+    const v = (vorige && vorige[p]) || { s: ((template[p] || {})[dag] || []).slice(), m: false };
+    if(v.s.length === 1 && v.s[0] === "vrij") return;
+    store[wk][p][dag] = v.s.slice();
+    if(!manuallyEdited[wk]) manuallyEdited[wk] = new Set();
+    if(v.m) manuallyEdited[wk].add(p + "-" + dag); else manuallyEdited[wk].delete(p + "-" + dag);
+    gedaan = true; });
+  if(gedaan){ try{ render(); }catch(e){} }
+  return gedaan;
+}
+function settingsParseVerplicht(m){   // de door Administrators aangemaakte verplichte vrije dagen: { "2027-07-12": { naam, door, op } }; ongeldige regels (geen werkdag, geen datum) tellen niet mee
+  const uit = {}; if(!m || typeof m !== "object" || Array.isArray(m)) return uit;
+  Object.keys(m).forEach(k=>{ if(!verplichtDatumOk(k)) return; const v = m[k], naam = verplichtSchoon(typeof v === "string" ? v : (v && v.naam));
+    uit[k] = { naam: naam || "Verplichte vrije dag", door: v && typeof v.door === "string" ? v.door : null, op: v && typeof v.op === "string" ? v.op : null, vorige: verplichtVorige(v && v.vorige) }; });
+  return uit;
+}
 function settingsParseWijz(w){ return { by: w && typeof w.by === "string" ? w.by : null, at: w && typeof w.at === "string" ? w.at : null }; }
 async function settingsFetch(){   // {boodschap:{enabled,by,at}, talen:{naam:[codes]}, talenWijz:{by,at}, raw, sha}; 404 = nog nooit ingesteld: aan; gooit bij een storing of een ongeldig bestand
   const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}?ref=${GH_BRANCH}&t=${Date.now()}&r=${Math.random().toString(36).slice(2)}`, {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
-  if(r.status === 404) return { boodschap: { enabled: true, by: null, at: null }, talen: {}, talenWijz: { by: null, at: null }, personen: {}, personenWijz: { by: null, at: null }, persoonlijk: {}, monitor: {}, campus: {}, verjaardagen: true, verjaardagInterval: null, verjaardagMomenten: { voor: true, op: true, na: true }, raw: { v: 1 }, sha: null };
+  if(r.status === 404) return { boodschap: { enabled: true, by: null, at: null }, talen: {}, talenWijz: { by: null, at: null }, personen: {}, personenWijz: { by: null, at: null }, persoonlijk: {}, monitor: {}, campus: {}, verjaardagen: true, verjaardagInterval: null, verjaardagMomenten: { voor: true, op: true, na: true }, verplicht: {}, raw: { v: 1 }, sha: null };
   if(!r.ok) throw new Error("HTTP " + r.status);
   const d = await r.json(), raw = JSON.parse(auditDecode(d.content));
   if(!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("ongeldig bestand");
   const boodschap = { enabled: true, by: null, at: null };   // de boodschap staat altijd aan: een eventuele oude stand in het bestand telt niet meer
-  return { boodschap, talen: settingsParseTalen(raw.talen), talenWijz: settingsParseWijz(raw.talenWijziging), personen: settingsParsePersonen(raw.personen), personenWijz: settingsParseWijz(raw.personenWijziging), persoonlijk: settingsParsePersoonlijk(raw.persoonlijk), monitor: settingsParseMonitor(raw.monitor), campus: settingsParseMonitor(raw.campus), verjaardagen: raw.verjaardagen !== false, verjaardagInterval: settingsParseInterval(raw.verjaardagInterval), verjaardagMomenten: settingsParseMomenten(raw.verjaardagMomenten), raw, sha: d.sha };
+  return { boodschap, talen: settingsParseTalen(raw.talen), talenWijz: settingsParseWijz(raw.talenWijziging), personen: settingsParsePersonen(raw.personen), personenWijz: settingsParseWijz(raw.personenWijziging), persoonlijk: settingsParsePersoonlijk(raw.persoonlijk), monitor: settingsParseMonitor(raw.monitor), campus: settingsParseMonitor(raw.campus), verjaardagen: raw.verjaardagen !== false, verjaardagInterval: settingsParseInterval(raw.verjaardagInterval), verjaardagMomenten: settingsParseMomenten(raw.verjaardagMomenten), verplicht: settingsParseVerplicht(raw.verplichteDagen), raw, sha: d.sha };
 }
-function applySettings(cur){ const w = cur.talenWijz || { by: null, at: null }, pw = cur.personenWijz || { by: null, at: null }; BOODSCHAP = { enabled: true, ready: true, by: null, at: null, talen: cur.talen || {}, talenBy: w.by, talenAt: w.at, personen: cur.personen || {}, personenBy: pw.by, personenAt: pw.at, persoonlijk: cur.persoonlijk || {}, monitor: cur.monitor || {}, campus: cur.campus || {}, verjaardagen: cur.verjaardagen !== false, verjaardagInterval: cur.verjaardagInterval || null, verjaardagMomenten: cur.verjaardagMomenten || settingsParseMomenten(null), sha: cur.sha || null, error: null }; }
+function applySettings(cur){ const vorig = BOODSCHAP && BOODSCHAP.verplicht; const w = cur.talenWijz || { by: null, at: null }, pw = cur.personenWijz || { by: null, at: null }; BOODSCHAP = { enabled: true, ready: true, by: null, at: null, talen: cur.talen || {}, talenBy: w.by, talenAt: w.at, personen: cur.personen || {}, personenBy: pw.by, personenAt: pw.at, persoonlijk: cur.persoonlijk || {}, monitor: cur.monitor || {}, campus: cur.campus || {}, verjaardagen: cur.verjaardagen !== false, verjaardagInterval: cur.verjaardagInterval || null, verjaardagMomenten: cur.verjaardagMomenten || settingsParseMomenten(null), verplicht: cur.verplicht || vorig || {}, sha: cur.sha || null, error: null }; try{ verplichtToepassen(); }catch(e){} }
 async function settingsLoad(){   // haalt de instellingen op; bij een storing blijft de eerder opgehaalde stand gelden
   try{ applySettings(await settingsFetch()); }
   catch(e){ BOODSCHAP.error = (e && e.message) || String(e); }
@@ -1455,13 +1487,14 @@ function openWhoMenu(){
     m.appendChild(bkTab);
     item("menu-backup-maken", "💾 Backup", "c-admin sub sub2", ()=>makeManualBackup());
     item("menu-backup-terugzetten", "⟳ Restore", "c-admin sub sub2", ()=>{ if(!canRestore()){ denyRestore(); return; } cmd("btn-restore-backup")(); });
+    item("menu-verplicht", "\uD83C\uDF8C Verplichte vrije dagen", "c-admin sub", ()=>showVerplichtModal());   // een verplichte vrije dag voor iedereen aanmaken of verwijderen
     const bkSubs = [m.querySelector("#menu-backup-maken"), m.querySelector("#menu-backup-terugzetten")]; bkSubs.forEach(x=>{ x.hidden = true; });
     bkTab.onclick = ()=>{ const open = bkTab.getAttribute("aria-expanded") !== "true"; bkTab.setAttribute("aria-expanded", String(open)); bkTab.textContent = "🗄 Backup/Restore " + (open ? "▾" : "▸"); bkSubs.forEach(x=>{ x.hidden = !open; }); };
-    const adminSubs = ["#menu-accounts", "#menu-boodschap", "#menu-backuprestore"].map(s=>m.querySelector(s)).filter(Boolean); adminSubs.forEach(x=>{ x.hidden = true; });
+    const adminSubs = ["#menu-accounts", "#menu-boodschap", "#menu-verplicht", "#menu-backuprestore"].map(s=>m.querySelector(s)).filter(Boolean); adminSubs.forEach(x=>{ x.hidden = true; });
     adminTab.onclick = ()=>{ const open = adminTab.getAttribute("aria-expanded") !== "true"; adminTab.setAttribute("aria-expanded", String(open)); adminTab.textContent = "⚙️ Admin " + (open ? "▾" : "▸"); adminSubs.forEach(x=>{ x.hidden = !open; }); if(!open){ bkSubs.forEach(x=>{ x.hidden = true; }); bkTab.setAttribute("aria-expanded", "false"); bkTab.textContent = bkTab.textContent.replace(/[▾▸]\s*$/, "▸"); } };   // inklappen sluit ook Backup/Restore
     if(!canRestore()){ const t = m.querySelector("#menu-backup-terugzetten"); t.setAttribute("aria-disabled", "true"); t.title = "Een backup terugzetten mag alleen " + RESTORE_GROUP; }
     if(!editUnlocked){   // Admin werkt alleen als bewerken aan staat: een klik op een onderdeel geeft eerst de vraag om bewerken aan te zetten (bewuste tussenstap)
-      ["menu-accounts", "menu-boodschap", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{   // Audit, Status en Statistics zijn alleen kijken: zonder vraag
+      ["menu-accounts", "menu-boodschap", "menu-verplicht", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{   // Audit, Status en Statistics zijn alleen kijken: zonder vraag
         const x = m.querySelector("#" + id); if(!x) return;
         if(id === "menu-boodschap" && !canToggleMessage()) return;   // ICT-Management kijkt alleen mee: geen vraag
         if(id === "menu-backup-terugzetten" && !canRestore()) return;   // terugzetten mag deze gebruiker niet: blijft uitgeschakeld met uitleg
@@ -2879,6 +2912,24 @@ const VERPLICHT_NAMEN = {
   "2027-W20-MA": "2e Pinksterdag", "2027-W51-VR": "Kerstavond",
   "2027-W52-MA": "Kerstvakantie", "2027-W52-DI": "Kerstvakantie", "2027-W52-WO": "Kerstvakantie", "2027-W52-DO": "Kerstvakantie", "2027-W52-VR": "Kerstvakantie",
 };
+// Verplichte vrije dagen die een Administrator heeft aangemaakt staan in settings.json (verplichteDagen) en komen bij LOCKED_DAYS en VERPLICHT_NAMEN erbij; de vaste lijst hierboven blijft altijd gelden.
+const LOCKED_BASIS = new Set(LOCKED_DAYS);
+let VERPLICHT_EXTRA = {};   // sleutel (bijv. "2027-W28-MA") → naam, van de dagen die nu door Administrators zijn toegevoegd
+function verplichtSleutel(datum){ const d = datumDeel(datum), w = d.getDay(); return (w >= 1 && w <= 5) ? weekKey(mondayOf(d)) + "-" + DAYS[w - 1] : null; }
+function verplichtToepassen(){   // zet LOCKED_DAYS en VERPLICHT_NAMEN gelijk aan de vaste lijst plus de dagen uit de instellingen; zet de nieuwe dagen voor iedereen op Vrij; geeft terug of de planning daardoor is aangepast
+  const lijst = (BOODSCHAP && BOODSCHAP.verplicht) || {}, nieuw = {};
+  Object.keys(lijst).forEach(dat=>{ const k = verplichtDatumOk(dat) ? verplichtSleutel(dat) : null; if(k && !LOCKED_BASIS.has(k)) nieuw[k] = lijst[dat].naam; });
+  let veranderd = false;
+  Object.keys(VERPLICHT_EXTRA).forEach(k=>{ if(!(k in nieuw)){ LOCKED_DAYS.delete(k); delete VERPLICHT_NAMEN[k]; veranderd = true; } });
+  Object.keys(nieuw).forEach(k=>{ if(!LOCKED_DAYS.has(k) || VERPLICHT_NAMEN[k] !== nieuw[k]){ LOCKED_DAYS.add(k); VERPLICHT_NAMEN[k] = nieuw[k]; veranderd = true; } });
+  VERPLICHT_EXTRA = nieuw;
+  if(!veranderd) return false;
+  try{ cmpCollectief = null; }catch(e){}
+  const aangepast = verplichtVrijAlles();
+  try{ if(Object.keys(store).length) render(); }catch(e){}
+  return aangepast;
+}
+try{ verplichtToepassen(); }catch(e){}
 function verplichtNaam(wk, day){ const k = wk + "-" + day; return LOCKED_DAYS.has(k) ? (VERPLICHT_NAMEN[k] || "Verplichte vrije dag") : ""; }   // "" als het geen verplichte vrije dag is
 
 // ───── Een halve dag vrij mag nooit een leeg andere dagdeel hebben: er moet dan Thuis, Campus of Extern staan
@@ -5858,6 +5909,87 @@ async function showPeriodeModal(){
 }
 
 // ── Geen Beheer modal ────────────────────────────────────────────
+function verplichtEsc(t){ return String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+const VP_MAANDEN = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"], VP_DAGEN = ["zo","ma","di","wo","do","vr","za"];
+function verplichtDatumTekst(d){ return VP_DAGEN[d.getDay()] + " " + d.getDate() + " " + VP_MAANDEN[d.getMonth()] + " " + d.getFullYear(); }
+function verplichtIso(d){ return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+async function settingsSetVerplicht(datum, naam){   // een verplichte vrije dag voor iedereen aanmaken (naam = tekst) of weer verwijderen (naam = null); alleen een Administrator, met bewerken aan; leest eerst de nieuwste stand; bij een schrijfconflict opnieuw
+  if(!canToggleMessage()) return { error: "Alleen een Administrator kan verplichte vrije dagen aanmaken of verwijderen." };
+  if(!editUnlocked) return { error: "Bewerken staat uit." };
+  if(!verplichtDatumOk(datum)) return { error: "Kies een werkdag (maandag t/m vrijdag)." };
+  const d = datumDeel(datum); if(d < today) return { error: "Deze dag ligt in het verleden." };
+  if(d > addDays(today, 730)) return { error: "Kies een dag binnen twee jaar." };
+  const sleutel = verplichtSleutel(datum), schoon = naam === null ? null : (verplichtSchoon(naam) || "Verplichte vrije dag");
+  if(LOCKED_BASIS.has(sleutel)) return { error: "Deze dag is al een vaste verplichte vrije dag." };
+  const me = currentIdentity.user, tekst = verplichtDatumTekst(d);
+  for(let i = 0; i < 4; i++){
+    const cur = await settingsFetch(), bestaat = cur.verplicht[datum] || null;
+    if(schoon !== null && bestaat && bestaat.naam === schoon){ applySettings(cur); return { ok: true, changed: false }; }   // stond al zo: niets schrijven en niets in het logboek
+    if(schoon === null && !bestaat){ applySettings(cur); return { ok: true, changed: false }; }
+    const raw = cur.raw; raw.v = 1;
+    const kaart = raw.verplichteDagen && typeof raw.verplichteDagen === "object" && !Array.isArray(raw.verplichteDagen) ? raw.verplichteDagen : {};
+    const terugMap = raw.verplichtTerugzetten && typeof raw.verplichtTerugzetten === "object" && !Array.isArray(raw.verplichtTerugzetten) ? raw.verplichtTerugzetten : {};
+    if(schoon === null){ terugMap[datum] = { vorige: bestaat.vorige || {}, door: me, op: srvIso() }; delete kaart[datum]; }   // de stand van voor de verplichte vrije dag gaat mee: de server zet hem terug en haalt dit daarna weer weg
+    else { kaart[datum] = { naam: schoon, door: me, op: srvIso(), vorige: bestaat ? (bestaat.vorige || {}) : verplichtVorigeNu(sleutel.slice(0, 8), sleutel.slice(9)) }; delete terugMap[datum]; }   // bij een nieuwe dag: de stand van nu vastleggen
+    raw.verplichteDagen = kaart;
+    if(Object.keys(terugMap).length) raw.verplichtTerugzetten = terugMap; else delete raw.verplichtTerugzetten;
+    const body = { message: "Verplichte vrije dag " + (schoon === null ? "verwijderd" : "aangemaakt") + ": " + tekst + (schoon === null ? "" : " (" + schoon + ")") + " (door " + me + ")", content: encodeBase64(JSON.stringify(raw, null, 1)), branch: GH_BRANCH };
+    if(cur.sha) body.sha = cur.sha;
+    const r = await ghWriteFetch(`https://api.github.com/repos/${GH_REPO}/contents/${SETTINGS_PATH}`, { method: "PUT", headers: {"Authorization":`Bearer ${GH_TOKEN}`,"Content-Type":"application/json","Accept":"application/vnd.github.v3+json"}, body: JSON.stringify(body) });
+    if(r.ok){
+      let sha = null; try{ const x = await r.json(); sha = (x && x.content && x.content.sha) || null; }catch(e){}
+      applySettings({ ...cur, verplicht: settingsParseVerplicht(kaart), sha });   // zet de dag meteen voor iedereen op Vrij in deze pagina (of haalt het slot weg)
+      if(schoon === null) verplichtTerugzet(datum, bestaat.vorige);   // en zet de dag weer terug zoals hij was
+      auditEvent("verplichte vrije dag: " + tekst + (schoon === null ? " verwijderd" : " aangemaakt (" + schoon + "), voor iedereen"));   // pas na een geslaagde opslag in het logboek
+      touchEditTimer();
+      return { ok: true, changed: true };
+    }
+    if(r.status !== 409 && r.status !== 422) throw new Error("HTTP " + r.status);
+  }
+  throw new Error("conflict");
+}
+async function showVerplichtModal(){   // Admin ▸ Verplichte vrije dagen: de komende verplichte vrije dagen; een Administrator maakt er een aan (geldt voor iedereen) of verwijdert een zelf aangemaakte
+  if(!canSeeAdmin()) return;
+  if(!await ensureAdmin()) return;   // zoals Accounts en Boodschap: eerst de vraag om bewerken aan te zetten
+  document.querySelectorAll(".vp-overlay").forEach(o=>o.remove());
+  const overlay = document.createElement("div");
+  overlay.className = "tp-overlay vp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
+  const box = document.createElement("div");
+  box.style.cssText = "background:#111827;border:1px solid rgba(255,204,128,0.35);border-radius:14px;padding:24px 22px;min-width:320px;max-width:440px;width:92vw;max-height:84vh;overflow-y:auto;color:#fff;";
+  overlay.appendChild(box); addWinX(box, ()=>overlay.remove(), "vp-close"); document.body.appendChild(overlay);
+  const mag = canToggleMessage();
+  const teken = (melding, soort)=>{
+    const rijen = [], recs = {}; Object.keys(BOODSCHAP.verplicht || {}).forEach(dat=>{ recs[verplichtSleutel(dat)] = BOODSCHAP.verplicht[dat]; });
+    LOCKED_DAYS.forEach(k=>{ const [jr, w, dg] = k.split("-"), datum = addDays(getMondayFromKey(jr + "-" + w), DAYS.indexOf(dg)); if(datum < today) return; const extra = k in VERPLICHT_EXTRA; rijen.push({ k, datum, naam: VERPLICHT_NAMEN[k] || "Verplichte vrije dag", extra, door: extra && recs[k] ? recs[k].door : null }); });
+    rijen.sort((a, b)=>a.datum - b.datum);
+    let h = `<div style="font-size:14px;font-weight:700;color:#ffcc80;margin-bottom:6px;padding-right:34px;">🎌 Verplichte vrije dagen</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-bottom:14px;line-height:1.5;">Een verplichte vrije dag geldt voor iedereen: op die dag staat iedereen op Vrij en niemand kan dat wijzigen.</div>`;
+    if(mag){
+      h += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;"><input type="date" id="vp-datum" min="${verplichtIso(today)}" style="flex:0 0 auto;background:#1f2937;color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:6px;padding:6px 8px;font-size:12px;">
+        <input type="text" id="vp-naam" maxlength="40" placeholder="Naam, bijv. Bedrijfsuitje" style="flex:1 1 140px;min-width:120px;background:#1f2937;color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:6px;padding:6px 8px;font-size:12px;">
+        <button type="button" id="vp-toevoegen" style="background:rgba(255,204,128,0.18);border:1px solid rgba(255,204,128,0.6);color:#ffcc80;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">Aanmaken</button></div>`;
+    } else h += `<div style="font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:10px;">Alleen een Administrator kan een verplichte vrije dag aanmaken of verwijderen.</div>`;
+    h += `<div id="vp-melding" style="min-height:16px;font-size:11px;margin-bottom:10px;color:${soort === "ok" ? "#80cbc4" : "#f48fb1"};">${verplichtEsc(melding || "")}</div>`;
+    h += `<div style="font-size:10px;color:#777;margin-bottom:6px;letter-spacing:1px;text-transform:uppercase;">Komende verplichte vrije dagen</div><div id="vp-lijst">`;
+    if(!rijen.length) h += `<div style="font-size:12px;color:rgba(255,255,255,0.6);padding:6px 0;">Geen komende verplichte vrije dagen.</div>`;
+    rijen.forEach(r=>{ h += `<div class="vp-rij" data-sleutel="${r.k}" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;"><span style="flex:0 0 auto;min-width:104px;font-weight:600;">${verplichtDatumTekst(r.datum)}</span><span style="flex:1 1 auto;color:#ffcc80;">${verplichtEsc(r.naam)}</span>${r.extra ? `<span style="font-size:10px;color:rgba(255,255,255,0.5);">${r.door ? "door " + verplichtEsc(r.door) : "aangemaakt"}</span>` : `<span style="font-size:10px;color:rgba(255,255,255,0.4);">vast</span>`}${r.extra && mag ? `<button type="button" class="vp-del" data-datum="${verplichtIso(r.datum)}" title="Verwijderen" style="background:none;border:1px solid rgba(244,143,177,0.5);color:#f48fb1;border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;">✕</button>` : ""}</div>`; });
+    h += `</div>`;
+    box.querySelectorAll(":scope > :not(.win-x)").forEach(n=>n.remove());
+    box.insertAdjacentHTML("beforeend", h);
+    const toon = (t, soort2)=>{ const m = box.querySelector("#vp-melding"); if(m){ m.textContent = t; m.style.color = soort2 === "ok" ? "#80cbc4" : "#f48fb1"; } };
+    const doe = async (datum, naam, okTekst)=>{
+      const knoppen = box.querySelectorAll("button"); knoppen.forEach(b=>{ b.disabled = true; });
+      try{ const res = await settingsSetVerplicht(datum, naam);
+        if(res.error){ knoppen.forEach(b=>{ b.disabled = false; }); toon(res.error, "fout"); return; }
+        teken(res.changed ? okTekst : "Er is niets veranderd.", "ok");
+      }catch(e){ knoppen.forEach(b=>{ b.disabled = false; }); toon("Opslaan mislukt: " + ((e && e.message) || e), "fout"); }
+    };
+    const toev = box.querySelector("#vp-toevoegen");
+    if(toev) toev.onclick = ()=>{ const dat = box.querySelector("#vp-datum").value; if(!dat){ toon("Kies eerst een datum.", "fout"); return; } doe(dat, box.querySelector("#vp-naam").value, "Aangemaakt: iedereen staat die dag op Vrij."); };
+    box.querySelectorAll(".vp-del").forEach(b=>{ b.onclick = ()=>doe(b.dataset.datum, null, "Verwijderd."); });
+  };
+  teken("", "ok");
+}
 function showGeenBeheerModal(){
   if(!canSeeAdmin()) return;   // Geen Beheer zit in de map Info: ICT-Systeembeheer en ICT-Management (alleen kijken)
   const MUST = ADMINISTRATORS.filter(n=>TEAM.includes(n));   // de Administrators (teamleden)
@@ -5905,7 +6037,7 @@ function showGeenBeheerModal(){
       html_inner += `<div style="padding:8px 0;border-bottom:1px solid rgba(229,57,53,0.3);">
         <div style="font-size:12px;color:#fff;font-weight:600;margin-bottom:4px;">${r.label}</div>
         ${r.beheerGap ? `<div style="font-size:10px;color:#f48fb1;margin-bottom:2px;">✗ Geen beheer (${r.beheerGap})</div>` : ""}
-        ${r.feest ? `<div class="gb-reden" style="font-size:10px;color:#ffcc80;margin-bottom:2px;">\uD83C\uDF8C Reden: verplichte vrije dag (${r.feest}), voor iedereen opgelegd</div>` : ""}
+        ${r.feest ? `<div class="gb-reden" style="font-size:10px;color:#ffcc80;margin-bottom:2px;">\uD83C\uDF8C Reden: verplichte vrije dag (${verplichtEsc(r.feest)}), voor iedereen opgelegd</div>` : ""}
       </div>`;
     });
   }
