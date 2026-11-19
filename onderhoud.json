@@ -1,8 +1,10 @@
 {
  "v": 1,
- "t": "2026-11-19T15:14:02.000Z",
+ "t": "2026-11-19T16:05:51.000Z",
  "droog": false,
- "acties": [],
+ "acties": [
+  "backup bijgemaakt: 2026-11-19_17-05"
+ ],
  "problemen": [],
  "meldingen": [],
  "checks": [
@@ -32,7 +34,7 @@
    "groep": 0,
    "naam": "Reactietijd van GitHub (server)",
    "s": "ok",
-   "t": "lezen gemiddeld 255 ms (langzaamst 755 ms, 27 verzoeken); schrijven: geen verzoeken"
+   "t": "lezen gemiddeld 479 ms (langzaamst 996 ms, 37 verzoeken); schrijven gemiddeld 1383 ms (langzaamst 1475 ms, 2 verzoeken)"
   },
   {
    "id": "token",
@@ -53,7 +55,7 @@
    "groep": 1,
    "naam": "Controlegetal",
    "s": "ok",
-   "t": "klopt (opslag 34 door Server (onderhoud))"
+   "t": "klopt (opslag 35 door Monitor)"
   },
   {
    "id": "weken",
@@ -123,7 +125,7 @@
    "groep": 1,
    "naam": "Grootte van de planning",
    "s": "ok",
-   "t": "55 KB van maximaal 1000 KB"
+   "t": "50 KB van maximaal 1000 KB"
   },
   {
    "id": "groups",
@@ -165,14 +167,14 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; niets te doen"
+   "t": "de server draait; deze ronde: 1 actie"
   },
   {
    "id": "backups",
    "groep": 3,
    "naam": "Backups aanwezig",
    "s": "ok",
-   "t": "16 backups, de nieuwste van 2026-11-19 08:17"
+   "t": "17 backups, de nieuwste van 2026-11-19 17:05"
   },
   {
    "id": "backup_actueel",
@@ -221,13 +223,13 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "22 regels, allemaal leesbaar"
+   "t": "23 regels, allemaal leesbaar"
   }
  ],
  "weken": 49,
  "team": 10,
- "state_sha": "2aaec5bcc2186fbd3f2df9908d11c555c5027cc5",
- "stempel_n": 34,
+ "state_sha": "9deda61579ea702c36cd38b91d3b07f16fc5884f",
+ "stempel_n": 35,
  "stempel_bev": 0,
- "audit_commit": "851dd22d25ddc2c6f8fd6f6a434d9b47e2b86ce1"
+ "audit_commit": "48ca5bc9e0a38f290ee483cbdb954954b2f694e7"
 }
