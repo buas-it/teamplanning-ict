@@ -237,7 +237,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 19 nov 2026 · 164</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 19 nov 2026 · 165</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -1635,7 +1635,7 @@ function gateOff(){
 }
 // Een sessie eindigt zodra het wachtwoord waarmee je inlogde is gereset of verwijderd (ook op andere apparaten); bij een storing, of zolang er nog geen wachtwoordbestand is, blijft alles zoals het is
 async function revalidateSession(){
-  if(!currentIdentity || !currentIdentity.pw) return;   // alleen sessies die met een eigen wachtwoord zijn aangemaakt
+  if(!currentIdentity || !currentIdentity.pw) return;   // alleen sessies die met een eigen wachtwoord zijn aangemaakt (een oude sessie zonder eigen wachtwoord wordt al bij het openen van de pagina niet meer hersteld)
   const who = currentIdentity.user;
   try{
     const reg = await usersLoad();
@@ -1679,6 +1679,8 @@ async function newUserRecord(pw){
   return { salt: b64e(salt), hash: b64e(await adminDerive(pw, salt, USER_ITER)), iter: USER_ITER, set: srvIso() };
 }
 function pwProblem(p1, p2){ if(p1.length < PW_MIN) return "Minimaal " + PW_MIN + " tekens"; if(p1 !== p2) return "De wachtwoorden komen niet overeen"; return null; }
+async function pwIsStart(p){ try{ return await hashPassword(p) === PW_HASH; }catch(e){ return false; } }   // is dit het startwachtwoord?
+const PW_START_MSG = "Kies een ander wachtwoord dan het startwachtwoord";
 // Gebeurtenis zonder celwijziging (wachtwoord ingesteld/gewijzigd/gereset) in het logboek zetten
 function auditEvent(action, opts){
   try{
@@ -1822,6 +1824,7 @@ async function promptUnlock(opts){
         if(rec){
           let ok = false; try{ ok = await verifyUserPw(input.value, rec); }catch(e){}
           if(!ok){ let startww = false; try{ startww = await hashPassword(input.value) === PW_HASH; }catch(e){} if(startww) mislukt(user); else wrong(); return; }   // alleen een poging met het startwachtwoord telt mee (niet een tikfout in je eigen wachtwoord)
+          if(await pwIsStart(input.value)){ render2(user, rec.hash); return; }   // het 'eigen' wachtwoord is nog het startwachtwoord: eerst een ander kiezen
           finishLogin(user);
         } else {
           if(await hashPassword(input.value) !== PW_HASH){ mislukt(user); return; }
@@ -1836,7 +1839,7 @@ async function promptUnlock(opts){
     }
 
     // Stap 2 (alleen de eerste keer): een eigen wachtwoord kiezen
-    function render2(user){
+    function render2(user, vervang){   // vervang: de hash van een bestaand record dat nog het startwachtwoord is (dat wordt dan vervangen)
       box.innerHTML = `<div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;">🔑 Kies je eigen wachtwoord</div>
       <div id="pw2-intro" style="font-size:11px;color:#777;margin-bottom:14px;"></div>
       <input id="pw-new1" type="password" placeholder="Nieuw wachtwoord (min. ${PW_MIN} tekens)" autocomplete="new-password" style="${FIELD}margin-bottom:8px;">
@@ -1846,14 +1849,15 @@ async function promptUnlock(opts){
         <button id="pw-cancel" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;${BTN}">← Terug</button>
         <button id="pw-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;${BTN}">Opslaan en inloggen</button>
       </div>`;
-      box.querySelector("#pw2-intro").textContent = "Hallo " + user + ". Daarmee log je voortaan in; het startwachtwoord werkt dan niet meer voor jouw naam.";
+      box.querySelector("#pw2-intro").textContent = "Hallo " + user + ". Je moet eerst een eigen wachtwoord kiezen; je kunt pas verder als dat is gelukt. Daarmee log je voortaan in; het startwachtwoord werkt dan niet meer voor jouw naam.";
       const n1 = box.querySelector("#pw-new1"), n2 = box.querySelector("#pw-new2"), error = box.querySelector("#pw-error"), okBtn = box.querySelector("#pw-ok");
       async function save(){
         const prob = pwProblem(n1.value, n2.value); if(prob){ error.textContent = prob; return; }
+        if(await pwIsStart(n1.value)){ error.textContent = PW_START_MSG; return; }
         error.textContent = ""; okBtn.disabled = true;
         try{
           const rec = await newUserRecord(n1.value);
-          const res = await usersMutate(u=>{ if(u[user]) return "bestaat al"; u[user] = rec; return false; }, "Wachtwoord ingesteld voor " + user);
+          const res = await usersMutate(u=>{ if(vervang){ if(!u[user] || u[user].hash !== vervang) return "bestaat al"; u[user] = rec; return false; } if(u[user]) return "bestaat al"; u[user] = rec; return false; }, "Wachtwoord ingesteld voor " + user);
           if(res.error){ render1("Er is intussen al een eigen wachtwoord voor deze naam. Log in met dat wachtwoord.", user); return; }
         }catch(e){ error.textContent = "Opslaan mislukt (" + e.message + "). Probeer het opnieuw."; okBtn.disabled = false; return; }
         finishLogin(user, ()=>auditEvent("wachtwoord ingesteld"));
@@ -1893,6 +1897,7 @@ async function showChangePassword(){
   async function submit(){
     const o = q("#cp-old").value, n1 = q("#cp-new1").value, n2 = q("#cp-new2").value;
     const prob = pwProblem(n1, n2); if(prob){ err.textContent = prob; return; }
+    if(await pwIsStart(n1)){ err.textContent = PW_START_MSG; return; }
     err.textContent = ""; okBtn.disabled = true;
     try{
       const reg = await usersLoad(); const rec = reg.users[me];
@@ -6110,7 +6115,7 @@ try{
   if(saved){
     let ident = null;
     try{ ident = JSON.parse(localStorage.getItem("tp_user") || "null"); }catch(e){}
-    if(ident && ident.user && ident.id){   // je blijft ingelogd, hoe lang het ook geleden is
+    if(ident && ident.user && ident.id && ident.pw === true){   // je blijft ingelogd, hoe lang het ook geleden is; een oude sessie zonder eigen wachtwoord (van vóór de persoonlijke wachtwoorden) niet: opnieuw inloggen
       currentIdentity = ident;
       
       lastActivity = Date.now();
