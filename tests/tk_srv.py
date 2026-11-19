@@ -216,9 +216,9 @@ def token_ok(dagen=90, **kw):
 def basis(s=None, groepen=None):
     nieuw(s or planning(36, 52)); REPO.f["index.html"] = pagina(LABEL_A); REPO.pages = LABEL_A; REPO.token = token_ok()
     if groepen is not None: REPO.f["groups.json"] = json.dumps({"v": 1, "administrators": groepen})
-nu_id = ["github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "groups", "accounts", "wachtwoorden", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen", "logboek_server", "logboek_onbekend", "testbranch"]
+nu_id = ["github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "groups", "accounts", "wachtwoorden", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen", "logboek_server", "logboek_onbekend", "testbranch", "ghtijd_server"]
 basis(); rc, u = draai(); c = checks()
-check("SV35 de server doet 30 controles in vier groepen en legt de uitslag vast in het statusbestand; bij een gezonde planning is er geen enkele fout en zijn de uitslagen: alles in orde, behalve dat er maar een Administrator is (let op) en wie nog het startwachtwoord heeft (ook ok: de namen staan in de tekst)", rc == 0 and sorted(c) == sorted(nu_id) and {x["s"] for x in c.values()} <= {"ok", "info", "let"} and c["groups"]["s"] == "let" and "maar één Administrator" in c["groups"]["t"] and c["wachtwoorden"]["s"] == "ok" and c["accounts"]["t"] == "2 accounts: 2 van de 10 teamleden hebben een eigen wachtwoord" and all(c[k]["s"] == "ok" for k in ("github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen", "logboek_server", "logboek_onbekend")) and {x["groep"] for x in c.values()} == {0, 1, 2, 3}, json.dumps({k: (v["s"], v["t"][:50]) for k, v in c.items() if v["s"] != "ok"}))
+check("SV35 de server doet 31 controles in vier groepen en legt de uitslag vast in het statusbestand; bij een gezonde planning is er geen enkele fout en zijn de uitslagen: alles in orde, behalve dat er maar een Administrator is (let op) en wie nog het startwachtwoord heeft (ook ok: de namen staan in de tekst)", rc == 0 and sorted(c) == sorted(nu_id) and {x["s"] for x in c.values()} <= {"ok", "info", "let"} and c["groups"]["s"] == "let" and "maar één Administrator" in c["groups"]["t"] and c["wachtwoorden"]["s"] == "ok" and c["accounts"]["t"] == "2 accounts: 2 van de 10 teamleden hebben een eigen wachtwoord" and all(c[k]["s"] == "ok" for k in ("github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen", "logboek_server", "logboek_onbekend")) and {x["groep"] for x in c.values()} == {0, 1, 2, 3}, json.dumps({k: (v["s"], v["t"][:50]) for k, v in c.items() if v["s"] != "ok"}))
 for pages, hoofd, verwacht, zoek in ((LABEL_A, LABEL_A, "ok", "dezelfde versie"), (LABEL_A, LABEL_B, "let", "loopt achter"), (None, LABEL_A, "info", "niet te bereiken"), (LABEL_A, "geen label", "info", "niet te lezen")):
     basis(); REPO.f["index.html"] = hoofd; REPO.pages = pages; rc, u = draai(); r = checks()["uitrol"]
     check(f"SV36{verwacht[0]} de check 'Uitrol van de pagina' vergelijkt de versie op de site met die op main: {zoek} ({verwacht})", r["s"] == verwacht and zoek in r["t"], json.dumps(r))
@@ -551,5 +551,25 @@ nieuw(planning(43, 52)); rc, u = draai(extra_env=GEEN); c = checks()["oudeweken"
 check("SV104f zonder te oude weken: de check staat op ok en noemt de oudste week", c["s"] == "ok" and "geen weken ouder dan 14 dagen (de oudste is 2026-W43)" in c["t"], json.dumps(c))
 nieuw(planning(40, 47)); rc, u = draai(extra_env=GEEN); n8 = len(st()["store"])
 check("SV104g er blijven altijd minstens 8 weken over, ook als alles ouder is dan 14 dagen (8 weken, 40 t/m 47: de oudste is te oud, maar er is niets te verwijderen)", n8 == 8 and not state_puts(), json.dumps([n8, state_puts()]))
+
+# ── SV105: reactietijd van GitHub ──
+basis(); rc, u = draai(); c = checks()["ghtijd_server"]
+check("SV105 de server meet hoe lang GitHub over elk verzoek doet en meldt dat in de check 'Reactietijd van GitHub (server)': gemiddelde en langzaamste voor lezen en schrijven (ok bij een snel antwoord)", rc == 0 and c["s"] == "ok" and c["groep"] == 0 and "lezen gemiddeld" in c["t"] and "ms (langzaamst" in c["t"] and "verzoeken)" in c["t"] and c["naam"] == "Reactietijd van GitHub (server)", json.dumps([rc, c]))
+g = OND.ghtijd_oordeel
+tests = [
+    ("snel", {"lezen": [200, 300], "schrijven": [400], "mislukt": 0, "totaal": 3}, "ok", "lezen gemiddeld 250 ms (langzaamst 300 ms, 2 verzoeken); schrijven gemiddeld 400 ms (langzaamst 400 ms, 1 verzoek)"),
+    ("grens lezen 2000 is nog ok", {"lezen": [2000], "schrijven": [], "mislukt": 0, "totaal": 1}, "ok", "schrijven: geen verzoeken"),
+    ("lezen trager dan 2 s", {"lezen": [2500, 2000], "schrijven": [], "mislukt": 0, "totaal": 2}, "let", "lezen duurt gemiddeld langer dan 2 s"),
+    ("schrijven trager dan 4 s", {"lezen": [100], "schrijven": [4500], "mislukt": 0, "totaal": 2}, "let", "schrijven duurt gemiddeld langer dan 4 s"),
+    ("beide trager", {"lezen": [3000], "schrijven": [9000], "mislukt": 0, "totaal": 2}, "let", "lezen duurt gemiddeld langer dan 2 s en schrijven duurt gemiddeld langer dan 4 s"),
+    ("3 mislukt", {"lezen": [100], "schrijven": [], "mislukt": 3, "totaal": 9}, "let", "3 van de 9 verzoeken aan GitHub mislukten"),
+    ("2 mislukt is nog ok", {"lezen": [100], "schrijven": [], "mislukt": 2, "totaal": 9}, "ok", "2 mislukt en opnieuw geprobeerd"),
+    ("geen verzoeken", {"lezen": [], "schrijven": [], "mislukt": 0, "totaal": 0}, "ok", "lezen: geen verzoeken; schrijven: geen verzoeken"),
+]
+res = [(n, g(t)) for n, t, _, _ in tests]
+check("SV105b de beoordeling van de reactietijd: ok tot gemiddeld 2 s lezen en 4 s schrijven (de grens zelf is ok), let op daarboven en bij 3 of meer mislukte verzoeken; de tekst noemt wat er aan de hand is", all(r[0] == w and x in r[1] for (n, r), (_, _, w, x) in zip(res, tests)), json.dumps([[n, r] for n, r in res if True][:8]))
+t_ = {"lezen": [], "schrijven": [], "mislukt": 0, "totaal": 0}
+OND.TIJDEN.update({"lezen": [], "schrijven": [], "mislukt": 0, "totaal": 0}); OND.meet("GET", 120.4, True); OND.meet("PUT", 640.2, True); OND.meet("POST", None, False); OND.meet("DELETE", 80.0, False)
+check("SV105c meet() sorteert GET onder lezen en PUT/POST/DELETE onder schrijven, telt een verzoek zonder antwoord mee als mislukt (zonder tijd) en een serverfout (5xx) als mislukt", OND.TIJDEN == {"lezen": [120.4], "schrijven": [640.2, 80.0], "mislukt": 2, "totaal": 4}, json.dumps(OND.TIJDEN))
 
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")

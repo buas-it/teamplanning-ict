@@ -55,15 +55,42 @@ class Conflict(Exception):
     pass
 
 
+TIJDEN = {"lezen": [], "schrijven": [], "mislukt": 0, "totaal": 0}   # hoe lang GitHub erover deed in deze ronde (alleen het antwoord op elk verzoek)
+
+
+def meet(methode, ms, gelukt):
+    soort = "schrijven" if methode in ("PUT", "POST", "DELETE", "PATCH") else "lezen"
+    if ms is not None: TIJDEN[soort].append(ms)
+    TIJDEN["totaal"] += 1
+    if not gelukt: TIJDEN["mislukt"] += 1
+
+
+def ghtijd_oordeel(t):
+    """Beoordeelt de reactietijd van GitHub in deze ronde: ok tot gemiddeld 2 s lezen en 4 s schrijven; let op daarboven of bij 3 of meer mislukte verzoeken. Geeft (status, tekst)."""
+    def deel(naam, a):
+        return f"{naam} gemiddeld {round(sum(a) / len(a))} ms (langzaamst {round(max(a))} ms, {len(a)} {'verzoek' if len(a) == 1 else 'verzoeken'})" if a else f"{naam}: geen verzoeken"
+    tekst = deel("lezen", t["lezen"]) + "; " + deel("schrijven", t["schrijven"])
+    if t["mislukt"] >= 3: return "let", f"{t['mislukt']} van de {t['totaal']} verzoeken aan GitHub mislukten (en zijn opnieuw geprobeerd); {tekst}"
+    trager = []
+    if t["lezen"] and sum(t["lezen"]) / len(t["lezen"]) > 2000: trager.append("lezen duurt gemiddeld langer dan 2 s")
+    if t["schrijven"] and sum(t["schrijven"]) / len(t["schrijven"]) > 4000: trager.append("schrijven duurt gemiddeld langer dan 4 s")
+    if trager: return "let", " en ".join(trager) + ": " + tekst
+    return "ok", tekst + (f"; {t['mislukt']} mislukt en opnieuw geprobeerd" if t["mislukt"] else "")
+
+
 def call(methode, pad, body=None):
     url = f"{API}/repos/{REPO}/{pad}"
     data = json.dumps(body).encode() if body is not None else None
     for poging in range(4):
+        t0 = time.perf_counter()
         req = urllib.request.Request(url, data=data, method=methode, headers={"Authorization": f"Bearer {TOKEN}", "Accept": "application/vnd.github+json", "Content-Type": "application/json", "User-Agent": "bezetting-onderhoud"})
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
-                return r.status, json.loads(r.read() or b"{}")
+                antwoord = r.status, json.loads(r.read() or b"{}")
+                meet(methode, (time.perf_counter() - t0) * 1000, True)
+                return antwoord
         except urllib.error.HTTPError as e:
+            meet(methode, (time.perf_counter() - t0) * 1000, e.code < 500)
             try:
                 j = json.loads(e.read() or b"{}")
             except Exception:
@@ -74,6 +101,7 @@ def call(methode, pad, body=None):
                 time.sleep(2 * (poging + 1)); continue
             return e.code, j
         except (urllib.error.URLError, TimeoutError):
+            meet(methode, None, False)
             if poging < 3:
                 time.sleep(2 * (poging + 1)); continue
             raise
@@ -657,9 +685,10 @@ def schrijf_status(acties, problemen, meldingen, extra, checks=None):
             vorig = None
     st = {"v": 1, "t": nu().strftime("%Y-%m-%dT%H:%M:%S.000Z"), "droog": DROOG, "acties": acties, "problemen": problemen, "meldingen": meldingen, "checks": checks or []}
     st.update(extra)
+    def vast(c): return "" if c["id"] == "ghtijd_server" else c["t"]   # de gemeten milliseconden verschillen elke ronde: alleen een andere status (ok/let op) telt als nieuws
     if vorig:
         oud = dt.datetime.fromisoformat(vorig.get("t", "2000-01-01T00:00:00+00:00").replace("Z", "+00:00"))
-        gelijk = vorig.get("acties") == acties and vorig.get("problemen") == problemen and vorig.get("meldingen") == meldingen and vorig.get("droog") == DROOG and vorig.get("state_sha") == extra.get("state_sha") and vorig.get("audit_commit") == extra.get("audit_commit") and [(c["id"], c["s"], c["t"]) for c in (vorig.get("checks") or [])] == [(c["id"], c["s"], c["t"]) for c in (checks or [])]   # is de planning veranderd sinds de vorige ronde, dan komt er een nieuwe status
+        gelijk = vorig.get("acties") == acties and vorig.get("problemen") == problemen and vorig.get("meldingen") == meldingen and vorig.get("droog") == DROOG and vorig.get("state_sha") == extra.get("state_sha") and vorig.get("audit_commit") == extra.get("audit_commit") and [(c["id"], c["s"], vast(c)) for c in (vorig.get("checks") or [])] == [(c["id"], c["s"], vast(c)) for c in (checks or [])]   # is de planning veranderd sinds de vorige ronde, dan komt er een nieuwe status
         if gelijk and (nu() - oud).total_seconds() < STATUS_VERVERSEN_MIN * 60:
             return   # niets nieuws en nog vers: geen extra commit
     schrijf("onderhoud.json", json.dumps(st, ensure_ascii=False, indent=1) + "\n", f["sha"] if f else None, "Serveronderhoud: status")
@@ -878,6 +907,7 @@ def controles(acties, problemen):
         st_t, tx_t = tests_gelijk(acties); add("testbranch", 0, "Testbranch gelijk aan main", st_t, tx_t)
     except Exception as e:
         add("testbranch", 0, "Testbranch gelijk aan main", "info", f"niet te controleren ({e})")
+    st_g, tx_g = ghtijd_oordeel(TIJDEN); add("ghtijd_server", 0, "Reactietijd van GitHub (server)", st_g, tx_g)
     # het token van de pagina (dat alle gebruikers delen): werkt het nog, mag het schrijven, wanneer verloopt het, hoeveel API-ruimte is er over
     tok = parse_token(pagina)
     if not tok:
