@@ -118,6 +118,118 @@ def parse_locked(html):
     return set(re.findall(r'"(\d{4}-W\d{2}-[A-Z]{2})"', m.group(1))) if m else None
 
 
+def parse_extra(tekst):
+    """De verplichte vrije dagen die een Administrator in de pagina heeft aangemaakt (settings.json, 'verplichteDagen': {"2027-07-12": {"naam": ...}}).
+    Geeft (set van sleutels 'JJJJ-Www-DD' zoals in de planning, aantal ongeldige regels). Een ongeldige regel (geen datum, een weekend) telt niet mee."""
+    try:
+        d = json.loads(tekst or "{}")
+    except ValueError:
+        return set(), 0
+    m = d.get("verplichteDagen") if isinstance(d, dict) else None
+    if not isinstance(m, dict):
+        return set(), 0
+    sl = set(); slecht = 0
+    for k in m:
+        try:
+            sl.add(sleutel_van_datum(k))
+        except ValueError:
+            slecht += 1
+    return sl, slecht
+
+
+def sleutel_van_datum(k):
+    """'2027-07-12' wordt '2027-W28-MA' (dezelfde sleutel als weekKey in de pagina); ValueError als het geen datum of geen werkdag is."""
+    if not isinstance(k, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", k): raise ValueError(k)
+    dag = dt.date.fromisoformat(k)
+    if dag.weekday() > 4: raise ValueError(k)
+    maandag = dag - dt.timedelta(days=dag.weekday())
+    return f"{maandag.year}-W{maandag.isocalendar()[1]:02d}-{DAGEN[dag.weekday()]}"
+
+
+def lees_terug():
+    """De verplichte vrije dagen die een Administrator heeft verwijderd (settings.json, 'verplichtTerugzetten': {datum: {"vorige": {persoon: {"s": [...], "m": true}}}}).
+    Geeft ({datum: vorige, alleen geldige}, [alle datums die in het bestand staan]); bij een leesfout: niets."""
+    try:
+        f = lees("settings.json"); d = json.loads(f["tekst"]) if f else {}
+    except Exception:
+        return {}, []
+    m = d.get("verplichtTerugzetten") if isinstance(d, dict) else None
+    if not isinstance(m, dict): return {}, []
+    uit = {}
+    for k, rec in m.items():
+        try: sleutel_van_datum(k)
+        except ValueError: continue
+        vor = rec.get("vorige") if isinstance(rec, dict) else None
+        schoon = {}
+        for pers, v in (vor.items() if isinstance(vor, dict) else []):
+            if isinstance(v, dict) and isinstance(v.get("s"), list) and all(isinstance(x, str) for x in v["s"]):
+                schoon[pers] = {"s": list(v["s"]), "m": bool(v.get("m"))}
+        uit[k] = schoon
+    return uit, list(m)
+
+
+def terugzetten(n, terug, locked):
+    """Een verwijderde verplichte vrije dag: wie die dag nog op Vrij staat (door de verplichte vrije dag), krijgt de stand van voor de verplichte vrije dag terug, met de markering 'handmatig ingevuld' zoals die was.
+    Is er voor iemand niets vastgelegd (de week bestond nog niet), dan wordt het de standaardbezetting. Wie intussen iets anders heeft ingevuld, blijft zoals hij is. Een dag die intussen opnieuw verplicht is, blijft Vrij."""
+    cellen = 0; dagen = 0
+    for datum, vorige in sorted(terug.items()):
+        sl = sleutel_van_datum(datum)
+        if locked and sl in locked: continue
+        wk, d = sl[:8], sl[9:]
+        if wk not in n["store"]: continue
+        gedaan = 0
+        for p in n["team"]:
+            if p not in n["store"][wk] or n["store"][wk][p].get(d) != ["vrij"]: continue
+            v = vorige.get(p)
+            if v is None:
+                tpl = (n.get("template", {}).get(p) or {}).get(d)
+                v = {"s": copy.deepcopy(tpl) if isinstance(tpl, list) else [], "m": False}
+            if v["s"] == ["vrij"]: continue
+            n["store"][wk][p][d] = copy.deepcopy(v["s"])
+            me = n["manuallyEdited"].setdefault(wk, []); k = f"{p}-{d}"
+            if v["m"] and k not in me: me.append(k)
+            if not v["m"] and k in me: me.remove(k)
+            gedaan += 1
+        if gedaan: cellen += gedaan; dagen += 1
+    return [f"{cellen} {'cel' if cellen == 1 else 'cellen'} van {dagen} verwijderde verplichte vrije {'dag' if dagen == 1 else 'dagen'} teruggezet naar de stand van voor de verplichte vrije dag"] if cellen else []
+
+
+def wis_terug(datums):
+    """Haalt de afgehandelde datums uit 'verplichtTerugzetten' in settings.json (de nieuwste versie van het bestand); geeft een melding bij een mislukking, anders None."""
+    try:
+        for poging in range(3):
+            f = lees("settings.json")
+            if not f: return None
+            d = json.loads(f["tekst"]); m = d.get("verplichtTerugzetten")
+            if not isinstance(m, dict) or not any(k in m for k in datums): return None
+            for k in datums: m.pop(k, None)
+            if not m: d.pop("verplichtTerugzetten", None)
+            try:
+                schrijf("settings.json", json.dumps(d, ensure_ascii=False, indent=1), f["sha"], "Verplichte vrije dag teruggezet \u2014 Server (onderhoud)"); return None
+            except Conflict:
+                continue
+        return "settings.json wijzigde steeds tegelijk: de terugzetting van een verwijderde verplichte vrije dag wordt in de volgende ronde afgesloten"
+    except Exception as e:
+        return f"de afgehandelde verplichte vrije dag kon niet uit settings.json worden gehaald ({e}): dat gebeurt in de volgende ronde"
+
+
+def lees_extra():
+    """parse_extra van settings.json op de data-branch; bij een leesfout of geen bestand: niets extra."""
+    try:
+        f = lees("settings.json")
+    except Exception:
+        return set(), 0
+    return parse_extra(f["tekst"]) if f else (set(), 0)
+
+
+def verplichte_dagen(pagina, extra=None):
+    """Alle verplichte vrije dagen: de vaste lijst uit de pagina plus de dagen die Administrators hebben aangemaakt. None als er niets te lezen valt."""
+    vast = parse_locked(pagina)
+    if extra is None: extra = lees_extra()[0]
+    if vast is None and not extra: return None
+    return (vast or set()) | extra
+
+
 def parse_verjaardagen(html):
     m = re.search(r"let VERJAARDAGEN = \{(.*?)\};", html or "", re.S)
     return dict(re.findall(r'(\w+)\s*:\s*"(\d\d-\d\d)"', m.group(1))) if m else None
@@ -540,8 +652,10 @@ def ronde():
     if st == "fout":
         return acties, [f"het controlegetal van de planning klopt niet (laatste opslag nr. {s['integriteit'].get('n')} door {s['integriteit'].get('door')}): er is niets gewijzigd, een Administrator moet dit eerst beoordelen"], meldingen, extra
     extra["weken"] = len(s["store"]); extra["team"] = len(s["team"]); extra["state_sha"] = f["sha"]   # de versie van de planning die de server nu ziet
-    locked = parse_locked(pagina_main())   # de verplichte vrije dagen staan in de pagina op main
+    locked = verplichte_dagen(pagina_main())   # de vaste verplichte vrije dagen staan in de pagina op main, de door Administrators aangemaakte in settings.json
     n, a1, m1 = opschonen(s, locked); acties += a1; meldingen += m1
+    terug, terug_datums = lees_terug()   # verwijderde verplichte vrije dagen: de stand van voor de verplichte vrije dag terugzetten
+    acties += terugzetten(n, terug, locked)
     teWissen, alle_oud = oude_weken(n)
     if teWissen:
         for wk in teWissen:
@@ -598,6 +712,9 @@ def ronde():
         s = n
     else:
         extra["stempel_n"] = (s.get("integriteit") or {}).get("n"); extra["stempel_bev"] = (s.get("integriteit") or {}).get("bev", 0)
+    if terug_datums and not DROOG:   # de terugzetting staat nu in de planning: de afgehandelde dagen gaan uit settings.json
+        m_t = wis_terug(terug_datums)
+        if m_t: meldingen.append(m_t)
     # backups bijhouden: loopt de nieuwste achter op de planning, dan er een bijmaken
     if not DROOG and not gewijzigd_bestand:
         bestaand = {x["name"] for x in lijst("backups")}; nieuwste = sorted(bestaand)[-1] if bestaand else None; achter = True
@@ -812,11 +929,12 @@ def controles(acties, problemen):
     add("halvedag", 1, "Halve dagen zijn aangevuld", "let" if half else "ok", ("nog niet aangevuld: " + ", ".join(f"{p} ({c})" for p, c in sorted(half.items())) + ". Zij krijgen de vraag zodra ze de pagina openen") if half else "alle halve dagen zijn aangevuld")
     oud = [wk for wk in s["store"] if WEEKSLEUTEL.match(wk) and (week_einde(wk) or dt.date.max) < grens()]
     add("oudeweken", 1, "Roosters ouder dan 2 maanden", "info" if oud else "ok", f"{len(oud)} {'week' if len(oud) == 1 else 'weken'} ouder dan 2 maanden; de server verwijdert ze in de volgende ronde" if oud else f"geen weken ouder dan 2 maanden (de oudste is {ks[0] if ks else '-'})")
-    locked = parse_locked(pagina)
+    extra_v, slecht_v = lees_extra()
+    locked = verplichte_dagen(pagina, extra_v)
     if locked is None: add("verplicht", 1, "Verplichte vrije dagen staan op Vrij", "info", "de lijst met verplichte vrije dagen is niet te lezen uit de pagina")
     else:
         fout_v = sum(1 for wk in s["store"] for d in DAGEN if f"{wk}-{d}" in locked for p in team if p in s["store"][wk] and s["store"][wk][p].get(d) != ["vrij"]); dagen_v = sum(1 for wk in s["store"] for d in DAGEN if f"{wk}-{d}" in locked)
-        add("verplicht", 1, "Verplichte vrije dagen staan op Vrij", "let" if fout_v else "ok", f"{fout_v} {'cel' if fout_v == 1 else 'cellen'} op een verplichte vrije dag {'staat' if fout_v == 1 else 'staan'} niet op Vrij (de server zet ze in de volgende ronde recht)" if fout_v else (f"{dagen_v} verplichte vrije dagen in de planning, voor iedereen Vrij" if dagen_v else "geen verplichte vrije dagen in de geladen weken"))
+        add("verplicht", 1, "Verplichte vrije dagen staan op Vrij", "let" if fout_v else "ok", f"{fout_v} {'cel' if fout_v == 1 else 'cellen'} op een verplichte vrije dag {'staat' if fout_v == 1 else 'staan'} niet op Vrij (de server zet ze in de volgende ronde recht)" if fout_v else (f"{dagen_v} verplichte vrije dagen in de planning, voor iedereen Vrij" + (f" ({len(extra_v)} door een Administrator aangemaakt)" if extra_v else "") if dagen_v else "geen verplichte vrije dagen in de geladen weken"))
     kb = round(len(f["tekst"].encode("utf-8")) / 1024)
     add("grootte", 1, "Grootte van de planning", "fout" if kb > 900 else "let" if kb > 700 else "ok", f"{kb} KB van maximaal 1000 KB" + (": GitHub levert bestanden boven 1000 KB niet meer uit" if kb > 900 else ": de planning wordt te groot" if kb > 700 else ""))
     # team, accounts en rechten
@@ -849,6 +967,7 @@ def controles(acties, problemen):
             w3 = sorted(p for p in sl if p in NAMEN_WEG); v3 = sorted(p for p in sl if p not in team and p != MONITOR and p not in NAMEN_WEG)
             if w3: add("instellingen", 2, "Instellingen (boodschap en talen)", "let", "instellingen van een verwijderde naam: " + ", ".join(w3))
             elif v3: add("instellingen", 2, "Instellingen (boodschap en talen)", "let", "instellingen voor mensen die niet in het team staan: " + ", ".join(v3))
+            elif slecht_v: add("instellingen", 2, "Instellingen (boodschap en talen)", "let", f"{slecht_v} verplichte {'vrije dag' if slecht_v == 1 else 'vrije dagen'} in settings.json {'heeft' if slecht_v == 1 else 'hebben'} geen geldige datum (geen werkdag): {'die telt' if slecht_v == 1 else 'die tellen'} niet mee")
             else: add("instellingen", 2, "Instellingen (boodschap en talen)", "ok", "leesbaar en alleen voor het team")
     except Exception as e:
         add("instellingen", 2, "Instellingen (boodschap en talen)", "fout", f"settings.json niet leesbaar ({e})")

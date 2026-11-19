@@ -244,4 +244,78 @@ weg = ["TP_SERVER_ONDERHOUD", "serverModus", "LOKALE_HERSTEL", "SERVER_HERSTELT"
 aanwezig = {w: HTML.count(w) for w in weg if HTML.count(w)}
 print("INFO slapende code of verhuisde controles die nog in de pagina staan:", aanwezig or "geen")
 check("K12 er staat geen slapende opruimcode meer in de pagina, geen controle meer die de server doet, en ook geen automatische backups, backup- of logboekopruiming en geen schoonschrijven van verwijderde namen meer (dat doet allemaal de server)", not aanwezig, json.dumps(aanwezig))
+with sync_playwright() as pw:
+    UTC = dt.timezone.utc
+    ADMIN = "currentIdentity = makeIdentity('Hans', 'MacBook', ''); showLockIndicator();"
+    def klaar(p): p.evaluate("document.documentElement.classList.remove('tp-gated'); document.querySelectorAll('.tp-overlay[data-gate]').forEach(o => o.remove())")
+    # K33 een Administrator maakt een verplichte vrije dag aan: settings.json krijgt de dag (met naam, wie en wanneer), iedereen staat die dag op Vrij, de planning wordt opgeslagen, de dag is gemarkeerd en vergrendeld, en het staat in het logboek
+    R = nieuw(planning()); R.f["settings.json"] = json.dumps({"v": 1, "talen": {"Wim": ["nl"]}, "verjaardagen": False})
+    b, p, fouten = open_pagina(pw, R, klok_extra=0); klaar(p)
+    p.evaluate(ADMIN + " editUnlocked = true;"); p.evaluate("() => { showVerplichtModal(); }"); p.wait_for_timeout(500)
+    voor = p.evaluate("!!document.getElementById('vp-datum') && !!document.getElementById('vp-toevoegen')")
+    p.fill("#vp-datum", "2026-10-28"); p.fill("#vp-naam", "Bedrijfsuitje"); p.click("#vp-toevoegen"); p.wait_for_timeout(5000)
+    st = json.loads(R.f["settings.json"]); rec = (st.get("verplichteDagen") or {}).get("2026-10-28") or {}
+    allen_vrij = p.evaluate("TEAM.every(n => store['2026-W44'][n].WO[0] === 'vrij') && store['2026-W44'].Hans.DO[0] === 'kantoor'")
+    mem = p.evaluate("[LOCKED_DAYS.has('2026-W44-WO'), verplichtNaam('2026-W44','WO'), TEAM.every(n => store['2026-W44'][n].WO[0] === 'vrij')]")
+    lijst = p.evaluate("document.getElementById('vp-lijst').innerText")
+    audit = json.dumps(R.dispatches) + " ".join(R.f[x] for x in R.f if x.startswith("audit/"))
+    check("K33 Administrator maakt een verplichte vrije dag aan: settings.json bevat de dag met naam, door en op (en laat de overige instellingen staan), iedereen staat die dag meteen op Vrij in deze pagina (andere dagen blijven), de dag staat in LOCKED_DAYS met naam, het scherm toont hem en het logboek heeft een regel", voor and rec.get("naam") == "Bedrijfsuitje" and rec.get("door") == "Hans" and rec.get("op") and st.get("talen") == {"Wim": ["nl"]} and st.get("verjaardagen") is False and allen_vrij and mem == [True, "Bedrijfsuitje", True] and "Bedrijfsuitje" in lijst and "verplichte vrije dag" in audit and not fouten, [voor, rec, allen_vrij, mem, lijst[:80], audit[-300:], fouten])
+    # K33b de dag is in de weekweergave gemarkeerd (titel, 🎌 en vergrendeld) en kan niet worden gewijzigd
+    p.evaluate("document.querySelectorAll('.vp-overlay').forEach(o => o.remove()); render();"); p.wait_for_timeout(500)
+    kop = p.evaluate("[...document.querySelectorAll('.day-hd-feest')].map(x => x.textContent)")
+    cel = p.evaluate("document.querySelectorAll('.cell.verplicht').length")
+    check("K33b de nieuwe verplichte vrije dag staat met naam boven de dag (🎌 Bedrijfsuitje) en de vakjes zijn gemarkeerd als verplicht", any("Bedrijfsuitje" in x for x in kop) and cel >= len(TEAM), [kop, cel])
+    # K33c verwijderen: de dag verdwijnt uit settings.json en uit LOCKED_DAYS; andere instellingen blijven
+    p.evaluate("() => { showVerplichtModal(); }"); p.wait_for_timeout(400)
+    p.click(".vp-del"); p.wait_for_timeout(3000)
+    st2 = json.loads(R.f["settings.json"]); mem2 = p.evaluate("[LOCKED_DAYS.has('2026-W44-WO'), verplichtNaam('2026-W44','WO')]")
+    audit2 = json.dumps(R.dispatches) + " ".join(R.f[x] for x in R.f if x.startswith("audit/"))
+    check("K33c Administrator verwijdert de zelf aangemaakte dag: weg uit settings.json en uit LOCKED_DAYS (niet meer vergrendeld), de overige instellingen blijven, het logboek noemt het verwijderen", not st2.get("verplichteDagen") and mem2 == [False, ""] and st2.get("talen") == {"Wim": ["nl"]} and "verwijderd" in audit2, [st2, mem2, audit2[-300:]])
+    # K33d controles: weekend, verleden, vaste dag, bewerken uit, te ver vooruit
+    res = p.evaluate("""async () => { const u = []; editUnlocked = true; for(const [d, n] of [["2026-10-31", "x"], ["2026-10-16", "x"], ["2026-12-24", "x"], ["2029-01-02", "x"], ["", "x"], ["2026-13-45", "x"]]){ u.push((await settingsSetVerplicht(d, n)).error || "geen fout"); } editUnlocked = false; u.push((await settingsSetVerplicht("2026-10-28", "x")).error); editUnlocked = true; currentIdentity = makeIdentity('Bas', 'MacBook', ''); u.push((await settingsSetVerplicht("2026-10-28", "x")).error); return u; }""")
+    check("K33d ongeldige aanvragen worden geweigerd met een duidelijke tekst en schrijven niets: weekend, verleden, vaste verplichte dag, meer dan twee jaar vooruit, geen of onmogelijke datum, bewerken uit, geen Administrator", all(x != "geen fout" for x in res) and "weekend" not in res[0] and "werkdag" in res[0] and "verleden" in res[1] and "vaste" in res[2] and "twee jaar" in res[3] and res[6] == "Bewerken staat uit." and "Administrator" in res[7] and not json.loads(R.f["settings.json"]).get("verplichteDagen"), res)
+    # K33e een niet-Administrator krijgt het scherm niet te zien
+    p.evaluate("document.querySelectorAll('.vp-overlay').forEach(o => o.remove()); currentIdentity = makeIdentity('Bas', 'MacBook', ''); editUnlocked = true; showVerplichtModal();"); p.wait_for_timeout(300)
+    geen = p.evaluate("document.querySelectorAll('.vp-overlay').length")
+    b.close()
+    # K33f een andere pagina (niet-Administrator) laadt een bestaande dag uit settings.json: iedereen op Vrij, naam zichtbaar, Geen Beheer toont de reden; een kwaadaardige naam wordt onschadelijk gemaakt
+    R = nieuw(planning()); R.f["settings.json"] = json.dumps({"v": 1, "verplichteDagen": {"2026-10-28": {"naam": "<img src=x onerror=window.PWNED=1>Uitje", "door": "Hans", "op": "2026-10-19T08:00:00.000Z"}, "2026-10-31": {"naam": "weekend"}, "kapot": {"naam": "x"}}})
+    b, p, fouten = open_pagina(pw, R, klok_extra=0); klaar(p)
+    p.evaluate("currentIdentity = makeIdentity('Bas', 'MacBook', ''); showLockIndicator(); render();"); p.wait_for_timeout(600)
+    r = p.evaluate("""() => { const o = {}; o.naam = verplichtNaam('2026-W44','WO'); o.vrij = TEAM.every(n => store['2026-W44'][n].WO[0] === 'vrij'); o.extra = Object.keys(VERPLICHT_EXTRA); o.n = LOCKED_DAYS.size; o.pwn = !!window.PWNED; return o; }""")
+    check("K33f een pagina die settings.json met een verplichte vrije dag laadt, zet hem voor iedereen op Vrij; een naam met HTML wordt schoongemaakt (niets wordt uitgevoerd); een weekend of kapotte datum in het bestand wordt genegeerd", "Uitje" in r["naam"] and "<" not in r["naam"] and r["vrij"] and r["extra"] == ["2026-W44-WO"] and r["n"] == 22 + 1 and not r["pwn"] and not fouten, [r, fouten])
+    # K33h een andere instelling wijzigen (talen) laat de verplichte vrije dagen staan, in het bestand en in de pagina; het Info-menu heeft het onderdeel voor een Administrator
+    res = p.evaluate("""async () => { currentIdentity = makeIdentity('Hans', 'MacBook', ''); editUnlocked = true; const r = await settingsSetTalen('Wim', ['nl', 'tr']); return [r.ok === true, LOCKED_DAYS.has('2026-W44-WO'), Object.keys(VERPLICHT_EXTRA)]; }""")
+    st3 = json.loads(R.f["settings.json"])
+    check("K33h een andere instelling wijzigen (de talen van Wim) laat de verplichte vrije dag staan: in settings.json en in de pagina", res == [True, True, ["2026-W44-WO"]] and "2026-10-28" in st3.get("verplichteDagen", {}) and sorted(st3.get("talen", {}).get("Wim", [])) == ["nl", "tr"], [res, st3])
+    p.evaluate("currentIdentity = makeIdentity('Hans', 'MacBook', '')"); p.evaluate("() => { showVerplichtModal(); }"); p.wait_for_timeout(300)
+    html = p.evaluate("document.querySelector('.vp-overlay').innerHTML"); lijst = p.evaluate("document.getElementById('vp-lijst').innerText")
+    check("K33g het scherm Verplichte vrije dagen: een niet-Administrator krijgt het niet te zien; een Administrator ziet vaste en aangemaakte dagen met naam en wie, zonder ingevoegde HTML", geen == 0 and "<img" not in html and "Uitje" in lijst and "door Hans" in lijst and "Kerstavond" in lijst and "vast" in lijst, [geen, lijst[:300]])
+    b.close()
+    # K33i het onderdeel staat onder Admin (naast Accounts en Boodschap), niet onder Info; een klik opent het scherm
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_extra=0); klaar(p)
+    p.evaluate("currentIdentity = makeIdentity('Hans', 'MacBook', ''); showLockIndicator(); editUnlocked = true; openWhoMenu();"); p.wait_for_timeout(500)
+    voor_klik = p.evaluate("(() => { const x = document.getElementById('menu-verplicht'); return x ? [x.className, x.hidden, x.textContent] : null; })()")
+    p.evaluate("document.getElementById('menu-admin').click()"); p.wait_for_timeout(200)
+    na_klik = p.evaluate("(() => { const x = document.getElementById('menu-verplicht'), i = document.getElementById('menu-info'); const volgorde = [...document.querySelectorAll('#menu-admin ~ *')].map(e => e.id).filter(Boolean); return [x.hidden, volgorde.indexOf('menu-verplicht') > volgorde.indexOf('menu-backup-terugzetten'), volgorde.indexOf('menu-verplicht') < volgorde.indexOf('menu-info')]; })()")
+    p.evaluate("document.getElementById('menu-verplicht').click()"); p.wait_for_timeout(800)
+    open_ = p.evaluate("document.querySelectorAll('.vp-overlay').length")
+    check("K33i 'Verplichte vrije dagen' staat in het menu Admin, onder Backup/Restore (verborgen tot Admin openklapt) en opent het scherm", voor_klik and "c-admin" in voor_klik[0] and voor_klik[1] is True and "Verplichte vrije dagen" in voor_klik[2] and na_klik[:2] == [False, True] and open_ == 1, [voor_klik, na_klik, open_])
+    b.close()
+    # K33j de oude stand komt terug: wie vóór het aanmaken iets (handmatig) had ingevuld krijgt dat terug, de rest de oorspronkelijke stand; wie intussen iets anders invulde blijft zoals hij is; in settings.json staat de stand voor de server
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_extra=0); klaar(p)
+    p.evaluate("currentIdentity = makeIdentity('Hans', 'MacBook', ''); showLockIndicator(); editUnlocked = true; store['2026-W44'].Wim.WO = ['thuis']; manuallyEdited['2026-W44'] = new Set(['Wim-WO']); store['2026-W44'].Bas.WO = ['ziek']; (manuallyEdited['2026-W44'] || new Set()).add('Bas-WO');")
+    p.evaluate("async () => { await settingsSetVerplicht('2026-10-28', 'Uitje'); }"); p.wait_for_timeout(500)
+    rec = (json.loads(R.f["settings.json"]).get("verplichteDagen") or {}).get("2026-10-28", {}); vor = rec.get("vorige", {})
+    midden = p.evaluate("TEAM.every(n => store['2026-W44'][n].WO[0] === 'vrij')")
+    p.evaluate("store['2026-W44'].Sam.WO = ['thuis']")   # iemand vult intussen iets anders in op de nog verplichte dag is niet mogelijk; dit simuleert een stand die al afwijkt bij het verwijderen
+    p.evaluate("async () => { await settingsSetVerplicht('2026-10-28', null); }"); p.wait_for_timeout(500)
+    na = p.evaluate("(() => { const w = store['2026-W44']; return { wim: w.Wim.WO, bas: w.Bas.WO, hans: w.Hans.WO, sam: w.Sam.WO, mWim: manuallyEdited['2026-W44'].has('Wim-WO'), mBas: manuallyEdited['2026-W44'].has('Bas-WO'), mHans: manuallyEdited['2026-W44'].has('Hans-WO'), lock: LOCKED_DAYS.has('2026-W44-WO') }; })()")
+    st = json.loads(R.f["settings.json"]); tm = (st.get("verplichtTerugzetten") or {}).get("2026-10-28", {})
+    check("K33j bij het aanmaken wordt de stand per persoon vastgelegd (Wim thuis handmatig, Bas ziek handmatig, de rest kantoor); bij het verwijderen komt die stand terug in de pagina (ook de markering handmatig ingevuld), wie intussen iets anders had blijft zoals hij is, en settings.json bewaart de stand voor de server (verplichtTerugzetten) zonder de dag nog bij verplichteDagen", midden and vor.get("Wim") == {"s": ["thuis"], "m": True} and vor.get("Bas") == {"s": ["ziek"], "m": True} and vor.get("Hans") == {"s": ["kantoor"], "m": False} and na == {"wim": ["thuis"], "bas": ["ziek"], "hans": ["kantoor"], "sam": ["thuis"], "mWim": True, "mBas": True, "mHans": False, "lock": False} and "2026-10-28" not in (st.get("verplichteDagen") or {}) and tm.get("vorige", {}).get("Wim") == {"s": ["thuis"], "m": True} and tm.get("door") == "Hans", [midden, vor, na, st])
+    # K33k opnieuw aanmaken na verwijderen haalt de wachtende terugzetting weg
+    p.evaluate("async () => { await settingsSetVerplicht('2026-10-28', 'Opnieuw'); }"); p.wait_for_timeout(500)
+    st = json.loads(R.f["settings.json"])
+    check("K33k een dag die opnieuw wordt aangemaakt voordat de server de terugzetting deed, krijgt weer een nieuwe stand vastgelegd en de wachtende terugzetting verdwijnt uit settings.json", "verplichtTerugzetten" not in st and "2026-10-28" in st.get("verplichteDagen", {}) and st["verplichteDagen"]["2026-10-28"]["vorige"].get("Wim") == {"s": ["thuis"], "m": True}, st)
+    b.close()
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")

@@ -457,4 +457,52 @@ check("SV100b bestaat het statusbestand nog niet (het serveronderhoud draaide no
 basis(); onderhoud_json("2026-11-04T05:00:00.000Z"); rc, uit = draai_logboek([ev(actie="")]); 
 check("SV100c een melding zonder geldige regel schrijft niets en start ook geen ronde", rc == 0 and not dsp_regels() and REPO.starts == [], json.dumps([REPO.starts, uit[-200:]]))
 
+# ── SV101: verplichte vrije dagen die een Administrator in de pagina heeft aangemaakt (settings.json, verplichteDagen) ──
+def extra_dagen(m): REPO.f["settings.json"] = json.dumps({"v": 1, "verplichteDagen": m})
+UITJE = {"2026-11-11": {"naam": "Bedrijfsuitje", "door": "Hans", "op": "2026-11-04T07:00:00.000Z"}}
+basis(); extra_dagen(UITJE); rc, u = draai(); s = st()
+check("SV101 een verplichte vrije dag uit settings.json (woensdag 11 november 2026) zet de server voor iedereen op Vrij: 10 teamleden = 10 cellen; andere dagen blijven; de planning blijft geldig; de check meldt dat alles op Vrij staat en noemt de door een Administrator aangemaakte dag", rc == 0 and all(s["store"]["2026-W46"][p]["WO"] == ["vrij"] for p in TEAM) and s["store"]["2026-W46"]["Wim"]["DI"] == ["kantoor"] and s["store"]["2026-W45"]["Wim"]["WO"] == ["kantoor"] and any("10 cellen op een verplichte vrije dag op Vrij gezet" in a for a in u["acties"]) and checks()["verplicht"]["s"] == "ok" and "1 door een Administrator aangemaakt" in checks()["verplicht"]["t"] and OND.stempel_status(s) == "ok", json.dumps([rc, u["acties"], checks()["verplicht"]]))
+basis(); REPO.f["index.html"] = pagina(LABEL_A, locked=LOCKED); extra_dagen(UITJE); rc, u = draai(); s = st()
+check("SV101b de vaste lijst uit de pagina en de dagen uit settings.json gelden samen: 3 vaste + 1 aangemaakte dag = 40 cellen", all(s["store"][w][p][d] == ["vrij"] for w, d in (("2026-W52", "DO"), ("2026-W52", "VR"), ("2026-W40", "WO"), ("2026-W46", "WO")) for p in TEAM) and any("40 cellen op een verplichte vrije dag op Vrij gezet" in a for a in u["acties"]) and "4 verplichte vrije dagen" in checks()["verplicht"]["t"], json.dumps([u["acties"], checks()["verplicht"]]))
+basis(); extra_dagen(UITJE); voor = REPO.f["state.json"]; rc, u = draai(droog=True)
+check("SV101c in een droogloop zet de server de aangemaakte dag niet om, maar de check meldt dat 10 cellen niet op Vrij staan", REPO.f["state.json"] == voor and checks()["verplicht"]["s"] == "let" and "10 cellen" in checks()["verplicht"]["t"], json.dumps(checks()["verplicht"]))
+basis(); extra_dagen({"2026-11-14": {"naam": "zaterdag"}, "kapot": {"naam": "x"}, "2026-02-30": {"naam": "bestaat niet"}}); voor = REPO.f["state.json"]; rc, u = draai()
+check("SV101d regels zonder geldige werkdag in settings.json (weekend, geen datum, een dag die niet bestaat) tellen niet mee: de planning blijft ongewijzigd en de check 'Instellingen' meldt er 3 (let op)", rc == 0 and checks()["verplicht"]["s"] == "ok" and not any("verplichte vrije dag op Vrij" in a for a in u["acties"]) and checks()["instellingen"]["s"] == "let" and "3 verplichte vrije dagen" in checks()["instellingen"]["t"] and "geen geldige datum" in checks()["instellingen"]["t"], json.dumps([u["acties"], checks()["instellingen"]]))
+basis(); extra_dagen(UITJE); draai(); extra_dagen({}); rc, u = draai(); s = st()
+check("SV101e als een Administrator de dag weer verwijdert, laat de server de planning zoals hij is (de cellen blijven Vrij; niemand krijgt ongevraagd weer een bezetting terug) en doet verder niets", rc == 0 and all(s["store"]["2026-W46"][p]["WO"] == ["vrij"] for p in TEAM) and not any("verplichte vrije dag op Vrij" in a for a in u["acties"]), json.dumps(u["acties"]))
+basis(); REPO.f["settings.json"] = "{ geen json"; rc, u = draai()
+check("SV101f een kapot settings.json maakt de ronde niet kapot: er worden geen aangemaakte dagen toegepast en de check 'Instellingen' meldt het (fout)", rc in (0, 1) and checks()["instellingen"]["s"] == "fout", json.dumps([rc, checks()["instellingen"]]))
+basis(); REPO.f["index.html"] = "<html>geen lijst hier</html>"; extra_dagen(UITJE); rc, u = draai(); s = st()
+check("SV101g is de vaste lijst niet te lezen uit de pagina, dan worden de aangemaakte dagen toch toegepast", rc == 0 and all(s["store"]["2026-W46"][p]["WO"] == ["vrij"] for p in TEAM), json.dumps([rc, u["acties"]]))
+basis(); extra_dagen({"2026-11-11": {"naam": "Bedrijfsuitje"}, "2026-11-12": "Studiedag"}); rc, u = draai(); s = st()
+check("SV101h meerdere aangemaakte dagen, ook in de kale vorm (alleen de naam als tekst): 2 dagen x 10 teamleden = 20 cellen", rc == 0 and any("20 cellen op een verplichte vrije dag op Vrij gezet" in a for a in u["acties"]) and all(s["store"]["2026-W46"][p][d] == ["vrij"] for p in TEAM for d in ("WO", "DO")), json.dumps(u["acties"]))
+for d in ("2026-10-14", "2026-11-18"):
+    pass
+
+# ── SV102: een verwijderde verplichte vrije dag: de stand van voor de verplichte vrije dag komt terug (settings.json, verplichtTerugzetten) ──
+def terug_dagen(m, uitje=None):
+    d = {"v": 1, "talen": {"Wim": ["nl"]}, "verplichtTerugzetten": m}
+    if uitje: d["verplichteDagen"] = uitje
+    REPO.f["settings.json"] = json.dumps(d)
+VORIGE = {"Wim": {"s": ["thuis"], "m": True}, "Bas": {"s": ["ziek"], "m": True}, "Hans": {"s": ["kantoor"], "m": False}}
+TERUG = {"2026-11-11": {"vorige": VORIGE, "door": "Hans", "op": "2026-11-04T07:30:00.000Z"}}
+def vrij_gezet():   # basis met de dag 11 november voor iedereen op Vrij gezet door de server
+    basis(); extra_dagen(UITJE); draai()
+vrij_gezet(); terug_dagen(TERUG); rc, u = draai(); s = st(); w = s["store"]["2026-W46"]
+check("SV102 een verwijderde verplichte vrije dag: de server zet de stand van voor de verplichte vrije dag terug (Wim thuis en Bas ziek, met de markering handmatig ingevuld; Hans kantoor zonder markering; wie niets vastgelegd had krijgt de standaardbezetting kantoor); een andere dag blijft; de planning blijft geldig", rc == 0 and w["Wim"]["WO"] == ["thuis"] and w["Bas"]["WO"] == ["ziek"] and w["Hans"]["WO"] == ["kantoor"] and w["Sam"]["WO"] == ["kantoor"] and "Wim-WO" in s["manuallyEdited"]["2026-W46"] and "Bas-WO" in s["manuallyEdited"]["2026-W46"] and "Hans-WO" not in s["manuallyEdited"].get("2026-W46", []) and w["Wim"]["DO"] == ["kantoor"] and any("10 cellen van 1 verwijderde verplichte vrije dag teruggezet" in a for a in u["acties"]) and OND.stempel_status(s) == "ok", json.dumps([rc, u["acties"], w["Wim"], w["Bas"]]))
+st_ = json.loads(REPO.f["settings.json"])
+check("SV102b de afgehandelde dag gaat uit settings.json (verplichtTerugzetten verdwijnt als hij leeg is); de overige instellingen blijven", "verplichtTerugzetten" not in st_ and st_.get("talen") == {"Wim": ["nl"]}, json.dumps(st_))
+rc, u = draai(); s2 = st()
+check("SV102c een volgende ronde doet niets meer: geen wijziging in de planning", rc == 0 and s2["store"] == s["store"] and not any("teruggezet" in a for a in u["acties"]), json.dumps(u["acties"]))
+vrij_gezet(); terug_dagen(TERUG, uitje=UITJE); rc, u = draai(); s = st()
+check("SV102d is de dag intussen opnieuw verplicht vrij (staat weer in verplichteDagen), dan blijft iedereen op Vrij en wordt de wachtende terugzetting toch opgeruimd", rc == 0 and all(s["store"]["2026-W46"][p]["WO"] == ["vrij"] for p in TEAM) and "verplichtTerugzetten" not in json.loads(REPO.f["settings.json"]), json.dumps(u["acties"]))
+vrij_gezet(); s0 = st(); s0["store"]["2026-W46"]["Wim"]["WO"] = ["thuis"]; s0["store"]["2026-W46"]["Sam"]["WO"] = ["kantoor"]; OND.stempel(s0, json.loads(json.dumps(s0))); REPO.f["state.json"] = json.dumps(s0); terug_dagen(TERUG); rc, u = draai(); s = st(); w = s["store"]["2026-W46"]
+check("SV102e wie intussen al iets anders heeft ingevuld (Wim thuis, Sam kantoor) blijft zoals hij is; de anderen krijgen hun oude stand terug", rc == 0 and w["Wim"]["WO"] == ["thuis"] and w["Sam"]["WO"] == ["kantoor"] and w["Bas"]["WO"] == ["ziek"], json.dumps([rc, u["acties"][:3], u.get("problemen")]))
+vrij_gezet(); terug_dagen(TERUG); voor = REPO.f["state.json"]; rc, u = draai(droog=True)
+check("SV102f in een droogloop verandert er niets: de planning en settings.json blijven zoals ze waren", REPO.f["state.json"] == voor and "verplichtTerugzetten" in json.loads(REPO.f["settings.json"]), json.dumps(u["acties"]))
+vrij_gezet(); terug_dagen({"2026-11-11": {"vorige": {"Wim": "kapot", "Bas": {"s": "ziek"}}}, "kapot": {"vorige": {}}, "2026-11-14": {"vorige": {}}}); rc, u = draai(); w = st()["store"]["2026-W46"]
+check("SV102g ongeldige gegevens (geen lijst, geen datum, een weekend) worden genegeerd: wie geen geldige stand heeft krijgt de standaardbezetting; de ronde loopt gewoon", rc == 0 and w["Wim"]["WO"] == ["kantoor"] and w["Bas"]["WO"] == ["kantoor"], json.dumps([rc, w["Wim"], w["Bas"]]))
+vrij_gezet(); terug_dagen({"2026-11-11": {"vorige": VORIGE}}); st0 = st(); st0["template"]["Sam"]["WO"] = ["thuis"]; OND.stempel(st0, json.loads(json.dumps(st0))); REPO.f["state.json"] = json.dumps(st0); rc, u = draai(); w = st()["store"]["2026-W46"]
+check("SV102h wie niets vastgelegd heeft, krijgt de standaardbezetting uit het rooster (Sam: thuis)", rc == 0 and w["Sam"]["WO"] == ["thuis"] and "Sam-WO" not in st()["manuallyEdited"].get("2026-W46", []), json.dumps([rc, u["acties"][:3], w["Sam"]]))
+
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")
