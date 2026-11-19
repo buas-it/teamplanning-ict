@@ -907,7 +907,7 @@ def controles(acties, problemen):
                 elif dagen is not None and dagen <= 7: add("token", 0, "Token van de pagina", "fout", f"het token verloopt over {max(dagen, 0)} dagen ({verloopt.strip()[:10]}): maak een nieuw token en zet het in de pagina")
                 elif dagen is not None and dagen <= 30: add("token", 0, "Token van de pagina", "let", f"het token verloopt over {dagen} dagen ({verloopt.strip()[:10]}): maak op tijd een nieuw token")
                 elif dagen is not None: add("token", 0, "Token van de pagina", "ok", f"het token werkt, mag schrijven en is geldig tot {verloopt.strip()[:10]}")
-                else: add("token", 0, "Token van de pagina", "info", "het token werkt en mag schrijven; er is geen vervaldatum bekend (een token zonder vervaldatum)")
+                else: add("token", 0, "Token van de pagina", "ok", "het token werkt en mag schrijven; het heeft geen vervaldatum (zo is het bedoeld: het blijft geldig tot het wordt ingetrokken)")
                 try: rest, maxi = int(hd.get("x-ratelimit-remaining")), int(hd.get("x-ratelimit-limit"))
                 except (TypeError, ValueError): rest = maxi = None
                 if rest is None: add("limiet", 0, "Ruimte in de API-limiet", "info", "GitHub gaf de limiet niet door")
@@ -998,7 +998,7 @@ def controles(acties, problemen):
         elif vr2: add("accounts", 2, "Accounts", "let", "accounts van mensen die niet in het team staan: " + ", ".join(vr2))
         else: add("accounts", 2, "Accounts", "ok", f"{len(acc)} {'account' if len(acc) == 1 else 'accounts'}: {len(eigen)} van de {len(team)} teamleden {'heeft' if len(eigen) == 1 else 'hebben'} een eigen wachtwoord" + (", plus het Monitor-account" if MONITOR in acc else ""))
         zw = [p for p in team if p not in acc]
-        add("wachtwoorden", 2, "Eigen wachtwoorden", "info" if zw else "ok", ("nog het startwachtwoord: " + ", ".join(zw)) if zw else "iedereen heeft een eigen wachtwoord")
+        add("wachtwoorden", 2, "Eigen wachtwoorden", "ok", ("nog het startwachtwoord (dat is goed; wie het wil, kiest zelf een eigen wachtwoord): " + ", ".join(zw)) if zw else "iedereen heeft een eigen wachtwoord")
     except Exception as e:
         add("accounts", 2, "Accounts", "fout", f"users.json niet leesbaar ({e})")
     try:
