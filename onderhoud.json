@@ -1,8 +1,12 @@
 {
  "v": 1,
- "t": "2026-11-19T06:45:26.000Z",
+ "t": "2026-11-19T07:16:35.000Z",
  "droog": false,
- "acties": [],
+ "acties": [
+  "backup vooraf: 2026-11-19_08-16",
+  "7 weken ouder dan 14 dagen verwijderd (2026-W38 t/m 2026-W44)",
+  "backup achteraf: 2026-11-19_08-17"
+ ],
  "problemen": [],
  "meldingen": [],
  "checks": [
@@ -18,7 +22,7 @@
    "groep": 0,
    "naam": "Uitrol van de pagina (GitHub Pages)",
    "s": "ok",
-   "t": "de site toont dezelfde versie als main (versie 19 nov 2026 · 162)"
+   "t": "de site toont dezelfde versie als main (versie 19 nov 2026 · 163)"
   },
   {
    "id": "testbranch",
@@ -46,14 +50,14 @@
    "groep": 1,
    "naam": "Controlegetal",
    "s": "ok",
-   "t": "klopt (opslag 33 door Monitor)"
+   "t": "klopt (opslag 34 door Server (onderhoud))"
   },
   {
    "id": "weken",
    "groep": 1,
    "naam": "Aantal weken in de planning",
    "s": "ok",
-   "t": "56 weken, 2026-W38 t/m 2027-W52"
+   "t": "49 weken, 2026-W45 t/m 2027-W52"
   },
   {
    "id": "namen",
@@ -100,9 +104,9 @@
   {
    "id": "oudeweken",
    "groep": 1,
-   "naam": "Roosters ouder dan 2 maanden",
+   "naam": "Roosters ouder dan 14 dagen",
    "s": "ok",
-   "t": "geen weken ouder dan 2 maanden (de oudste is 2026-W38)"
+   "t": "geen weken ouder dan 14 dagen (de oudste is 2026-W45)"
   },
   {
    "id": "verplicht",
@@ -116,7 +120,7 @@
    "groep": 1,
    "naam": "Grootte van de planning",
    "s": "ok",
-   "t": "57 KB van maximaal 1000 KB"
+   "t": "55 KB van maximaal 1000 KB"
   },
   {
    "id": "groups",
@@ -158,14 +162,14 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; niets te doen"
+   "t": "de server draait; deze ronde: 3 acties"
   },
   {
    "id": "backups",
    "groep": 3,
    "naam": "Backups aanwezig",
    "s": "ok",
-   "t": "14 backups, de nieuwste van 2026-11-18 11:56"
+   "t": "16 backups, de nieuwste van 2026-11-19 08:17"
   },
   {
    "id": "backup_actueel",
@@ -214,13 +218,13 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "13 regels, allemaal leesbaar"
+   "t": "15 regels, allemaal leesbaar"
   }
  ],
- "weken": 56,
+ "weken": 49,
  "team": 10,
- "state_sha": "f7ad36e77d214b569738fcb9352ff3abca8fd8b8",
- "stempel_n": 33,
+ "state_sha": "2aaec5bcc2186fbd3f2df9908d11c555c5027cc5",
+ "stempel_n": 34,
  "stempel_bev": 0,
  "audit_commit": "53fef072cb90194b340ba9461c1f5eced10735a9"
 }
