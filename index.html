@@ -237,7 +237,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 19 nov 2026 · 161</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 19 nov 2026 · 162</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -1487,7 +1487,7 @@ function openWhoMenu(){
     m.appendChild(bkTab);
     item("menu-backup-maken", "💾 Backup", "c-admin sub sub2", ()=>makeManualBackup());
     item("menu-backup-terugzetten", "⟳ Restore", "c-admin sub sub2", ()=>{ if(!canRestore()){ denyRestore(); return; } cmd("btn-restore-backup")(); });
-    item("menu-verplicht", "\uD83C\uDF8C Verplichte vrije dagen", "c-admin sub", ()=>showVerplichtModal());   // een verplichte vrije dag voor iedereen aanmaken of verwijderen
+    item("menu-verplicht", "\uD83C\uDF8C Verplicht Vrij", "c-admin sub", ()=>showVerplichtModal());   // een verplichte vrije dag voor iedereen aanmaken of verwijderen
     const bkSubs = [m.querySelector("#menu-backup-maken"), m.querySelector("#menu-backup-terugzetten")]; bkSubs.forEach(x=>{ x.hidden = true; });
     bkTab.onclick = ()=>{ const open = bkTab.getAttribute("aria-expanded") !== "true"; bkTab.setAttribute("aria-expanded", String(open)); bkTab.textContent = "🗄 Backup/Restore " + (open ? "▾" : "▸"); bkSubs.forEach(x=>{ x.hidden = !open; }); };
     const adminSubs = ["#menu-accounts", "#menu-boodschap", "#menu-verplicht", "#menu-backuprestore"].map(s=>m.querySelector(s)).filter(Boolean); adminSubs.forEach(x=>{ x.hidden = true; });
@@ -5948,7 +5948,7 @@ async function settingsSetVerplicht(datum, naam){   // een verplichte vrije dag 
   }
   throw new Error("conflict");
 }
-async function showVerplichtModal(){   // Admin ▸ Verplichte vrije dagen: de komende verplichte vrije dagen; een Administrator maakt er een aan (geldt voor iedereen) of verwijdert een zelf aangemaakte
+async function showVerplichtModal(){   // Admin ▸ Verplicht Vrij: de komende verplichte vrije dagen; een Administrator maakt er een aan (geldt voor iedereen) of verwijdert een zelf aangemaakte
   if(!canSeeAdmin()) return;
   if(!await ensureAdmin()) return;   // zoals Accounts en Boodschap: eerst de vraag om bewerken aan te zetten
   document.querySelectorAll(".vp-overlay").forEach(o=>o.remove());
@@ -5962,7 +5962,7 @@ async function showVerplichtModal(){   // Admin ▸ Verplichte vrije dagen: de k
     const rijen = [], recs = {}; Object.keys(BOODSCHAP.verplicht || {}).forEach(dat=>{ recs[verplichtSleutel(dat)] = BOODSCHAP.verplicht[dat]; });
     LOCKED_DAYS.forEach(k=>{ const [jr, w, dg] = k.split("-"), datum = addDays(getMondayFromKey(jr + "-" + w), DAYS.indexOf(dg)); if(datum < today) return; const extra = k in VERPLICHT_EXTRA; rijen.push({ k, datum, naam: VERPLICHT_NAMEN[k] || "Verplichte vrije dag", extra, door: extra && recs[k] ? recs[k].door : null }); });
     rijen.sort((a, b)=>a.datum - b.datum);
-    let h = `<div style="font-size:14px;font-weight:700;color:#ffcc80;margin-bottom:6px;padding-right:34px;">🎌 Verplichte vrije dagen</div>
+    let h = `<div style="font-size:14px;font-weight:700;color:#ffcc80;margin-bottom:6px;padding-right:34px;">🎌 Verplicht Vrij</div>
       <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-bottom:14px;line-height:1.5;">Een verplichte vrije dag geldt voor iedereen: op die dag staat iedereen op Vrij en niemand kan dat wijzigen.</div>`;
     if(mag){
       h += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;"><input type="date" id="vp-datum" min="${verplichtIso(today)}" style="flex:0 0 auto;background:#1f2937;color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:6px;padding:6px 8px;font-size:12px;">
