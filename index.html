@@ -57,6 +57,10 @@ button { font-family:inherit; cursor:pointer; }
 .cell-wrap { position:relative; }
 .cell { height:34px; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:2px; flex-wrap:wrap; padding:2px; transition:all 0.12s; user-select:none; position:relative; overflow:hidden; }
 .cell:hover { filter:brightness(1.3); }
+.cell.verplicht { cursor:default; }
+.cell.verplicht:hover { filter:none; }
+.cell.verplicht::after { content:""; position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(135deg, rgba(255,183,77,0.30) 0 3px, transparent 3px 8px); }   /* schuine strepen: een verplichte vrije dag is niet te wijzigen */
+.day-hd-feest { margin-top:1px; font-size:8px; font-weight:700; color:#ffcc80; letter-spacing:0.2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 2px; }
 .cell.today-col { }
 .cell-empty-dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.08); }
 .dot { width:18px; height:18px; border-radius:4px; flex-shrink:0; }
@@ -233,7 +237,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 17 nov 2026 · 158</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 19 nov 2026 · 159</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -2865,6 +2869,17 @@ const LOCKED_DAYS = new Set([
   "2027-W51-VR",  // Kerstavond 2027
   "2027-W52-MA","2027-W52-DI","2027-W52-WO","2027-W52-DO","2027-W52-VR", // Kerst 2027
 ]);
+// De naam van elke verplichte vrije dag: staat boven de dag (🎌) en in de tekstballon van het vakje. Elke sleutel van LOCKED_DAYS hoort hier ook te staan (test K31).
+const VERPLICHT_NAMEN = {
+  "2026-W52-DO": "Kerstavond", "2026-W52-VR": "1e Kerstdag",
+  "2026-W53-MA": "Kerstvakantie", "2026-W53-DI": "Kerstvakantie", "2026-W53-WO": "Kerstvakantie", "2026-W53-DO": "Kerstvakantie", "2026-W53-VR": "Nieuwjaarsdag",
+  "2027-W06-MA": "Carnaval", "2027-W12-VR": "Goede Vrijdag", "2027-W13-MA": "2e Paasdag",
+  "2027-W17-MA": "Dag voor Koningsdag", "2027-W17-DI": "Koningsdag",
+  "2027-W18-WO": "Bevrijdingsdag", "2027-W18-DO": "Hemelvaartsdag", "2027-W18-VR": "Dag na Hemelvaart",
+  "2027-W20-MA": "2e Pinksterdag", "2027-W51-VR": "Kerstavond",
+  "2027-W52-MA": "Kerstvakantie", "2027-W52-DI": "Kerstvakantie", "2027-W52-WO": "Kerstvakantie", "2027-W52-DO": "Kerstvakantie", "2027-W52-VR": "Kerstvakantie",
+};
+function verplichtNaam(wk, day){ const k = wk + "-" + day; return LOCKED_DAYS.has(k) ? (VERPLICHT_NAMEN[k] || "Verplichte vrije dag") : ""; }   // "" als het geen verplichte vrije dag is
 
 // ───── Een halve dag vrij mag nooit een leeg andere dagdeel hebben: er moet dan Thuis, Campus of Extern staan
 const HD_HELE = ["kantoor","thuis","vrij","ziek","ziek_thuis","extern"], HD_VM = ["vm_kantoor","vm_thuis","vm_vrij","vm_extern"], HD_NM = ["nm_kantoor","nm_thuis","nm_vrij","nm_extern"];
@@ -4570,6 +4585,8 @@ function buildWeekPanel(monday){
     if(beheer.gap) dh.style.cssText="background:rgba(229,57,53,0.10);border-radius:6px;outline:1.5px solid rgba(229,57,53,0.5);";
     const warn=(gap,naam)=>gap ? `<div style="font-size:8px;color:#f48fb1;font-weight:700;letter-spacing:0.3px;margin-top:1px;">✗ ${naam} ${gap} weg</div>` : "";
     dh.innerHTML=`<div class="day-hd-name${isToday?" today-col":""}">${day}</div><div class="day-hd-date${isToday?" today-col":""}">${fmtDate(dayDate)}</div><div class="day-hd-count" id="cnt-${weekKey(monday)}-${day}" style="line-height:1.2">${warn(beheer.gap,"beheer")}</div>`;
+    const feest = verplichtNaam(weekKey(monday), day);   // een verplichte vrije dag: de naam staat boven de dag
+    if(feest){ dh.title = "Verplichte vrije dag: " + feest; const f = document.createElement("div"); f.className = "day-hd-feest"; f.textContent = "\uD83C\uDF8C " + feest; dh.appendChild(f); }
     dayHdr.appendChild(dh);
   });
   panel.appendChild(dayHdr);
@@ -4580,6 +4597,7 @@ function buildWeekPanel(monday){
       const wrap=document.createElement("div"); wrap.className="cell-wrap";
       const cell=document.createElement("div"); cell.className=`cell${isToday?" today-col":""}`; cell.id=cellId(weekKey(monday),person,day);
       renderCellContent(cell,getData(monday)[person][day]||[]);
+      const feestNaam = verplichtNaam(weekKey(monday), day); if(feestNaam){ cell.classList.add("verplicht"); cell.title = "Verplichte vrije dag: " + feestNaam + " (niet te wijzigen)"; }
       cell.addEventListener("click",e=>{ e.stopPropagation(); if(openPopup&&openPopup.wrap===wrap){ closePopup(); return; } showPopup(wrap,monday,person,day,false); });
       wrap.appendChild(cell); row.appendChild(wrap);
     });
