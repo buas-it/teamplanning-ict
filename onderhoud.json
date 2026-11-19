@@ -1,6 +1,6 @@
 {
  "v": 1,
- "t": "2026-11-19T02:06:33.000Z",
+ "t": "2026-11-19T02:09:43.000Z",
  "droog": false,
  "acties": [],
  "problemen": [],
@@ -18,7 +18,7 @@
    "groep": 0,
    "naam": "Uitrol van de pagina (GitHub Pages)",
    "s": "ok",
-   "t": "de site toont dezelfde versie als main (versie 19 nov 2026 · 160)"
+   "t": "de site toont dezelfde versie als main (versie 19 nov 2026 · 161)"
   },
   {
    "id": "token",
