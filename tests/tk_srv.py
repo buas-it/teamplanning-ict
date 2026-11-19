@@ -10,7 +10,7 @@ def check(naam, ok, detail=""):
     UIT.append(("PASS  " if ok else "FAIL  ") + naam + ("" if ok else "   -> " + str(detail)[:700])); print(UIT[-1], flush=True)
 class Repo:
     def __init__(self): self.reset()
-    def reset(self): self.f = {}; self.puts = []; self.dels = []; self.hook = None; self.tamper = None; self.stuk = set(); self.na_toepassen_502 = set(); self.pages = None; self.get_hook = None; self.gets = {}; self.token = None; self.hist = []; self.msgs = []; self.starts = []; self.start_status = 204
+    def reset(self): self.t = None; self.tputs = []; self.f = {}; self.puts = []; self.dels = []; self.hook = None; self.tamper = None; self.stuk = set(); self.na_toepassen_502 = set(); self.pages = None; self.get_hook = None; self.gets = {}; self.token = None; self.hist = []; self.msgs = []; self.starts = []; self.start_status = 204
     def sha(self, p): return hashlib.sha1(self.f[p].encode()).hexdigest()
     def vastleggen(self, tekst, bericht, auteur="BUas-Admin", datum=None):   # een opslag van de planning in de commitgeschiedenis
         sha = hashlib.sha1((str(len(self.hist)) + bericht + tekst).encode()).hexdigest(); self.hist.append({"sha": sha, "parent": self.hist[-1]["sha"] if self.hist else None, "message": bericht, "author": auteur, "date": datum or "2026-11-04T07:30:00Z", "content": tekst}); return sha
@@ -43,7 +43,11 @@ class H(BaseHTTPRequestHandler):
             if tk.get("exp"): self.send_header("github-authentication-token-expiration", tk["exp"])
             self.end_headers(); self.wfile.write(b); return
         p = self._pad(); r = REPO
+        if urlparse(self.path).path.endswith("/branches/tests"): return self._j(200 if r.t is not None else 404, {"name": "tests"} if r.t is not None else {"message": "Branch not found"})
         if p is None: return self._j(404, {})
+        if "ref=tests" in self.path:   # de branch 'tests'
+            if r.t is None or p not in r.t: return self._j(404, {"message": "Not Found"})
+            return self._j(200, {"sha": hashlib.sha1(r.t[p].encode()).hexdigest(), "content": base64.b64encode(r.t[p].encode()).decode(), "encoding": "base64", "name": p.split("/")[-1], "path": p})
         if p in r.f:
             r.gets[p] = r.gets.get(p, 0) + 1
             if r.get_hook and r.get_hook[0] == p and r.gets[p] == r.get_hook[1]: hk = r.get_hook[2]; r.get_hook = None; hk()
@@ -56,6 +60,12 @@ class H(BaseHTTPRequestHandler):
         return self._j(404, {"message": "Not Found"})
     def do_PUT(self):
         p = self._pad(); r = REPO; body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        if body.get("branch") == "tests":   # schrijven in de branch 'tests'
+            if r.t is None or any(p.startswith(s) for s in r.stuk): return self._j(500 if r.t is not None else 404, {"message": "stuk"})
+            bestaat = p in r.t
+            if bestaat and body.get("sha") != hashlib.sha1(r.t[p].encode()).hexdigest(): return self._j(409, {"message": "does not match"})
+            r.t[p] = base64.b64decode(body["content"]).decode(); r.tputs.append((p, body.get("message", "")))
+            return self._j(200 if bestaat else 201, {"content": {"sha": hashlib.sha1(r.t[p].encode()).hexdigest()}, "commit": {"sha": "c0ffee"}})
         if any(p.startswith(s) for s in r.stuk): return self._j(500, {"message": "stuk"})
         if r.hook and p == "state.json": hk, r.hook = r.hook, None; hk()
         bestaat = p in r.f
@@ -206,9 +216,9 @@ def token_ok(dagen=90, **kw):
 def basis(s=None, groepen=None):
     nieuw(s or planning(36, 52)); REPO.f["index.html"] = pagina(LABEL_A); REPO.pages = LABEL_A; REPO.token = token_ok()
     if groepen is not None: REPO.f["groups.json"] = json.dumps({"v": 1, "administrators": groepen})
-nu_id = ["github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "groups", "accounts", "wachtwoorden", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen", "logboek_server", "logboek_onbekend"]
+nu_id = ["github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "groups", "accounts", "wachtwoorden", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen", "logboek_server", "logboek_onbekend", "testbranch"]
 basis(); rc, u = draai(); c = checks()
-check("SV35 de server doet 29 controles in vier groepen en legt de uitslag vast in het statusbestand; bij een gezonde planning is er geen enkele fout en zijn de uitslagen: alles in orde, behalve dat er maar een Administrator is (let op) en wie nog het startwachtwoord heeft (info)", rc == 0 and sorted(c) == sorted(nu_id) and {x["s"] for x in c.values()} <= {"ok", "info", "let"} and c["groups"]["s"] == "let" and "maar één Administrator" in c["groups"]["t"] and c["wachtwoorden"]["s"] == "info" and c["accounts"]["t"] == "2 accounts: 2 van de 10 teamleden hebben een eigen wachtwoord" and all(c[k]["s"] == "ok" for k in ("github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen", "logboek_server", "logboek_onbekend")) and {x["groep"] for x in c.values()} == {0, 1, 2, 3}, json.dumps({k: (v["s"], v["t"][:50]) for k, v in c.items() if v["s"] != "ok"}))
+check("SV35 de server doet 30 controles in vier groepen en legt de uitslag vast in het statusbestand; bij een gezonde planning is er geen enkele fout en zijn de uitslagen: alles in orde, behalve dat er maar een Administrator is (let op) en wie nog het startwachtwoord heeft (info)", rc == 0 and sorted(c) == sorted(nu_id) and {x["s"] for x in c.values()} <= {"ok", "info", "let"} and c["groups"]["s"] == "let" and "maar één Administrator" in c["groups"]["t"] and c["wachtwoorden"]["s"] == "info" and c["accounts"]["t"] == "2 accounts: 2 van de 10 teamleden hebben een eigen wachtwoord" and all(c[k]["s"] == "ok" for k in ("github", "uitrol", "stempel", "weken", "namen", "team", "vreemd", "statussen", "manueel", "halvedag", "oudeweken", "grootte", "instellingen", "serveronderhoud", "backups", "backup_actueel", "backup_geldig", "backups_termijn", "logboek_termijn", "logboek", "token", "limiet", "verplicht", "verjaardagen", "logboek_server", "logboek_onbekend")) and {x["groep"] for x in c.values()} == {0, 1, 2, 3}, json.dumps({k: (v["s"], v["t"][:50]) for k, v in c.items() if v["s"] != "ok"}))
 for pages, hoofd, verwacht, zoek in ((LABEL_A, LABEL_A, "ok", "dezelfde versie"), (LABEL_A, LABEL_B, "let", "loopt achter"), (None, LABEL_A, "info", "niet te bereiken"), (LABEL_A, "geen label", "info", "niet te lezen")):
     basis(); REPO.f["index.html"] = hoofd; REPO.pages = pages; rc, u = draai(); r = checks()["uitrol"]
     check(f"SV36{verwacht[0]} de check 'Uitrol van de pagina' vergelijkt de versie op de site met die op main: {zoek} ({verwacht})", r["s"] == verwacht and zoek in r["t"], json.dumps(r))
@@ -504,5 +514,25 @@ vrij_gezet(); terug_dagen({"2026-11-11": {"vorige": {"Wim": "kapot", "Bas": {"s"
 check("SV102g ongeldige gegevens (geen lijst, geen datum, een weekend) worden genegeerd: wie geen geldige stand heeft krijgt de standaardbezetting; de ronde loopt gewoon", rc == 0 and w["Wim"]["WO"] == ["kantoor"] and w["Bas"]["WO"] == ["kantoor"], json.dumps([rc, w["Wim"], w["Bas"]]))
 vrij_gezet(); terug_dagen({"2026-11-11": {"vorige": VORIGE}}); st0 = st(); st0["template"]["Sam"]["WO"] = ["thuis"]; OND.stempel(st0, json.loads(json.dumps(st0))); REPO.f["state.json"] = json.dumps(st0); rc, u = draai(); w = st()["store"]["2026-W46"]
 check("SV102h wie niets vastgelegd heeft, krijgt de standaardbezetting uit het rooster (Sam: thuis)", rc == 0 and w["Sam"]["WO"] == ["thuis"] and "Sam-WO" not in st()["manuallyEdited"].get("2026-W46", []), json.dumps([rc, u["acties"][:3], w["Sam"]]))
+
+# ── SV103: de branch 'tests' moet precies gelijk zijn aan main (index.html, onderhoud.py, logboek.py) ──
+BRON = {"index.html": "<html>pagina v1</html>", ".github/scripts/onderhoud.py": "# onderhoud", ".github/scripts/logboek.py": "# logboek"}
+def met_tests(t, main=None):
+    basis(); REPO.f.update(main or BRON); REPO.f["index.html"] = pagina(LABEL_A) if main is None else REPO.f["index.html"]; REPO.t = t
+def tests_gelijk_dict(): return {"tests/index.html": REPO.f["index.html"], "tests/onderhoud.py": REPO.f[".github/scripts/onderhoud.py"], "tests/logboek.py": REPO.f[".github/scripts/logboek.py"]}
+basis(); REPO.f.update(BRON); REPO.f["index.html"] = pagina(LABEL_A); REPO.t = tests_gelijk_dict(); rc, u = draai(); c = checks()["testbranch"]
+check("SV103 zijn index.html, onderhoud.py en logboek.py in de branch 'tests' precies gelijk aan main, dan meldt de check dat (ok) en schrijft de server niets", rc == 0 and c["s"] == "ok" and "precies gelijk" in c["t"] and c["groep"] == 0 and not REPO.tputs, json.dumps([rc, c, REPO.tputs]))
+basis(); REPO.f.update(BRON); REPO.f["index.html"] = pagina(LABEL_A); REPO.t = tests_gelijk_dict(); REPO.t["tests/onderhoud.py"] += "\n# verouderd"; del REPO.t["tests/index.html"]; rc, u = draai(); c = checks()["testbranch"]
+check("SV103b wijkt een kopie af (onderhoud.py) of ontbreekt er een (index.html), dan zet de server ze gelijk aan main, vermeldt dat in de acties en meldt in de check wat er is gedaan; logboek.py (gelijk) wordt niet aangeraakt; de testbestanden zelf (kern.py) blijven ongemoeid", rc == 0 and REPO.t == tests_gelijk_dict() and sorted(p for p, _ in REPO.tputs) == ["tests/index.html", "tests/onderhoud.py"] and c["s"] == "ok" and "gelijkgezet" in c["t"] and any("gelijkgezet aan main: index.html, onderhoud.py" in a for a in u["acties"]), json.dumps([rc, c, REPO.tputs, u["acties"]]))
+rc, u = draai(); c = checks()["testbranch"]
+check("SV103c een volgende ronde doet niets meer: alles is gelijk (geen nieuwe schrijfacties)", rc == 0 and c["s"] == "ok" and "precies gelijk" in c["t"] and len(REPO.tputs) == 2, json.dumps([c, REPO.tputs]))
+basis(); REPO.f.update(BRON); REPO.f["index.html"] = pagina(LABEL_A); REPO.t = dict(tests_gelijk_dict(), **{"tests/kern.py": "# eigen test", "tests/README.md": "uitleg"}); REPO.t["tests/logboek.py"] = "# oud"; rc, u = draai(droog=True); c = checks()["testbranch"]
+check("SV103d in een droogloop schrijft de server niets in de branch 'tests': de check meldt (let op) welke kopie afwijkt", c["s"] == "let" and "logboek.py" in c["t"] and "volgende ronde" in c["t"] and REPO.t["tests/logboek.py"] == "# oud" and not REPO.tputs, json.dumps([c, REPO.tputs]))
+basis(); REPO.f.update(BRON); REPO.f["index.html"] = pagina(LABEL_A); REPO.t = tests_gelijk_dict(); REPO.t["tests/index.html"] = "oud"; REPO.stuk = {"tests/"}; rc, u = draai(); c = checks()["testbranch"]; REPO.stuk = set()
+check("SV103e lukt het gelijkzetten niet (een fout van GitHub), dan meldt de check dat (let op) met de reden en blijft de ronde verder werken", rc == 0 and c["s"] == "let" and "index.html" in c["t"] and "lukte niet" in c["t"], json.dumps([rc, c]))
+basis(); REPO.f.update(BRON); REPO.f["index.html"] = pagina(LABEL_A); REPO.t = None; rc, u = draai(); c = checks()["testbranch"]
+check("SV103f bestaat de branch 'tests' niet, dan meldt de check dat (info) en gaat er niets mis", rc == 0 and c["s"] == "info" and "bestaat niet" in c["t"], json.dumps([rc, c]))
+basis(); REPO.t = {}; del REPO.f["index.html"]; rc, u = draai(); c = checks()["testbranch"]
+check("SV103g is een bestand op main niet te lezen, dan is de kopie niet te vergelijken (info) en wordt er niets geschreven", rc == 0 and c["s"] == "info" and "niet te lezen" in c["t"] and not REPO.tputs, json.dumps([rc, c]))
 
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")

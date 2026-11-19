@@ -194,6 +194,43 @@ def terugzetten(n, terug, locked):
     return [f"{cellen} {'cel' if cellen == 1 else 'cellen'} van {dagen} verwijderde verplichte vrije {'dag' if dagen == 1 else 'dagen'} teruggezet naar de stand van voor de verplichte vrije dag"] if cellen else []
 
 
+TESTS_BRANCH = "tests"
+TESTS_KOPIEEN = [("index.html", "tests/index.html"), (".github/scripts/onderhoud.py", "tests/onderhoud.py"), (".github/scripts/logboek.py", "tests/logboek.py")]   # (op main, kopie in de branch 'tests')
+
+
+def schrijf_ref(pad, tekst, sha, bericht, ref):
+    """Zoals schrijf(), maar op een andere branch."""
+    body = {"message": bericht, "content": base64.b64encode(tekst.encode("utf-8")).decode(), "branch": ref}
+    if sha: body["sha"] = sha
+    s, j = call("PUT", f"contents/{pad}", body)
+    if s not in (200, 201):
+        raise RuntimeError(f"{pad} ({ref}) kon niet worden geschreven (HTTP {s}: {j.get('message')})")
+    return j["content"]["sha"]
+
+
+def tests_gelijk(acties):
+    """Vergelijkt de kopieen in de branch 'tests' (index.html, onderhoud.py en logboek.py) met main en zet verschillen gelijk (niet in een droogloop). Geeft (status, tekst) voor de check."""
+    s, _ = call("GET", f"branches/{TESTS_BRANCH}")
+    if s == 404: return "info", f"de branch '{TESTS_BRANCH}' bestaat niet"
+    if s != 200: return "info", f"de branch '{TESTS_BRANCH}' is niet te lezen (HTTP {s})"
+    verschil = []; ontbreekt = []
+    for van, naar in TESTS_KOPIEEN:
+        m = lees_ref(van, "main")
+        if not m: return "info", f"{van} op main is niet te lezen: de kopie in '{TESTS_BRANCH}' is niet te vergelijken"
+        t = lees_ref(naar, TESTS_BRANCH)
+        if not t or t["tekst"] != m["tekst"]: verschil.append((van, naar, m["tekst"], t["sha"] if t else None))
+    namen = ", ".join(n.split("/")[-1] for _, n, _, _ in verschil)
+    if not verschil: return "ok", f"{', '.join(n.split('/')[-1] for _, n in TESTS_KOPIEEN)} in de branch '{TESTS_BRANCH}' zijn precies gelijk aan main"
+    if DROOG: return "let", f"in de branch '{TESTS_BRANCH}' wijken af van main: {namen} (de server zet ze in de volgende ronde gelijk)"
+    fouten = []
+    for van, naar, tekst, sha in verschil:
+        try: schrijf_ref(naar, tekst, sha, f"Gelijkgezet aan main \u2014 Server (onderhoud): {naar.split('/')[-1]}", TESTS_BRANCH)
+        except Exception as e: fouten.append(f"{naar.split('/')[-1]}: {e}")
+    if fouten: return "let", f"in de branch '{TESTS_BRANCH}' wijken af van main: {namen}; gelijkzetten lukte niet ({'; '.join(fouten)[:200]})"
+    acties.append(f"branch '{TESTS_BRANCH}' gelijkgezet aan main: {namen}")
+    return "ok", f"in de branch '{TESTS_BRANCH}' wijkten af van main: {namen}; de server heeft ze gelijkgezet"
+
+
 def wis_terug(datums):
     """Haalt de afgehandelde datums uit 'verplichtTerugzetten' in settings.json (de nieuwste versie van het bestand); geeft een melding bij een mislukking, anders None."""
     try:
@@ -843,6 +880,11 @@ def controles(acties, problemen):
         else: add("uitrol", 0, "Uitrol van de pagina (GitHub Pages)", "let", f"de site toont {lp}, main heeft {lm}: de uitrol loopt achter")
     except Exception as e:
         add("uitrol", 0, "Uitrol van de pagina (GitHub Pages)", "info", f"niet te controleren ({e})")
+    # de testbranch: de kopieen van de pagina en de scripts moeten precies gelijk zijn aan main
+    try:
+        st_t, tx_t = tests_gelijk(acties); add("testbranch", 0, "Testbranch gelijk aan main", st_t, tx_t)
+    except Exception as e:
+        add("testbranch", 0, "Testbranch gelijk aan main", "info", f"niet te controleren ({e})")
     # het token van de pagina (dat alle gebruikers delen): werkt het nog, mag het schrijven, wanneer verloopt het, hoeveel API-ruimte is er over
     tok = parse_token(pagina)
     if not tok:
@@ -1076,8 +1118,10 @@ def main():
     meldingen = (meldingen or []) + config_meldingen + audit_meld
     extra = dict(extra or {}); extra["audit_commit"] = audit_ptr
     checks = []
+    if acties is None: acties = []   # dezelfde lijst: de controles kunnen er acties aan toevoegen (de testbranch gelijkzetten)
+    if problemen is None: problemen = []
     try:
-        checks = controles(acties or [], problemen or [])
+        checks = controles(acties, problemen)
         try:
             vorig_st = lees("onderhoud.json"); vorige = json.loads(vorig_st["tekst"]) if vorig_st else {}
         except Exception:
