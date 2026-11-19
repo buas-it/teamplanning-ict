@@ -1,6 +1,6 @@
 {
  "v": 1,
- "t": "2026-11-19T02:30:25.000Z",
+ "t": "2026-11-19T06:02:43.000Z",
  "droog": false,
  "acties": [],
  "problemen": [],
@@ -214,7 +214,7 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "10 regels, allemaal leesbaar"
+   "t": "12 regels, allemaal leesbaar"
   }
  ],
  "weken": 56,
