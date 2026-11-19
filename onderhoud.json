@@ -1,12 +1,8 @@
 {
  "v": 1,
- "t": "2026-11-19T07:16:35.000Z",
+ "t": "2026-11-19T09:30:05.000Z",
  "droog": false,
- "acties": [
-  "backup vooraf: 2026-11-19_08-16",
-  "7 weken ouder dan 14 dagen verwijderd (2026-W38 t/m 2026-W44)",
-  "backup achteraf: 2026-11-19_08-17"
- ],
+ "acties": [],
  "problemen": [],
  "meldingen": [],
  "checks": [
@@ -162,7 +158,7 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; deze ronde: 3 acties"
+   "t": "de server draait; niets te doen"
   },
   {
    "id": "backups",
@@ -218,7 +214,7 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "15 regels, allemaal leesbaar"
+   "t": "18 regels, allemaal leesbaar"
   }
  ],
  "weken": 49,
@@ -226,5 +222,5 @@
  "state_sha": "2aaec5bcc2186fbd3f2df9908d11c555c5027cc5",
  "stempel_n": 34,
  "stempel_bev": 0,
- "audit_commit": "53fef072cb90194b340ba9461c1f5eced10735a9"
+ "audit_commit": "851dd22d25ddc2c6f8fd6f6a434d9b47e2b86ce1"
 }
