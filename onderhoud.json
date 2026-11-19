@@ -1,6 +1,6 @@
 {
  "v": 1,
- "t": "2026-11-19T06:02:43.000Z",
+ "t": "2026-11-19T06:08:59.000Z",
  "droog": false,
  "acties": [],
  "problemen": [],
@@ -31,8 +31,8 @@
    "id": "token",
    "groep": 0,
    "naam": "Token van de pagina",
-   "s": "info",
-   "t": "het token werkt en mag schrijven; er is geen vervaldatum bekend (een token zonder vervaldatum)"
+   "s": "ok",
+   "t": "het token werkt en mag schrijven; het heeft geen vervaldatum (zo is het bedoeld: het blijft geldig tot het wordt ingetrokken)"
   },
   {
    "id": "limiet",
@@ -136,8 +136,8 @@
    "id": "wachtwoorden",
    "groep": 2,
    "naam": "Eigen wachtwoorden",
-   "s": "info",
-   "t": "nog het startwachtwoord: Wim, Wouter, Annies, Ted"
+   "s": "ok",
+   "t": "nog het startwachtwoord (dat is goed; wie het wil, kiest zelf een eigen wachtwoord): Wim, Wouter, Annies, Ted"
   },
   {
    "id": "instellingen",
