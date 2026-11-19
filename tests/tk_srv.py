@@ -90,7 +90,7 @@ class H(BaseHTTPRequestHandler):
         del r.f[p]; r.dels.append(p); return self._j(200, {})
 srv = ThreadingHTTPServer(("127.0.0.1", 0), H); threading.Thread(target=srv.serve_forever, daemon=True).start(); PORT = srv.server_address[1]
 def draai(droog=False, nu="2026-11-04T08:00:00Z", extra_env=None):
-    env = dict(os.environ, GITHUB_API_URL=f"http://127.0.0.1:{PORT}", GITHUB_REPOSITORY="o/r", GITHUB_TOKEN="t", PAGES_URL=f"http://127.0.0.1:{PORT}/pages/", ONDERHOUD_NU=nu, ONDERHOUD_DROOG="1" if droog else "")
+    env = dict(os.environ, ONDERHOUD_ROOSTER_DAGEN="61", GITHUB_API_URL=f"http://127.0.0.1:{PORT}", GITHUB_REPOSITORY="o/r", GITHUB_TOKEN="t", PAGES_URL=f"http://127.0.0.1:{PORT}/pages/", ONDERHOUD_NU=nu, ONDERHOUD_DROOG="1" if droog else "")   # de meeste tests gaan uit van een bewaartermijn voor roosters van 61 dagen (de oude 2 maanden op 4 november); de echte termijn (14 dagen) testen SV104 e.v.
     if extra_env: env.update(extra_env)
     p = subprocess.run([sys.executable, SCRIPT], env=env, capture_output=True, text=True, timeout=150)
     try: uit = json.loads(p.stdout)
@@ -122,11 +122,11 @@ n_put = len(REPO.puts); rc, u = draai(nu="2026-11-04T09:10:00Z")
 check("SV3 na meer dan 55 minuten wordt het statusbestand wel ververst, zodat Info > Checks kan zien dat de server draait", len(REPO.puts) == n_put + 1 and json.loads(REPO.f["onderhoud.json"])["t"].startswith("2026-11-04T09:10"), json.dumps([len(REPO.puts) - n_put, json.loads(REPO.f["onderhoud.json"])["t"]]))
 # ── SV4-9: oude weken ─────────────────────────────────────────────────────────────────────────
 nieuw(planning(20, 49)); rc, u = draai(); s = st()
-check("SV4 weken ouder dan 2 maanden (de server staat op 4 november: t/m week 35) worden verwijderd, per ronde hooguit 40% (12 van de 30: 2026-W20 t/m W31); de recente weken en het team blijven ongemoeid; de Action eindigt zonder fout", rc == 0 and sorted(s["store"]) == [f"2026-W{i:02d}" for i in range(32, 50)] and s["team"] == TEAM and any("12 weken ouder dan 2 maanden" in a for a in u["acties"]), json.dumps([rc, sorted(s["store"])[:2], len(s["store"]), u["acties"]]))
+check("SV4 weken ouder dan de bewaartermijn (in deze tests 61 dagen; de server staat op 4 november: t/m week 35) worden verwijderd, per ronde hooguit 40% (12 van de 30: 2026-W20 t/m W31); de recente weken en het team blijven ongemoeid; de Action eindigt zonder fout", rc == 0 and sorted(s["store"]) == [f"2026-W{i:02d}" for i in range(32, 50)] and s["team"] == TEAM and any("12 weken ouder dan 61 dagen" in a for a in u["acties"]), json.dumps([rc, sorted(s["store"])[:2], len(s["store"]), u["acties"]]))
 check("SV5 de planning heeft daarna een nieuw kloppend controlegetal (volgnummer 4 naar 5, door 'Server (onderhoud)') en de handmatige markeringen van de verwijderde weken zijn ook weg", OND.stempel_status(s) == "ok" and s["integriteit"]["n"] == 5 and s["integriteit"]["door"].startswith("Server") and all(w >= "2026-W32" for w in s["manuallyEdited"]), json.dumps([s["integriteit"], sorted(s["manuallyEdited"])]))
 na = nieuwe_backups()
 check("SV6 er zijn twee nieuwe backups: een van de planning van voor het onderhoud (30 weken) en een van erna (18 weken); de namen volgen het patroon van de pagina (JJJJ-MM-DD_UU-MM)", len(na) == 2 and sorted(len(json.loads(REPO.f[b])["store"]) for b in na) == [18, 30] and all(re.match(r"^backups/\d{4}-\d\d-\d\d_\d\d-\d\d\.json$", b) for b in na), json.dumps([na]))
-check("SV7 het logboek bevat wat de server deed (gebruiker 'Server') en het statusbestand noemt dat er nog 4 oude weken in de volgende ronde volgen", "onderhoud: 12 weken ouder dan 2 maanden" in audit_tekst() and '"user": "Server"' in audit_tekst() and any("nog 4 oude weken" in m for m in json.loads(REPO.f["onderhoud.json"])["meldingen"]), json.dumps([audit_tekst()[:160], json.loads(REPO.f["onderhoud.json"])["meldingen"]]))
+check("SV7 het logboek bevat wat de server deed (gebruiker 'Server') en het statusbestand noemt dat er nog 4 oude weken in de volgende ronde volgen", "onderhoud: 12 weken ouder dan 61 dagen" in audit_tekst() and '"user": "Server"' in audit_tekst() and any("nog 4 oude weken" in m for m in json.loads(REPO.f["onderhoud.json"])["meldingen"]), json.dumps([audit_tekst()[:160], json.loads(REPO.f["onderhoud.json"])["meldingen"]]))
 rc, u = draai(nu="2026-11-04T08:40:00Z"); s = st()
 check("SV8 de volgende ronde ruimt de laatste 4 oude weken op (W32 t/m W35); daarna begint de planning bij week 36 met 14 weken", sorted(s["store"])[0] == "2026-W36" and len(s["store"]) == 14, json.dumps([sorted(s["store"])[:2], len(s["store"])]))
 n_p = len(state_puts()); rc, u = draai(nu="2026-11-04T09:00:00Z")
@@ -161,16 +161,16 @@ nieuw(planning(20, 49)); REPO.hook = browser; rc, u = draai(); s = st()
 check("SV17 schrijft een browser tegelijk een wijziging (409 op de planning), dan overschrijft de server die nooit: hij begint opnieuw op de nieuwste planning; de wijziging van de collega staat er daarna nog in en de oude weken zijn alsnog verwijderd", rc == 0 and s["store"]["2026-W45"]["Wim"]["MA"] == ["vrij"] and sorted(s["store"])[0] == "2026-W32" and OND.stempel_status(s) == "ok", json.dumps([rc, u, s["store"]["2026-W45"]["Wim"]["MA"], sorted(s["store"])[:1]]))
 # ── SV18: droogloop ───────────────────────────────────────────────────────────────────────────
 nieuw(planning(20, 49)); voor = dict(REPO.f); rc, u = draai(droog=True)
-check("SV18 in een droogloop (ONDERHOUD_DROOG=1) wijzigt de server niets: planning, backups, accounts en logboek blijven gelijk; alleen het statusbestand wordt geschreven, met 'droog: true' en wat er zou gebeuren", rc == 0 and REPO.f["state.json"] == voor["state.json"] and backups() == sorted(k for k in voor if k.startswith("backups/")) and not any(k.startswith("audit/") for k in REPO.f) and json.loads(REPO.f["onderhoud.json"])["droog"] is True and any("ouder dan 2 maanden" in a for a in u["acties"]), json.dumps([rc, u["acties"]]))
+check("SV18 in een droogloop (ONDERHOUD_DROOG=1) wijzigt de server niets: planning, backups, accounts en logboek blijven gelijk; alleen het statusbestand wordt geschreven, met 'droog: true' en wat er zou gebeuren", rc == 0 and REPO.f["state.json"] == voor["state.json"] and backups() == sorted(k for k in voor if k.startswith("backups/")) and not any(k.startswith("audit/") for k in REPO.f) and json.loads(REPO.f["onderhoud.json"])["droog"] is True and any("ouder dan 61 dagen" in a for a in u["acties"]), json.dumps([rc, u["acties"]]))
 # ── SV19-23: de grenzen ───────────────────────────────────────────────────────────────────────
 nieuw(planning(20, 26)); rc, u = draai(); n7 = len(st()["store"])
-check("SV19 zijn er maar 7 weken en zijn die allemaal ouder dan 2 maanden, dan verwijdert de server niets: er blijven altijd minstens 8 weken over", n7 == 7 and not state_puts(), json.dumps([n7, state_puts()]))
+check("SV19 zijn er maar 7 weken en zijn die allemaal ouder dan de bewaartermijn, dan verwijdert de server niets: er blijven altijd minstens 8 weken over", n7 == 7 and not state_puts(), json.dumps([n7, state_puts()]))
 nieuw(planning(20, 29)); rc, u = draai(); n10 = len(st()["store"])
 check("SV20 bij 10 weken (allemaal oud) mogen er hooguit 2 weg: er blijven er 8", n10 == 8, str(n10))
 nieuw(planning(36, 52)); rc, u = draai()
-check("SV21 zijn er geen weken ouder dan 2 maanden, dan blijft de planning ongewijzigd (17 weken)", len(st()["store"]) == 17 and not state_puts(), str(len(st()["store"])))
+check("SV21 zijn er geen weken ouder dan de bewaartermijn, dan blijft de planning ongewijzigd (17 weken)", len(st()["store"]) == 17 and not state_puts(), str(len(st()["store"])))
 nieuw(planning(33, 52)); rc, u = draai(nu="2026-11-04T08:00:00Z")
-check("SV22 de grens ligt op precies 2 maanden: week 35 (eindigt 30 augustus) is te oud, week 36 (eindigt 6 september) nog niet", sorted(st()["store"])[0] == "2026-W36" and len(st()["store"]) == 17, json.dumps(sorted(st()["store"])[:2]))
+check("SV22 de grens ligt precies op de bewaartermijn (hier 61 dagen): week 35 (eindigt 30 augustus) is te oud, week 36 (eindigt 6 september) nog niet", sorted(st()["store"])[0] == "2026-W36" and len(st()["store"]) == 17, json.dumps(sorted(st()["store"])[:2]))
 nieuw(planning(33, 52)); rc, u = draai(nu="2026-09-06T23:00:00Z")
 check("SV23 de grens volgt de datum van de server (hier 6 september): niets in week 33 t/m 52 is te oud, de planning blijft intact", len(st()["store"]) == 20, str(len(st()["store"])))
 # ── SV24-26: fouten ───────────────────────────────────────────────────────────────────────────
@@ -182,13 +182,13 @@ nieuw(planning(20, 49)); REPO.f["state.json"] = json.dumps({"team": [], "store":
 check("SV26 is de planning leeg of ongeldig (geen team), dan wijzigt de server niets", rc == 1 and not state_puts(), json.dumps([rc, u["problemen"]]))
 # ── SV27-30: schakelaar en alleen-lezen ───────────────────────────────────────────────────────
 nieuw(planning(20, 49)); REPO.f["onderhoud-config.json"] = json.dumps({"droog": True}); voor = REPO.f["state.json"]; rc, u = draai()
-check("SV27 staat in onderhoud-config.json {\"droog\": true}, dan kijkt de server alleen: de planning blijft gelijk, er komen geen backups bij; het statusbestand zegt 'droog: true' en wat er zou gebeuren", rc == 0 and REPO.f["state.json"] == voor and len(backups()) == 6 and json.loads(REPO.f["onderhoud.json"])["droog"] is True and any("ouder dan 2 maanden" in a for a in u["acties"]), json.dumps([rc, u["acties"]]))
+check("SV27 staat in onderhoud-config.json {\"droog\": true}, dan kijkt de server alleen: de planning blijft gelijk, er komen geen backups bij; het statusbestand zegt 'droog: true' en wat er zou gebeuren", rc == 0 and REPO.f["state.json"] == voor and len(backups()) == 6 and json.loads(REPO.f["onderhoud.json"])["droog"] is True and any("ouder dan 61 dagen" in a for a in u["acties"]), json.dumps([rc, u["acties"]]))
 nieuw(planning(20, 49)); REPO.f["onderhoud-config.json"] = "{kapot"; voor = REPO.f["state.json"]; rc, u = draai()
 check("SV28 is onderhoud-config.json onleesbaar, dan wijzigt de server voor de zekerheid niets en meldt dat", rc == 0 and REPO.f["state.json"] == voor and any("onleesbaar" in m for m in u["meldingen"]), json.dumps([rc, u["meldingen"]]))
 nieuw(planning(20, 49)); REPO.f["onderhoud-config.json"] = json.dumps({"droog": False}); rc, u = draai()
 check("SV29 staat in onderhoud-config.json {\"droog\": false} (of ontbreekt het bestand), dan wordt er gewoon onderhouden", rc == 0 and len(st()["store"]) == 18, str(len(st()["store"])))
 nieuw(planning(20, 49)); voor = dict(REPO.f); rc, u = draai(extra_env={"ONDERHOUD_ALLEEN_LEZEN": "1"})
-check("SV30 in de alleen-lezen-stand (ONDERHOUD_ALLEEN_LEZEN=1) schrijft de server helemaal niets: geen planning, geen backups, geen logboek en ook geen statusbestand; wel de lijst van wat hij zou doen", rc == 0 and REPO.f == voor and not REPO.puts and any("ouder dan 2 maanden" in a for a in u["acties"]), json.dumps([rc, REPO.puts[:2], u["acties"]]))
+check("SV30 in de alleen-lezen-stand (ONDERHOUD_ALLEEN_LEZEN=1) schrijft de server helemaal niets: geen planning, geen backups, geen logboek en ook geen statusbestand; wel de lijst van wat hij zou doen", rc == 0 and REPO.f == voor and not REPO.puts and any("ouder dan 61 dagen" in a for a in u["acties"]), json.dumps([rc, REPO.puts[:2], u["acties"]]))
 # ── SV31: tijdelijke fout van GitHub (verwerkt, maar 502 teruggegeven) ────────────────────────
 nieuw(planning(20, 49)); REPO.na_toepassen_502 = {"backups/", "state.json"}; rc, u = draai(); s = st()
 check("SV31 geeft GitHub bij een schrijfactie een tijdelijke fout (502) terwijl die wel is verwerkt, dan herkent de server dat de gewenste inhoud er al staat: geen valse mislukking, geen dubbele schrijfactie, en het onderhoud verloopt normaal (backup vooraf en achteraf, 12 weken verwijderd, geen problemen)", rc == 0 and not u["problemen"] and not any("niet gelukt" in m for m in u["meldingen"]) and len(s["store"]) == 18 and OND.stempel_status(s) == "ok" and len(nieuwe_backups()) == 2, json.dumps([rc, u, len(s["store"])]))
@@ -534,5 +534,22 @@ basis(); REPO.f.update(BRON); REPO.f["index.html"] = pagina(LABEL_A); REPO.t = N
 check("SV103f bestaat de branch 'tests' niet, dan meldt de check dat (info) en gaat er niets mis", rc == 0 and c["s"] == "info" and "bestaat niet" in c["t"], json.dumps([rc, c]))
 basis(); REPO.t = {}; del REPO.f["index.html"]; rc, u = draai(); c = checks()["testbranch"]
 check("SV103g is een bestand op main niet te lezen, dan is de kopie niet te vergelijken (info) en wordt er niets geschreven", rc == 0 and c["s"] == "info" and "niet te lezen" in c["t"] and not REPO.tputs, json.dumps([rc, c]))
+
+# ── SV104: de echte bewaartermijn voor roosters is 14 dagen (zonder de testinstelling van 61 dagen) ──
+GEEN = {"ONDERHOUD_ROOSTER_DAGEN": ""}
+nieuw(planning(36, 52)); rc, u = draai(extra_env=GEEN); s = st()   # 4 november: weken die voor 21 oktober eindigden zijn te oud (t/m week 42); 40% van 17 = 6 per ronde
+check("SV104 de server bewaart roosters 14 dagen: op 4 november zijn weken die voor 21 oktober eindigden te oud (t/m week 42: 7 weken); per ronde hooguit 40% (6 van de 17: week 36 t/m 41); er is eerst een backup; de acties noemen 14 dagen", rc == 0 and sorted(s["store"])[0] == "2026-W42" and len(s["store"]) == 11 and any("6 weken ouder dan 14 dagen verwijderd (2026-W36 t/m 2026-W41)" in a for a in u["acties"]) and any(a.startswith("backup vooraf") for a in u["acties"]), json.dumps([rc, sorted(s["store"])[:2], u["acties"]]))
+rc, u = draai(extra_env=GEEN); s = st()
+check("SV104b de volgende ronde ruimt de rest op: week 42 (eindigt 18 oktober) is te oud; week 43 (eindigt 25 oktober) blijft; daarna is het rooster begin week 43 en blijven er alleen weken van de laatste 14 dagen en later", sorted(s["store"])[0] == "2026-W43" and len(s["store"]) == 10, json.dumps(sorted(s["store"])[:2]))
+nieuw(planning(43, 52)); rc, u = draai(nu="2026-11-08T08:00:00Z", extra_env=GEEN); s = st()
+check("SV104c de grens is precies 14 dagen: op 8 november (grens 25 oktober) blijft week 43 (eindigt zondag 25 oktober) staan; op 9 november is week 43 te oud", sorted(s["store"])[0] == "2026-W43" and len(s["store"]) == 10, json.dumps(sorted(s["store"])[:2]))
+nieuw(planning(43, 52)); rc, u = draai(nu="2026-11-09T08:00:00Z", extra_env=GEEN); s = st()
+check("SV104d op 9 november (grens 26 oktober) is week 43 (eindigt 25 oktober) te oud en gaat weg; week 44 blijft", sorted(s["store"])[0] == "2026-W44" and len(s["store"]) == 9, json.dumps(sorted(s["store"])[:2]))
+nieuw(planning(36, 52)); rc, u = draai(droog=True, extra_env=GEEN); c = checks()["oudeweken"]
+check("SV104e de check heet 'Roosters ouder dan 14 dagen' en meldt (info) dat 7 weken in de volgende ronde worden verwijderd; zonder oude weken staat hij op ok met de oudste week", c["naam"] == "Roosters ouder dan 14 dagen" and c["s"] == "info" and "7 weken ouder dan 14 dagen" in c["t"], json.dumps(c))
+nieuw(planning(43, 52)); rc, u = draai(extra_env=GEEN); c = checks()["oudeweken"]
+check("SV104f zonder te oude weken: de check staat op ok en noemt de oudste week", c["s"] == "ok" and "geen weken ouder dan 14 dagen (de oudste is 2026-W43)" in c["t"], json.dumps(c))
+nieuw(planning(40, 47)); rc, u = draai(extra_env=GEEN); n8 = len(st()["store"])
+check("SV104g er blijven altijd minstens 8 weken over, ook als alles ouder is dan 14 dagen (8 weken, 40 t/m 47: de oudste is te oud, maar er is niets te verwijderen)", n8 == 8 and not state_puts(), json.dumps([n8, state_puts()]))
 
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")

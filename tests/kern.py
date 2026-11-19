@@ -318,4 +318,9 @@ with sync_playwright() as pw:
     st = json.loads(R.f["settings.json"])
     check("K33k een dag die opnieuw wordt aangemaakt voordat de server de terugzetting deed, krijgt weer een nieuwe stand vastgelegd en de wachtende terugzetting verdwijnt uit settings.json", "verplichtTerugzetten" not in st and "2026-10-28" in st.get("verplichteDagen", {}) and st["verplichteDagen"]["2026-10-28"]["vorige"].get("Wim") == {"s": ["thuis"], "m": True}, st)
     b.close()
+    # K34 roosters worden 14 dagen bewaard: na een synchronisatie gaan weken die GitHub niet meer heeft en meer dan 14 dagen voorbij zijn ook uit het geheugen van dit scherm; weken van de laatste 14 dagen blijven
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_extra=0); klaar(p)
+    res = p.evaluate("""() => { const wk = k => JSON.parse(JSON.stringify(store['2026-W44'])); store['2026-W39'] = wk(); store['2026-W40'] = wk(); store['2026-W41'] = wk(); savePending = false; ghSaving = false; const voor = ['2026-W39', '2026-W40', '2026-W41'].map(w => w in store); ckLokaleOudeWekenWeg({ store: { '2026-W44': store['2026-W44'] } }); return [voor, ['2026-W39', '2026-W40', '2026-W41'].map(w => w in store), ckCutoff().toISOString().slice(0, 10)]; }""")
+    check("K34 weken die GitHub niet meer heeft en meer dan 14 dagen voorbij zijn (W39 en W40, eindigt 4 oktober, vóór de grens van 5 oktober) gaan uit het geheugen; W41 (eindigt 11 oktober) blijft; de grens is 14 dagen terug", res[0] == [True, True, True] and res[1] == [False, False, True] and res[2] == "2026-10-05" or res[2] == "2026-10-04", res)
+    b.close()
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")

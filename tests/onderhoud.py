@@ -3,7 +3,7 @@
 
 Draait als GitHub Action (niet in een browser, niet bij een ingelogde Administrator) en voert de acties uit die gegevens wijzigen:
 - verwijderde namen, planning van niet-teamleden, onbekende statussen en verweesde markeringen uit de planning halen;
-- weken die helemaal ouder zijn dan 2 maanden verwijderen (eerst een backup; hooguit 40% per ronde; er blijven altijd minstens 8 weken);
+- weken die helemaal ouder zijn dan 14 dagen verwijderen (eerst een backup; hooguit 40% per ronde; er blijven altijd minstens 8 weken);
 - een controlegetal vastleggen, backups bijhouden en beschadigde backups opruimen, accounts van verwijderde namen weghalen;
 - alles in het logboek zetten en een statusbestand (onderhoud.json) schrijven, waar Info > Checks de gezondheid van deze taak uit afleest.
 
@@ -34,6 +34,7 @@ MIN_GOEDE_BACKUPS = 5    # een beschadigde backup wordt alleen verwijderd als er
 ACHTERSTAND_MIN = 5      # de server maakt een backup zodra er zoveel minuten niets meer is gewijzigd (de pagina deed dat vroeger elke 10 minuten)
 BACKUP_BEWAAR_DAGEN = 14  # backups worden zoveel dagen bewaard (op UTC-datum in de naam, zoals de pagina vroeger deed)
 AUDIT_BEWAAR_DAGEN = BACKUP_BEWAAR_DAGEN   # dagbestanden van het logboek worden net zo lang bewaard als backups (14 dagen); de bestanden gaan op UTC-datum
+ROOSTER_BEWAAR_DAGEN = int(os.environ.get("ONDERHOUD_ROOSTER_DAGEN") or BACKUP_BEWAAR_DAGEN)   # weken (roosters) worden zoveel dagen bewaard, net als backups en logboek (14); de omgevingsvariabele is alleen voor de tests
 MIN_BEWAARD = 5           # bij het opruimen blijven er altijd minstens zoveel backups over
 MAX_OPRUIMEN = 20         # hooguit zoveel bestanden per ronde opruimen
 WACHT_FACTOR = float(os.environ.get("ONDERHOUD_WACHT_FACTOR", "0" if os.environ.get("ONDERHOUD_NU") else "1"))   # voor tests: niet echt wachten
@@ -493,16 +494,8 @@ def split(k):
 
 
 def grens():
-    """De datum van 2 maanden geleden (Nederlandse tijd)."""
-    v = nu().astimezone(AMS).date(); m, j = v.month - 2, v.year
-    if m <= 0:
-        m += 12; j -= 1
-    for d in range(v.day, 27, -1):
-        try:
-            return dt.date(j, m, d)
-        except ValueError:
-            continue
-    return dt.date(j, m, min(v.day, 28))
+    """De datum van ROOSTER_BEWAAR_DAGEN (14) dagen geleden (Nederlandse tijd): een week die helemaal daarvoor eindigde is te oud."""
+    return nu().astimezone(AMS).date() - dt.timedelta(days=ROOSTER_BEWAAR_DAGEN)
 
 
 def week_einde(wk):
@@ -513,7 +506,7 @@ def week_einde(wk):
 
 
 def opschonen(s, locked=None):
-    """Haalt weg wat niet hoort; geeft (nieuwe planning, acties, meldingen). Weken ouder dan 2 maanden worden hier nog niet verwijderd."""
+    """Haalt weg wat niet hoort; geeft (nieuwe planning, acties, meldingen). Weken die te oud zijn worden hier nog niet verwijderd."""
     n = copy.deepcopy(s); acties = []; meldingen = []
     team = n["team"]; n.setdefault("template", {}); n.setdefault("manuallyEdited", {}); n.setdefault("hidden", [])
     # 1. verwijderde namen
@@ -584,7 +577,7 @@ def opschonen(s, locked=None):
 
 
 def oude_weken(n):
-    """De weken die helemaal ouder zijn dan 2 maanden, begrensd (40% per ronde, minstens 8 over). Geeft (te verwijderen weken, alle oude weken)."""
+    """De weken die helemaal ouder zijn dan de bewaartermijn (14 dagen), begrensd (40% per ronde, minstens 8 over). Geeft (te verwijderen weken, alle oude weken)."""
     g = grens(); oud = []
     for wk in sorted(n["store"]):
         if not WEEKSLEUTEL.match(wk):
@@ -697,7 +690,7 @@ def ronde():
     if teWissen:
         for wk in teWissen:
             n["store"].pop(wk, None); n["manuallyEdited"].pop(wk, None)
-        acties.append(f"{len(teWissen)} {'weken' if len(teWissen) != 1 else 'week'} ouder dan 2 maanden verwijderd ({teWissen[0]}{' t/m ' + teWissen[-1] if len(teWissen) > 1 else ''})")
+        acties.append(f"{len(teWissen)} {'weken' if len(teWissen) != 1 else 'week'} ouder dan {ROOSTER_BEWAAR_DAGEN} dagen verwijderd ({teWissen[0]}{' t/m ' + teWissen[-1] if len(teWissen) > 1 else ''})")
     rest = len(alle_oud) - len(teWissen)
     if rest > 0:
         meldingen.append(f"nog {rest} oude {'weken' if rest != 1 else 'week'} te verwijderen in de volgende ronde")
@@ -970,7 +963,7 @@ def controles(acties, problemen):
                 if dag >= vandaag: half[p] = half.get(p, 0) + 1
     add("halvedag", 1, "Halve dagen zijn aangevuld", "let" if half else "ok", ("nog niet aangevuld: " + ", ".join(f"{p} ({c})" for p, c in sorted(half.items())) + ". Zij krijgen de vraag zodra ze de pagina openen") if half else "alle halve dagen zijn aangevuld")
     oud = [wk for wk in s["store"] if WEEKSLEUTEL.match(wk) and (week_einde(wk) or dt.date.max) < grens()]
-    add("oudeweken", 1, "Roosters ouder dan 2 maanden", "info" if oud else "ok", f"{len(oud)} {'week' if len(oud) == 1 else 'weken'} ouder dan 2 maanden; de server verwijdert ze in de volgende ronde" if oud else f"geen weken ouder dan 2 maanden (de oudste is {ks[0] if ks else '-'})")
+    add("oudeweken", 1, f"Roosters ouder dan {ROOSTER_BEWAAR_DAGEN} dagen", "info" if oud else "ok", f"{len(oud)} {'week' if len(oud) == 1 else 'weken'} ouder dan {ROOSTER_BEWAAR_DAGEN} dagen; de server verwijdert ze in de volgende ronde" if oud else f"geen weken ouder dan {ROOSTER_BEWAAR_DAGEN} dagen (de oudste is {ks[0] if ks else '-'})")
     extra_v, slecht_v = lees_extra()
     locked = verplichte_dagen(pagina, extra_v)
     if locked is None: add("verplicht", 1, "Verplichte vrije dagen staan op Vrij", "info", "de lijst met verplichte vrije dagen is niet te lezen uit de pagina")
