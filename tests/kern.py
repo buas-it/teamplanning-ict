@@ -338,4 +338,44 @@ with sync_playwright() as pw:
     r3 = p.evaluate("""async () => { const c = CHECKS.find(x => x.id === 'ghtijd'); const r = await c.run(); return [c.groep, c.naam, r.s, r.t]; }""")
     check("K35c het onderdeel 'Reactietijd van GitHub (dit apparaat)' staat in het Checks-venster (groep Dit apparaat en dit scherm) en geeft de metingen van dit scherm", r3[0] == 4 and r3[1] == "Reactietijd van GitHub (dit apparaat)" and r3[2] in ("ok", "let") and "lezen gemiddeld" in r3[3], r3)
     b.close()
+    # K36 wachtwoord wijzigen afdwingen voor wie het startwachtwoord gebruikt
+    START = "StartWw-12345"
+    OVERRIDE = "(() => { hashPassword = async pw => pw === '%s' ? PW_HASH : 'x' + pw.length; })()" % START   # in de test is het startwachtwoord bekend
+    def inloggen(p, naam, ww):
+        p.wait_for_selector("#pw-user option[value='%s']" % naam, state="attached", timeout=8000); p.select_option("#pw-user", naam); p.fill("#pw-input", ww); p.click("#pw-ok"); p.wait_for_timeout(2500)
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_extra=0)
+    p.evaluate("localStorage.setItem('tp_unlocked', String(Date.now())); localStorage.setItem('tp_user', JSON.stringify({user: 'Wouter', workstation: 'Windows · Chrome', device: 'abc', id: 'Wouter@abc', info: ''}));"); p.reload(); p.wait_for_timeout(4500)
+    r1 = p.evaluate("({ ident: currentIdentity && currentIdentity.user, poort: document.documentElement.classList.contains('tp-gated'), opgeslagen: localStorage.getItem('tp_user') })")
+    recH = p.evaluate("async () => await newUserRecord('MijnEigenWw-2026')"); R.f["users.json"] = json.dumps({"v": 1, "users": {"Hans": recH}})
+    p.evaluate("localStorage.setItem('tp_unlocked', String(Date.now())); localStorage.setItem('tp_user', JSON.stringify({user: 'Hans', workstation: 'Windows · Chrome', device: 'abc', id: 'Hans@abc', info: '', pw: true}));"); p.reload(); p.wait_for_timeout(4500)
+    r2 = p.evaluate("({ ident: currentIdentity && currentIdentity.user, poort: document.documentElement.classList.contains('tp-gated') })")
+    check("K36a een oude sessie zonder eigen wachtwoord (van vóór de persoonlijke wachtwoorden) wordt bij het openen van de pagina niet meer hersteld: de toegangspoort staat aan en de sessie is gewist; een sessie met eigen wachtwoord blijft gewoon geldig", r1["ident"] is None and r1["poort"] and r1["opgeslagen"] is None and r2["ident"] == "Hans" and not r2["poort"], json.dumps([r1, r2])); b.close()
+    # K36b een bestaand record dat nog het startwachtwoord is: inloggen leidt naar 'Kies je eigen wachtwoord'; het startwachtwoord opnieuw kiezen mag niet; een ander wachtwoord vervangt het record en logt in
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_extra=0); p.evaluate(OVERRIDE)
+    rec0 = p.evaluate("async () => await newUserRecord('%s')" % START); R.f["users.json"] = json.dumps({"v": 1, "users": {"Wouter": rec0}}); p.evaluate("usersLoad().catch(() => {})")
+    inloggen(p, "Wouter", START)
+    s1 = p.evaluate("({ stap2: !!document.getElementById('pw-new1'), ident: currentIdentity && currentIdentity.user, intro: (document.getElementById('pw2-intro') || {}).textContent })")
+    if p.query_selector("#pw-new1"): p.fill("#pw-new1", START); p.fill("#pw-new2", START); p.click("#pw-ok"); p.wait_for_timeout(1500)
+    s2 = p.evaluate("({ fout: (document.getElementById('pw-error') || {}).textContent || '', ident: currentIdentity && currentIdentity.user })"); u2 = json.loads(R.f["users.json"])["users"].get("Wouter", {})
+    if p.query_selector("#pw-new1"): p.fill("#pw-new1", "EigenWachtwoord-99"); p.fill("#pw-new2", "EigenWachtwoord-99"); p.click("#pw-ok"); p.wait_for_timeout(3000)
+    s3 = p.evaluate("({ ident: currentIdentity && currentIdentity.user, pw: currentIdentity && currentIdentity.pw, poort: document.documentElement.classList.contains('tp-gated') })"); u3 = json.loads(R.f["users.json"])["users"].get("Wouter", rec0)
+    ok_nieuw = p.evaluate("async (h) => await verifyUserPw('EigenWachtwoord-99', h)", u3); ok_start = p.evaluate("async (h) => await verifyUserPw('%s', h)" % START, u3)
+    check("K36b een record dat nog het startwachtwoord is: na inloggen moet er eerst een eigen wachtwoord worden gekozen (je bent nog niet binnen); het startwachtwoord opnieuw kiezen wordt geweigerd en laat het bestand ongemoeid; een ander wachtwoord vervangt het record en logt in, het startwachtwoord werkt daarna niet meer", s1["stap2"] and s1["ident"] is None and "eerst een eigen wachtwoord" in s1["intro"] and "ander wachtwoord dan het startwachtwoord" in s2["fout"] and s2["ident"] is None and u2["hash"] == rec0["hash"] and s3["ident"] == "Wouter" and s3["pw"] is True and not s3["poort"] and ok_nieuw and not ok_start, json.dumps([s1, s2, s3, ok_nieuw, ok_start])); b.close()
+    # K36c een nieuwe gebruiker (nog geen record): startwachtwoord -> kiezen; het startwachtwoord als eigen wachtwoord kiezen mag niet; een eigen wachtwoord maakt een record en logt in
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_extra=0); p.evaluate(OVERRIDE)
+    inloggen(p, "Wouter", START)
+    t1 = p.evaluate("({ stap2: !!document.getElementById('pw-new1'), ident: currentIdentity && currentIdentity.user })")
+    if p.query_selector("#pw-new1"): p.fill("#pw-new1", START); p.fill("#pw-new2", START); p.click("#pw-ok"); p.wait_for_timeout(1500)
+    t2 = p.evaluate("({ fout: (document.getElementById('pw-error') || {}).textContent || '', ident: currentIdentity && currentIdentity.user })"); geen = "Wouter" not in json.loads(R.f["users.json"])["users"]
+    if p.query_selector("#pw-new1"): p.fill("#pw-new1", "EigenWachtwoord-99"); p.fill("#pw-new2", "EigenWachtwoord-99"); p.click("#pw-ok"); p.wait_for_timeout(3000)
+    t3 = p.evaluate("currentIdentity && currentIdentity.user"); heeft = "Wouter" in json.loads(R.f["users.json"])["users"]
+    check("K36c een gebruiker zonder eigen wachtwoord komt met het startwachtwoord niet verder dan 'Kies je eigen wachtwoord'; het startwachtwoord als eigen wachtwoord wordt geweigerd (geen record aangemaakt); met een eigen wachtwoord ontstaat het record en ben je binnen", t1["stap2"] and t1["ident"] is None and "startwachtwoord" in t2["fout"] and t2["ident"] is None and geen and t3 == "Wouter" and heeft, json.dumps([t1, t2, geen, t3, heeft])); b.close()
+    # K36d wie al een eigen wachtwoord heeft logt gewoon in (geen verplichte wijziging); een verkeerd wachtwoord wordt geweigerd; Wachtwoord wijzigen weigert het startwachtwoord als nieuw wachtwoord
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_extra=0); p.evaluate(OVERRIDE)
+    rec1 = p.evaluate("async () => await newUserRecord('MijnEigenWw-2026')"); R.f["users.json"] = json.dumps({"v": 1, "users": {"Hans": rec1}})
+    inloggen(p, "Hans", "fout-wachtwoord1"); d0 = p.evaluate("({ ident: currentIdentity && currentIdentity.user, stap2: !!document.getElementById('pw-new1') })")
+    p.fill("#pw-input", "MijnEigenWw-2026"); p.click("#pw-ok"); p.wait_for_timeout(2500); d1 = p.evaluate("({ ident: currentIdentity && currentIdentity.user, stap2: !!document.getElementById('pw-new1') })")
+    p.evaluate("showChangePassword()"); p.wait_for_selector("#cp-old", timeout=5000); p.fill("#cp-old", "MijnEigenWw-2026"); p.fill("#cp-new1", START); p.fill("#cp-new2", START); p.click("#cp-ok"); p.wait_for_timeout(1500)
+    d2 = p.evaluate("(document.getElementById('cp-err') || {}).textContent || ''"); onveranderd = json.loads(R.f["users.json"])["users"]["Hans"]["hash"] == rec1["hash"]
+    check("K36d een eigen wachtwoord logt gewoon in (zonder verplichte wijziging), een fout wachtwoord niet; 'Wachtwoord wijzigen' weigert het startwachtwoord als nieuw wachtwoord en laat het record ongemoeid", d0["ident"] is None and not d0["stap2"] and d1["ident"] == "Hans" and not d1["stap2"] and "startwachtwoord" in d2 and onveranderd, json.dumps([d0, d1, d2, onveranderd])); b.close()
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")
