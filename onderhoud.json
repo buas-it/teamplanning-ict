@@ -1,6 +1,6 @@
 {
  "v": 1,
- "t": "2026-11-19T11:35:01.000Z",
+ "t": "2026-11-19T12:07:00.000Z",
  "droog": false,
  "acties": [],
  "problemen": [],
@@ -18,7 +18,7 @@
    "groep": 0,
    "naam": "Uitrol van de pagina (GitHub Pages)",
    "s": "ok",
-   "t": "de site toont dezelfde versie als main (versie 19 nov 2026 · 163)"
+   "t": "de site toont dezelfde versie als main (versie 19 nov 2026 · 164)"
   },
   {
    "id": "testbranch",
@@ -26,6 +26,13 @@
    "naam": "Testbranch gelijk aan main",
    "s": "ok",
    "t": "index.html, onderhoud.py, logboek.py in de branch 'tests' zijn precies gelijk aan main"
+  },
+  {
+   "id": "ghtijd_server",
+   "groep": 0,
+   "naam": "Reactietijd van GitHub (server)",
+   "s": "ok",
+   "t": "lezen gemiddeld 211 ms (langzaamst 603 ms, 27 verzoeken); schrijven: geen verzoeken"
   },
   {
    "id": "token",
