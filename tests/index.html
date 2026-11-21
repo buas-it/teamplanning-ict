@@ -237,7 +237,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 19 nov 2026 · 165</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 nov 2026 · 166</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -947,8 +947,7 @@ async function restoreCollega(naam, bestand, delen){
 // Het venster waarin je kiest naar welke backup en wat er terug moet; geeft { gedaan, samenvatting } als het venster dicht gaat
 function showRestoreCollegaDialog(naam){
   return new Promise(async resolve=>{
-    if(!canRestore()){ resolve({ gedaan: false }); return; }
-    if(!await requireUnlock()){ resolve({ gedaan: false }); return; }
+    if(!canRestore()){ resolve({ gedaan: false }); return; }   // het venster openen is kijken: de vraag om bewerken aan te zetten komt bij Terugzetten
     const isTeam = TEAM.includes(naam), me = currentIdentity && currentIdentity.user;
     const overlay = document.createElement("div"); overlay.className = "tp-overlay"; overlay.id = "rc-overlay";
     overlay.style.cssText = "position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;";
@@ -980,6 +979,7 @@ function showRestoreCollegaDialog(naam){
     q("#rc-annuleer").onclick = sluit;
     ok.onclick = async ()=>{
       const bestand = gekozenBackup(), delen = gekozenDelen(); if(!bestand || ok.dataset.bezig || gedaan) return;
+      if(!await requireUnlock({ admin: true })) return;   // terugzetten wijzigt iets: nu pas de vraag om bewerken aan te zetten
       const welke = DELEN.filter(d=>delen[d[0]]).map(d=>d[1].replace(/ \(.*\)$/, "")).join(", ");
       if(!confirm(naam + " terugzetten naar de backup van " + backupLabel(bestand) + "?\n" + welke + ".\nWat daarna is gewijzigd gaat voor " + naam + " verloren.")) return;
       ok.dataset.bezig = "1"; bijwerken(); setMsg("Bezig met terugzetten...", null);
@@ -1510,16 +1510,7 @@ function openWhoMenu(){
     const adminSubs = ["#menu-accounts", "#menu-boodschap", "#menu-verplicht", "#menu-backuprestore"].map(s=>m.querySelector(s)).filter(Boolean); adminSubs.forEach(x=>{ x.hidden = true; });
     adminTab.onclick = ()=>{ const open = adminTab.getAttribute("aria-expanded") !== "true"; adminTab.setAttribute("aria-expanded", String(open)); adminTab.textContent = "⚙️ Admin " + (open ? "▾" : "▸"); adminSubs.forEach(x=>{ x.hidden = !open; }); if(!open){ bkSubs.forEach(x=>{ x.hidden = true; }); bkTab.setAttribute("aria-expanded", "false"); bkTab.textContent = bkTab.textContent.replace(/[▾▸]\s*$/, "▸"); } };   // inklappen sluit ook Backup/Restore
     if(!canRestore()){ const t = m.querySelector("#menu-backup-terugzetten"); t.setAttribute("aria-disabled", "true"); t.title = "Een backup terugzetten mag alleen " + RESTORE_GROUP; }
-    if(!editUnlocked){   // Admin werkt alleen als bewerken aan staat: een klik op een onderdeel geeft eerst de vraag om bewerken aan te zetten (bewuste tussenstap)
-      ["menu-accounts", "menu-boodschap", "menu-verplicht", "menu-backuprestore", "menu-backup-maken", "menu-backup-terugzetten"].forEach(id=>{   // Audit, Status en Statistics zijn alleen kijken: zonder vraag
-        const x = m.querySelector("#" + id); if(!x) return;
-        if(id === "menu-boodschap" && !canToggleMessage()) return;   // ICT-Management kijkt alleen mee: geen vraag
-        if(id === "menu-backup-terugzetten" && !canRestore()) return;   // terugzetten mag deze gebruiker niet: blijft uitgeschakeld met uitleg
-        x.title = "Eerst volgt de vraag om bewerken aan te zetten";
-      });
-      const tab = m.querySelector("#menu-backuprestore");   // het tabblad zelf opent niets: eerst de vraag, dan het menu opnieuw met het tabblad uitgeklapt
-      if(tab) tab.onclick = async ()=>{ closeWhoMenu(); if(await requireUnlock({ admin: true })){ openWhoMenu(); const a = document.getElementById("menu-admin"); if(a) a.click(); const t = document.getElementById("menu-backuprestore"); if(t) t.click(); } };
-    }
+    // Een onderdeel van Admin openen is kijken: de vraag om bewerken aan te zetten komt pas als je daadwerkelijk iets wijzigt
   }
   m.addEventListener("keydown", e=>{
     const items = [...m.querySelectorAll("button")].filter(x=>!x.hidden), i = items.indexOf(document.activeElement);
@@ -1559,7 +1550,7 @@ function showLockIndicator(){
   const on = !!currentIdentity;
   const ab = document.getElementById("btn-admin"); if(ab) ab.style.display = canSeeAdmin() ? "" : "none";   // Admin: alleen voor ICT-Systeembeheer en ICT-Management
   if(!canSeeInfo()) ["au-close", "status-close", "stat-close"].forEach(id=>{ const b = document.getElementById(id), o = b && b.closest(".tp-overlay"); if(o) o.remove(); });   // verlies je ICT-Systeembeheer, dan gaan ook Audit, Status, Statistics en Geen Beheer dicht
-  if(!canSeeAdmin()) closeAdminWindows(true); else if(!editUnlocked) closeAdminWindows();                                                                     // verandert je groep terwijl Admin openstaat, dan gaat het dicht
+  if(!canSeeAdmin()) closeAdminWindows(true);                                                                     // verandert je groep terwijl Admin openstaat, dan gaat het dicht
   try{ updateAuditDot(); }catch(e){}
   try{ updateBadgeHealth(); }catch(e){}
   // Rechtsboven: onder wie er is ingelogd, met een pulldown (alleen tekst, nooit HTML)
@@ -1934,7 +1925,7 @@ async function administratorsWijzig(actie, naam){   // een Administrator toevoeg
 }
 async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groepen (start = "groepen") (ICT-Systeembeheer en ICT-Management zien alle accounts) of 'Mijn account' (iedere andere gebruiker ziet alleen zijn eigen account): een tabel met vinkjes voor de groep en het eigen wachtwoord, en knoppen voor de standaardbezetting; hier komen straks ook de andere gebruikersinstellingen
   const beheer = canSeeAdmin();
-  if(beheer){ if(!await ensureAdmin()) return; } else if(!await requireLogin()) return;
+  if(beheer){ if(!await ensureAdmin({ view: true })) return; } else if(!await requireLogin()) return;   // openen is kijken: de vraag om bewerken aan te zetten komt bij een wijziging
   const old = document.getElementById("usr-overlay"); if(old) old.remove();
   const overlay = document.createElement("div");
   overlay.className = "tp-overlay"; overlay.id = "usr-overlay"; if(!beheer) overlay.dataset.eigen = "1";   // alleen het eigen account (iedere gebruiker): hoort niet bij Admin
@@ -1959,6 +1950,7 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
   };
   const resetWachtwoord = async name=>{   // het wachtwoord van een ander terugzetten naar het startwachtwoord; true als het is gebeurd
     if(currentIdentity && currentIdentity.user === name){ alert("Je eigen wachtwoord kun je hier niet resetten. Gebruik 'Wijzigen'."); return false; }   // niet jezelf buitensluiten
+    if(!await requireUnlock({ admin: true })) return false;   // resetten wijzigt iets: nu pas de vraag om bewerken aan te zetten
     // de rechten worden op het moment van resetten nog eens gecontroleerd op de nieuwste indeling (niet op wat dit venster al wist)
     try{ await groupsRefresh(); }catch(e){ alert("De groepen konden niet worden opgehaald, dus resetten kan nu niet."); return false; }
     if(!canResetPasswords()){ alert("Alleen een Administrator kan wachtwoorden resetten."); try{ showLockIndicator(); }catch(e){} return false; }
@@ -1976,7 +1968,7 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
     const uitleg = document.createElement("div"); uitleg.style.cssText = "font-size:10px;color:#888;line-height:1.5;margin-bottom:8px;"; uitleg.textContent = bewerk ? "Administrators hebben alle rechten. Alleen een Administrator kan leden toevoegen of weghalen; de laatste persoon kan niet worden weggehaald en het Monitor-account is altijd Administrator." : "Administrators hebben alle rechten en voegen leden toe. Voor een wijziging in de rechten: neem contact op met een van hen.";
     const chips = document.createElement("div"); chips.id = "usr-admins-lijst"; chips.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;margin-bottom:" + (bewerk ? "10px" : "0") + ";";
     const wijzig = async (actie, naam)=>{
-      if(!naam || !await requireUnlock()) return; setMsg("Opslaan...", true);
+      if(!naam || !await requireUnlock({ admin: true })) return; setMsg("Opslaan...", true);
       let r; try{ r = await administratorsWijzig(actie, naam); }catch(e){ r = { error: "Opslaan mislukt (" + ((e && e.message) || e) + "). Probeer het opnieuw." }; }
       msg.dataset.keep = "1"; await opnieuw(); if(r.error) setMsg(r.error, false); else setMsg(actie === "toevoegen" ? naam + " is nu Administrator." : naam + " is geen Administrator meer.", true);
     };
@@ -2032,7 +2024,7 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
       const sb = sec("usr-sec-boodschap", "Boodschap"), r = rij(sb), r2 = isTeam ? rij(sb) : null;
       if(r2) r2.style.marginTop = "12px";
       const wijzig = async (el, taak, ok)=>{   // een instelling opslaan: eerst bewerken aan, dan schrijven, dan de pagina opnieuw tonen met de uitkomst
-        if(!await requireUnlock()){ renderAccount(name); return; }
+        if(!await requireUnlock(beheer ? { admin: true } : undefined)){ renderAccount(name); return; }
         el.disabled = true; setMsg("Opslaan...", true);
         let res; try{ res = await taak(); }catch(e){ res = { error: "Opslaan mislukt (" + ((e && e.message) || e) + ")." }; }
         renderAccount(name, res.error ? { t: res.error, ok: false } : { t: res.changed === false ? "Dat stond al zo: een collega had het net gewijzigd." : ok(res), ok: true });
@@ -2057,7 +2049,7 @@ async function showUsersModal(start){   // Admin ▸ Accounts en Admin ▸ Groep
     // Zichtbaarheid
     if(isTeam){ const sz = sec("usr-sec-zicht", "Zichtbaarheid"), r = rij(sz);
       const v = vinkje(r, "Verborgen in de planning (blijft bestaan, staat nergens in beeld)", HIDDEN.has(name), !adminNu, adminNu ? "" : "Alleen een Administrator kan iemand verbergen."); v.dataset.veld = "verborgen"; v.dataset.naam = name;
-      v.onchange = async ()=>{ const w = v.checked; if(!await requireUnlock()){ renderAccount(name); return; } zetVerborgen(name, w); renderAccount(name, { t: name + (w ? " is verborgen." : " is weer zichtbaar."), ok: true }); };
+      v.onchange = async ()=>{ const w = v.checked; if(!await requireUnlock({ admin: true })){ renderAccount(name); return; } zetVerborgen(name, w); renderAccount(name, { t: name + (w ? " is verborgen." : " is weer zichtbaar."), ok: true }); };
     }
     // Terugzetten naar een backup (planning, werkweek, boodschap, groep en wachtwoord): alleen ICT-Systeembeheer
     if(canRestore() && (isTeam || name === "Monitor")){ const sr = sec("usr-sec-terugzetten", "Terugzetten"), r = rij(sr);
@@ -2138,7 +2130,7 @@ function promptEnableEdit(opts){
         <button id="ed-ok" style="background:rgba(128,203,196,0.15);border:1px solid rgba(128,203,196,0.4);color:#80cbc4;font-weight:700;${BTN}">Bewerken aanzetten</button>
       </div></div>`;
     overlay.querySelector("#ed-who").textContent = "Je bent ingelogd als " + (currentIdentity ? currentIdentity.user : "") + ". Bewerken staat uit en gaat na 10 minuten zonder wijziging vanzelf weer uit.";
-    if(opts && opts.admin){ const a = overlay.querySelector("#ed-admin"); a.textContent = "⚠ Je opent een onderdeel van Admin. Hier voer je belangrijke wijzigingen uit, zoals wachtwoorden resetten, groepen aanpassen of een backup terugzetten."; a.style.display = ""; }
+    if(opts && opts.admin){ const a = overlay.querySelector("#ed-admin"); a.textContent = "⚠ Je gaat een belangrijke wijziging doorvoeren via Admin, zoals een wachtwoord resetten, groepen aanpassen of een backup terugzetten."; a.style.display = ""; }
     document.body.appendChild(overlay);
     const done = v=>{ overlay.remove(); resolve(v); };
     overlay.querySelector("#ed-ok").onclick = ()=>{ enableEditing(); done(!!editUnlocked); };
@@ -4321,7 +4313,7 @@ function complimentIteration(){   // op het moment dat het compliment helemaal g
 
 async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor iedereen aan- of uitzetten (ICT-Systeembeheer, met bewerken aan); ICT-Management kijkt alleen mee
   const mag = canToggleMessage();
-  if(!await ensureAdmin(mag ? undefined : { view: true })) return;
+  if(!await ensureAdmin({ view: true })) return;   // openen is kijken: de vraag om bewerken aan te zetten komt bij een wijziging
   const old = document.getElementById("msg-overlay"); if(old) old.remove();
   const overlay = document.createElement("div"); overlay.className = "tp-overlay"; overlay.id = "msg-overlay";
   overlay.style.cssText = "position:fixed;inset:0;z-index:870;background:rgba(0,0,0,0.85);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 10px;";
@@ -4405,6 +4397,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   const leesIv = ()=>{ const a = Number(q("#msg-iv-aan").value), u = Number(q("#msg-iv-uit").value); return q("#msg-iv-aan").value.trim() !== "" && q("#msg-iv-uit").value.trim() !== "" && Number.isInteger(a) && Number.isInteger(u) && a >= 1 && a <= 60 && u >= 1 && u <= 240 ? { aan: a, uit: u } : null; };
   const bewaarIv = async (iv, ok)=>{   // het interval opslaan (of uitzetten met null) en de melding tonen
     const c = q("#msg-verj"); if(!mag || c.dataset.bezig){ toonVerj(); return; }
+    if(!await ensureAdmin()){ toonVerj(); return; }   // een wijziging: eerst de vraag om bewerken aan te zetten
     c.dataset.bezig = "1"; toonVerj(); setMsgV("Opslaan...", "");
     let r; try{ r = await settingsSetVerjaardagInterval(iv); }catch(e){ r = { error: "Opslaan mislukt (" + ((e && e.message) || e) + "). Het interval is niet veranderd." }; }
     delete c.dataset.bezig; if(!document.body.contains(overlay)) return;
@@ -4417,6 +4410,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
     const c = q("#msg-verj"); if(!mag || c.dataset.bezig){ toonVerj(); return; }
     const lijst = VERJ_MOMENTEN.filter(k=>q("#msg-m-" + k).checked);
     if(!lijst.length){ toonVerj(); setMsgV("Kies minstens één moment, of zet de verjaardagsboodschappen uit.", "fout"); return; }
+    if(!await ensureAdmin()){ toonVerj(); return; }
     c.dataset.bezig = "1"; toonVerj(); setMsgV("Opslaan...", "");
     let r; try{ r = await settingsSetVerjaardagMomenten(lijst); }catch(e){ r = { error: "Opslaan mislukt (" + ((e && e.message) || e) + "). De momenten zijn niet veranderd." }; }
     delete c.dataset.bezig; if(!document.body.contains(overlay)) return;
@@ -4426,6 +4420,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   VERJ_MOMENTEN.forEach(k=>{ q("#msg-m-" + k).onchange = bewaarMom; });
   q("#msg-verj").onchange = async ()=>{
     const c = q("#msg-verj"), w = c.checked; if(!mag || c.dataset.bezig){ toonVerj(); return; }
+    if(!await ensureAdmin()){ toonVerj(); return; }
     c.dataset.bezig = "1"; toonVerj(); setMsgV("Opslaan...", "");
     let r; try{ r = await settingsSetVerjaardagen(w); }catch(e){ r = { error: "Opslaan mislukt (" + ((e && e.message) || e) + "). De verjaardagsboodschappen zijn niet veranderd." }; }
     delete c.dataset.bezig; if(!document.body.contains(overlay)) return;
@@ -4494,6 +4489,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
       taak = ()=>settingsSetTalen(naam, nieuw); fout = "De talen zijn niet veranderd.";
       ok = r=>r.changed ? "Talen van " + naam + ": " + r.tekst + "." : "Dat stond al zo: een collega had het net gewijzigd.";
     }
+    if(!await ensureAdmin()){ toonTalen(); return; }   // een wijziging: eerst de vraag om bewerken aan te zetten
     wrap.dataset.bezig = "1"; toonTalen(); setMsgT("Opslaan...", "");
     let r; try{ r = await taak(); }catch(e){ r = { error: "Opslaan mislukt (" + ((e && e.message) || e) + "). " + fout }; }
     delete wrap.dataset.bezig;
@@ -4577,6 +4573,7 @@ async function showBoodschapModal(){   // Admin ▸ Boodschap: de boodschap voor
   const bewaarE = async (actie, e, voor)=>{
     const naam = voor || eigenWie(); if(overlay.dataset.eigenBezig) return;
     if(actie !== "verwijderen"){ const v = eigenValideer(naam, e.t, e.van, e.tot, e.jaarlijks, e.emoji, e.aftellen); if(v.error){ setMsgE(v.error, "fout"); return; } }
+    if(!await ensureAdmin()){ toonEigen(); return; }   // een wijziging: eerst de vraag om bewerken aan te zetten
     overlay.dataset.eigenBezig = "1"; toonEigen(); setMsgE("Opslaan...", "");
     let r; try{ r = await settingsSetEigen(naam, actie, e); }catch(x){ r = { error: "Opslaan mislukt (" + ((x && x.message) || x) + "). De boodschap is niet veranderd." }; }
     delete overlay.dataset.eigenBezig;
@@ -5638,8 +5635,7 @@ async function restoreFromBackup(filename, sha){
 
 // ── Backup Herstel modal ──────────────────────────────────────────
 async function showRestoreModal(){
-  if(!canRestore()){ denyRestore(); return; }   // alleen ICT-Systeembeheer
-  if(!await requireUnlock()) return;
+  if(!canRestore()){ denyRestore(); return; }   // alleen ICT-Systeembeheer (de lijst bekijken kan zonder bewerken; de vraag komt bij het terugzetten zelf)
 
   const overlay = document.createElement("div");
   overlay.className = "tp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;";
@@ -5722,8 +5718,7 @@ async function showRestoreModal(){
 }
 
 // ── Periode invoer ────────────────────────────────────────────────
-async function showPeriodeModal(){
-  if(!await requireUnlock()) return;
+async function showPeriodeModal(){   // openen is kijken: de vraag om bewerken aan te zetten komt bij Opslaan
 
   const STATUSES_SIMPLE = [
     {key:"vrij",    label:"Vrij",    color:"rgba(229,57,53,0.55)"},
@@ -5985,7 +5980,7 @@ async function settingsSetVerplicht(datum, naam){   // een verplichte vrije dag 
 }
 async function showVerplichtModal(){   // Admin ▸ Verplicht Vrij: de komende verplichte vrije dagen; een Administrator maakt er een aan (geldt voor iedereen) of verwijdert een zelf aangemaakte
   if(!canSeeAdmin()) return;
-  if(!await ensureAdmin()) return;   // zoals Accounts en Boodschap: eerst de vraag om bewerken aan te zetten
+  if(!await ensureAdmin({ view: true })) return;   // openen is kijken: de vraag om bewerken aan te zetten komt bij Aanmaken of Verwijderen
   document.querySelectorAll(".vp-overlay").forEach(o=>o.remove());
   const overlay = document.createElement("div");
   overlay.className = "tp-overlay vp-overlay"; overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;";
@@ -6013,6 +6008,7 @@ async function showVerplichtModal(){   // Admin ▸ Verplicht Vrij: de komende v
     box.insertAdjacentHTML("beforeend", h);
     const toon = (t, soort2)=>{ const m = box.querySelector("#vp-melding"); if(m){ m.textContent = t; m.style.color = soort2 === "ok" ? "#80cbc4" : "#f48fb1"; } };
     const doe = async (datum, naam, okTekst)=>{
+      if(!await ensureAdmin()) return;   // een wijziging: eerst de vraag om bewerken aan te zetten
       const knoppen = box.querySelectorAll("button"); knoppen.forEach(b=>{ b.disabled = true; });
       try{ const res = await settingsSetVerplicht(datum, naam);
         if(res.error){ knoppen.forEach(b=>{ b.disabled = false; }); toon(res.error, "fout"); return; }
@@ -6104,8 +6100,7 @@ document.getElementById("btn-admin").addEventListener("click",()=>{ showAuditMod
 
 const tplModal=document.getElementById("tpl-modal");
 async function openStandaard(naam){   // de standaardbezetting openen: van één persoon (jezelf, of iedereen als je in ICT-Systeembeheer zit), of naam = null: alle standaardweken (alleen ICT-Systeembeheer)
-  if(naam === null ? !canEditGroups() : !canEditTemplate(naam)) return;
-  if(!await requireUnlock()) return;
+  if(naam === null ? !canEditGroups() : !canEditTemplate(naam)) return;   // openen is kijken: de vraag om bewerken aan te zetten komt als je een cel wijzigt
   tplFilter = naam; buildTemplateGrid(); tplModal.style.display = "block";
 }
 
@@ -6142,8 +6137,7 @@ tplModal.addEventListener("click",e=>{ if(e.target===tplModal){ closePopup(); tp
 
 // ── Backup herstellen ────────────────────────────────────────────
 document.getElementById("btn-restore-backup").addEventListener("click", async ()=>{
-  if(!canRestore()){ denyRestore(); return; }   // alleen ICT-Systeembeheer
-  if(!await requireUnlock()) return;            // en bewerken moet aan staan
+  if(!canRestore()){ denyRestore(); return; }   // alleen ICT-Systeembeheer (de lijst bekijken kan zonder bewerken; de vraag komt bij het terugzetten zelf)
   const btn = document.getElementById("btn-restore-backup");
   btn.textContent = "⟳ laden...";
   btn.disabled = true;
@@ -6187,6 +6181,7 @@ document.getElementById("btn-restore-backup").addEventListener("click", async ()
 
     document.getElementById("backup-confirm").onclick = async ()=>{
       if(!canRestore()){ overlay.remove(); denyRestore(); return; }   // nog eens controleren op het moment van terugzetten
+      if(!await requireUnlock({ admin: true })) return;   // terugzetten wijzigt de planning: nu pas de vraag om bewerken aan te zetten
       const url = document.getElementById("backup-select").value;
       const confirmBtn = document.getElementById("backup-confirm");
       confirmBtn.textContent = "Bezig..."; confirmBtn.disabled = true;
