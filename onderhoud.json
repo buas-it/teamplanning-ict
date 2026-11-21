@@ -1,8 +1,10 @@
 {
  "v": 1,
- "t": "2026-11-21T07:54:41.000Z",
+ "t": "2026-11-21T08:03:13.000Z",
  "droog": false,
- "acties": [],
+ "acties": [
+  "branch 'tests' gelijkgezet aan main: index.html"
+ ],
  "problemen": [],
  "meldingen": [],
  "checks": [
@@ -18,21 +20,21 @@
    "groep": 0,
    "naam": "Uitrol van de pagina (GitHub Pages)",
    "s": "ok",
-   "t": "de site toont dezelfde versie als main (versie 21 nov 2026 · 166)"
+   "t": "de site toont dezelfde versie als main (versie 21 nov 2026 · 167)"
   },
   {
    "id": "testbranch",
    "groep": 0,
    "naam": "Testbranch gelijk aan main",
    "s": "ok",
-   "t": "index.html, onderhoud.py, logboek.py in de branch 'tests' zijn precies gelijk aan main"
+   "t": "in de branch 'tests' wijkten af van main: index.html; de server heeft ze gelijkgezet"
   },
   {
    "id": "ghtijd_server",
    "groep": 0,
    "naam": "Reactietijd van GitHub (server)",
    "s": "ok",
-   "t": "lezen gemiddeld 260 ms (langzaamst 501 ms, 27 verzoeken); schrijven: geen verzoeken"
+   "t": "lezen gemiddeld 243 ms (langzaamst 514 ms, 27 verzoeken); schrijven gemiddeld 1302 ms (langzaamst 1302 ms, 1 verzoek)"
   },
   {
    "id": "token",
@@ -165,7 +167,7 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; niets te doen"
+   "t": "de server draait; deze ronde: 1 actie"
   },
   {
    "id": "backups",
@@ -221,7 +223,7 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "5 regels, allemaal leesbaar"
+   "t": "6 regels, allemaal leesbaar"
   }
  ],
  "weken": 49,
