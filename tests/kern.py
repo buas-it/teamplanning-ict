@@ -426,4 +426,37 @@ with sync_playwright() as pw:
     a0 = vraag(p); p.evaluate("document.querySelector('.usr-naam[role=button]') && [...document.querySelectorAll('.usr-naam')].find(x => x.textContent.startsWith('Wim')).click()"); p.wait_for_timeout(1200); a1 = vraag(p)
     p.click("#usr-reset"); p.wait_for_timeout(900); a2 = vraag(p); beantwoord(p, False); rec_na_nee = "Wim" in json.loads(R.f["users.json"])["users"]
     check("K37f Accounts: openen en het account van een collega bekijken vraagt niets; Wachtwoord resetten vraagt om bewerken aan te zetten en doet bij sluiten niets", not a0 and not a1 and a2 and rec_na_nee, json.dumps([a0, a1, a2, rec_na_nee])); b.close()
+    # K38 backup-indicator: de echte tijd van de nieuwste backup tegenover de laatste opslag (niet het moment van laden)
+    def met_opslag(iso):
+        s = planning(); s["integriteit"]["t"] = iso; return s
+    IND = "({ kleur: (document.getElementById('health-backup')||{style:{}}).style.color, titel: (document.getElementById('health-backup')||{}).title, label: HEALTH.lastBackupLabel, echt: HEALTH.backupEcht, leeftijdMin: Math.round((Date.now() - HEALTH.lastBackup) / 60000) })"
+    GROEN, ORANJE = "rgb(76, 175, 80)", "rgb(255, 183, 77)"
+    R = nieuw(planning()); b, p, fouten = open_pagina(pw, R, klok_extra=0)
+    t = p.evaluate("[backupTijdMs('2026-11-20_12-30.json'), backupTijdMs('2026-07-13_12-30.json'), backupTijdMs('2026-03-29_03-30.json'), backupTijdMs('2026-10-25_01-30.json'), backupTijdMs('2026-07-13.json'), backupTijdMs('rommel')].map(x => x === null ? null : new Date(x).toISOString())")
+    check("K38a de tijd uit een backupnaam is de Nederlandse tijd omgerekend naar echte tijd: winter (12:30 = 11:30 UTC), zomer (12:30 = 10:30 UTC), net na de overgang naar zomertijd (03:30 = 01:30 UTC), vlak voor de overgang naar wintertijd (01:30 = 23:30 UTC de dag ervoor); een naam zonder tijd geeft niets", t == ["2026-11-20T11:30:00.000Z", "2026-07-13T10:30:00.000Z", "2026-03-29T01:30:00.000Z", "2026-10-24T23:30:00.000Z", None, None], json.dumps(t)); b.close()
+    # K38b een oude backup die alle opslagen bevat (laatste opslag was ervoor) is goed: groen, ook al is hij 18 dagen oud; de tijd is de echte tijd, niet het moment van laden
+    R = nieuw(met_opslag("2026-09-30T12:00:00.000Z")); R.f["backups/2026-10-01_08-00.json"] = "{}"
+    b, p, fouten = open_pagina(pw, R, klok_extra=0); i1 = p.evaluate(IND)
+    check("K38b een backup van 18 dagen oud die de laatste opslag bevat staat op groen (Backup OK); de leeftijd is de echte (ruim 18 dagen), niet de tijd sinds het laden", i1["kleur"] == GROEN and "Backup OK" in i1["titel"] and i1["echt"] and i1["leeftijdMin"] > 17 * 24 * 60, json.dumps(i1)); b.close()
+    # K38c de planning is een half uur geleden opgeslagen en de nieuwste backup is ouder: oranje met uitleg; is de opslag pas 5 minuten geleden (de server wacht 5 minuten), dan nog groen
+    R = nieuw(met_opslag("2026-10-19T09:00:00.000Z")); R.f["backups/2026-10-19_09-00.json"] = "{}"   # 09:00 Nederlandse tijd = 07:00 UTC; de opslag was 09:00 UTC
+    b, p, fouten = open_pagina(pw, R, klok_extra=0); i2 = p.evaluate(IND); b.close()
+    R = nieuw(met_opslag("2026-10-19T09:25:00.000Z")); R.f["backups/2026-10-19_09-00.json"] = "{}"
+    b, p, fouten = open_pagina(pw, R, klok_extra=0); i3 = p.evaluate(IND); b.close()
+    check("K38c de planning is 30 minuten geleden opgeslagen na de nieuwste backup: oranje met de tekst 'loopt achter'; was dat 5 minuten geleden, dan is het nog groen (de server wacht 5 minuten)", i2["kleur"] == ORANJE and "loopt achter" in i2["titel"] and i3["kleur"] == GROEN and "Backup OK" in i3["titel"], json.dumps([i2, i3]))
+    # K38d de lijst lukte niet bij het laden: de indicator is onbekend; de minuut-sync probeert het opnieuw (hooguit eens per 3 minuten) en dan staat het label er
+    R = nieuw(met_opslag("2026-10-19T06:00:00.000Z")); R.f["backups/2026-10-19_09-00.json"] = "{}"; stuk = {"aan": True}   # de opslag (06:00 UTC) is van vóór de backup (09:00 NL = 07:00 UTC)
+    b, p, fouten = open_pagina(pw, R, klok_extra=0)
+    p.route("**/contents/backups?*", lambda route, req: route.fulfill(status=403, body="{}", headers=CORS, content_type="application/json") if stuk["aan"] else route.fallback())
+    p.evaluate("HEALTH.lastBackup = null; HEALTH.lastBackupLabel = null; HEALTH.backupEcht = false; backupLijstAt = 0; updateHealthBar();"); p.evaluate("async () => { await syncNu(); }"); p.wait_for_timeout(1500)
+    d1 = p.evaluate("({ label: HEALTH.lastBackupLabel, at: backupLijstAt > 0 })"); stuk["aan"] = False
+    p.evaluate("async () => { await syncNu(); }"); p.wait_for_timeout(800); d2 = p.evaluate("({ label: HEALTH.lastBackupLabel })")
+    p.evaluate("backupLijstAt = 0; async () => {}"); p.evaluate("async () => { await syncNu(); }"); p.wait_for_timeout(1500); d3 = p.evaluate(IND)
+    check("K38d mislukt de lijst met backups, dan blijft het label leeg; de volgende minuut-sync probeert het opnieuw, maar niet vaker dan eens per 3 minuten, en daarna staat het label (en de kleur) er", d1["label"] is None and d2["label"] is None and d3["label"] == "19-10 09:00" and d3["kleur"] == GROEN, json.dumps([d1, d2, d3])); b.close()
+    # K38e loopt de backup achter en maakt de server er inmiddels een, dan haalt de minuut-sync de lijst opnieuw op en wordt het groen
+    R = nieuw(met_opslag("2026-10-19T09:00:00.000Z")); R.f["backups/2026-10-19_09-00.json"] = "{}"
+    b, p, fouten = open_pagina(pw, R, klok_extra=0); e1 = p.evaluate(IND)
+    R.f["backups/2026-10-19_11-10.json"] = "{}"   # 11:10 Nederlandse tijd = 09:10 UTC: na de opslag van 09:00
+    p.evaluate("backupLijstAt = 0"); p.evaluate("async () => { await syncNu(); }"); p.wait_for_timeout(1500); e2 = p.evaluate(IND)
+    check("K38e een backup die achterloopt (oranje) wordt groen zodra de server een nieuwere maakt: de minuut-sync haalt de lijst dan opnieuw op", e1["kleur"] == ORANJE and e2["kleur"] == GROEN and e2["label"] == "19-10 11:10", json.dumps([e1, e2])); b.close()
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")
