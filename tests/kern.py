@@ -378,4 +378,52 @@ with sync_playwright() as pw:
     p.evaluate("showChangePassword()"); p.wait_for_selector("#cp-old", timeout=5000); p.fill("#cp-old", "MijnEigenWw-2026"); p.fill("#cp-new1", START); p.fill("#cp-new2", START); p.click("#cp-ok"); p.wait_for_timeout(1500)
     d2 = p.evaluate("(document.getElementById('cp-err') || {}).textContent || ''"); onveranderd = json.loads(R.f["users.json"])["users"]["Hans"]["hash"] == rec1["hash"]
     check("K36d een eigen wachtwoord logt gewoon in (zonder verplichte wijziging), een fout wachtwoord niet; 'Wachtwoord wijzigen' weigert het startwachtwoord als nieuw wachtwoord en laat het record ongemoeid", d0["ident"] is None and not d0["stap2"] and d1["ident"] == "Hans" and not d1["stap2"] and "startwachtwoord" in d2 and onveranderd, json.dumps([d0, d1, d2, onveranderd])); b.close()
+    # K37 de vraag 'Bewerken aanzetten' komt pas als er echt iets wordt gewijzigd, niet bij alleen kijken
+    VRAAG = "!!document.getElementById('edit-overlay')"
+    def vraag(p): return p.evaluate(VRAAG)
+    def beantwoord(p, ja):   # de vraag wegklikken: ja = Bewerken aanzetten, nee = sluiten
+        p.wait_for_selector("#edit-overlay", timeout=3000); p.click("#ed-ok" if ja else "#ed-close"); p.wait_for_timeout(900)
+    R = nieuw(planning()); R.f["settings.json"] = json.dumps({"v": 1, "talen": {"Wim": ["nl"]}, "verjaardagen": True})
+    b, p, fouten = open_pagina(pw, R, klok_extra=0); klaar(p)
+    p.evaluate(ADMIN + " editUnlocked = false; showLockIndicator();")
+    kijk = {}
+    for naam, js, sel in [("verplicht", "showVerplichtModal()", ".vp-overlay"), ("boodschap", "showBoodschapModal()", "#msg-overlay"), ("accounts", "showUsersModal()", "#usr-overlay"), ("periode", "showPeriodeModal()", "#pd-save"), ("standaard", "openStandaard('Wim')", "#tpl-modal"), ("restore", "showRestoreModal()", "#restore-list")]:
+        p.evaluate("() => { " + js + "; }"); p.wait_for_timeout(1200)
+        kijk[naam] = [vraag(p), p.evaluate("(s) => { const e = document.querySelector(s); return !!e && getComputedStyle(e).display !== 'none'; }", sel)]
+        p.evaluate("document.querySelectorAll('.tp-overlay').forEach(o => { if(!o.dataset.gate) o.remove(); }); document.getElementById('tpl-modal').style.display = 'none'")
+    check("K37a een Admin-scherm, Periode, Werkweek of de lijst met backups openen is alleen kijken: de pagina toont het scherm en vraagt niet om bewerken aan te zetten", all(v == [False, True] for v in kijk.values()), json.dumps(kijk))
+    # K37b het menu: Admin en Backup/Restore uitklappen, en Accounts/Boodschap/Verplicht Vrij kiezen, zonder vraag
+    p.evaluate("openWhoMenu()"); p.wait_for_timeout(400); p.evaluate("document.getElementById('menu-admin').click()"); p.wait_for_timeout(200); p.evaluate("document.getElementById('menu-backuprestore').click()"); p.wait_for_timeout(400)
+    m1 = p.evaluate("({ vraag: " + VRAAG + ", menu: !!document.getElementById('who-menu'), maken: !document.getElementById('menu-backup-maken').hidden, terug: !document.getElementById('menu-backup-terugzetten').hidden, titel: document.getElementById('menu-accounts').title })")
+    check("K37b het menu Admin en het tabblad Backup/Restore klappen open zonder vraag om bewerken aan te zetten (en zonder de tekst 'eerst volgt de vraag')", not m1["vraag"] and m1["menu"] and m1["maken"] and m1["terug"] and "vraag" not in m1["titel"], json.dumps(m1))
+    p.evaluate("closeWhoMenu(true)")
+    # K37c Verplicht Vrij: Aanmaken vraagt nu pas; Nee = er verandert niets; Ja = de dag wordt aangemaakt
+    p.evaluate("() => { showVerplichtModal(); }"); p.wait_for_timeout(600)
+    p.fill("#vp-datum", "2026-10-28"); p.fill("#vp-naam", "Bedrijfsuitje"); p.click("#vp-toevoegen"); p.wait_for_timeout(800)
+    v1 = vraag(p); beantwoord(p, False)
+    n1 = json.loads(R.f["settings.json"]).get("verplichteDagen"); u1 = p.evaluate("editUnlocked")
+    p.click("#vp-toevoegen"); p.wait_for_timeout(800); beantwoord(p, True); p.wait_for_timeout(4500)
+    n2 = json.loads(R.f["settings.json"]).get("verplichteDagen") or {}; u2 = p.evaluate("editUnlocked")
+    check("K37c Verplicht Vrij: bij Aanmaken komt de vraag; sluiten = er wordt niets opgeslagen en bewerken blijft uit; Bewerken aanzetten = de dag wordt aangemaakt", v1 and not n1 and not u1 and "2026-10-28" in n2 and u2, json.dumps([v1, n1, u1, n2, u2]))
+    # K37d staat bewerken al aan: geen vraag; gaat het uit terwijl het scherm openstaat, dan blijft het scherm open en volgt de vraag bij de volgende wijziging
+    p.evaluate("disableEditing()"); p.wait_for_timeout(400)
+    open_na = p.evaluate("document.querySelectorAll('.vp-overlay').length")
+    p.evaluate("document.getElementById('vp-lijst').querySelector('.vp-del').click()"); p.wait_for_timeout(800); v3 = vraag(p); beantwoord(p, True); p.wait_for_timeout(3500)
+    n3 = json.loads(R.f["settings.json"]).get("verplichteDagen") or {}
+    p.evaluate("() => { showVerplichtModal(); }"); p.wait_for_timeout(500); p.fill("#vp-datum", "2026-10-29"); p.fill("#vp-naam", "Studiedag"); p.click("#vp-toevoegen"); p.wait_for_timeout(3500)
+    v4 = vraag(p); n4 = json.loads(R.f["settings.json"]).get("verplichteDagen") or {}
+    check("K37d gaat bewerken uit terwijl Verplicht Vrij openstaat, dan blijft het scherm open en volgt de vraag bij de volgende wijziging (Verwijderen); staat bewerken aan, dan wordt er niet nog eens gevraagd", open_na == 1 and v3 and not n3 and "2026-10-29" in n4 and not v4, json.dumps([open_na, v3, n3, v4, n4]))
+    # K37e Boodschap: een vinkje wijzigen vraagt nu pas; Nee zet het vinkje terug en slaat niets op; Ja slaat het op
+    p.evaluate("disableEditing(); document.querySelectorAll('.tp-overlay').forEach(o => { if(!o.dataset.gate) o.remove(); });"); p.evaluate("() => { showBoodschapModal(); }"); p.wait_for_timeout(1500)
+    w0 = p.evaluate("document.getElementById('msg-verj').checked"); p.click("#msg-verj"); p.wait_for_timeout(800)
+    e1 = vraag(p); beantwoord(p, False); w1 = p.evaluate("document.getElementById('msg-verj').checked"); s1 = json.loads(R.f["settings.json"]).get("verjaardagen")
+    p.click("#msg-verj"); p.wait_for_timeout(800); beantwoord(p, True); p.wait_for_timeout(4000); s2 = json.loads(R.f["settings.json"]).get("verjaardagen")
+    p.evaluate("disableEditing()"); p.wait_for_timeout(500); nog_open = p.evaluate("!!document.getElementById('msg-overlay')")
+    check("K37e Boodschap: een vinkje wijzigen vraagt om bewerken aan te zetten; sluiten = het vinkje springt terug en er wordt niets opgeslagen; aanzetten = de wijziging wordt opgeslagen; zet bewerken daarna uit, dan blijft het scherm open (kijken kan altijd)", w0 is True and e1 and w1 is True and s1 is True and s2 is False and nog_open, json.dumps([w0, e1, w1, s1, s2, nog_open]))
+    # K37f Accounts: een wachtwoord resetten vraagt nu pas (niet bij het openen of bij het kijken naar een account)
+    rec = p.evaluate("async () => await newUserRecord('MijnEigenWw-2026')"); R.f["users.json"] = json.dumps({"v": 1, "users": {"Wim": rec}})
+    p.evaluate("disableEditing(); document.querySelectorAll('.tp-overlay').forEach(o => { if(!o.dataset.gate) o.remove(); }); window.confirm = () => true;"); p.evaluate("() => { showUsersModal(); }"); p.wait_for_timeout(1500)
+    a0 = vraag(p); p.evaluate("document.querySelector('.usr-naam[role=button]') && [...document.querySelectorAll('.usr-naam')].find(x => x.textContent.startsWith('Wim')).click()"); p.wait_for_timeout(1200); a1 = vraag(p)
+    p.click("#usr-reset"); p.wait_for_timeout(900); a2 = vraag(p); beantwoord(p, False); rec_na_nee = "Wim" in json.loads(R.f["users.json"])["users"]
+    check("K37f Accounts: openen en het account van een collega bekijken vraagt niets; Wachtwoord resetten vraagt om bewerken aan te zetten en doet bij sluiten niets", not a0 and not a1 and a2 and rec_na_nee, json.dumps([a0, a1, a2, rec_na_nee])); b.close()
 print(f"\nklaar: {sum(1 for r in UIT if r.startswith('PASS'))} geslaagd, {sum(1 for r in UIT if r.startswith('FAIL'))} gefaald")
