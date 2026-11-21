@@ -237,7 +237,7 @@ html.tp-gated body > *:not([data-gate]):not(script):not(style):not(link) { displ
     <span id="health-backup" title="Laatste backup" style="color:rgba(255,255,255,0.2)">⬤ Backup</span>
     <span id="health-audit" title="Audit" style="color:rgba(255,255,255,0.2)">⬤ Audit</span>
     <span id="health-detail" style="color:rgba(255,255,255,0.25);margin-left:4px;">laden...</span>
-    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 nov 2026 · 166</span>
+    <span id="app-version" title="Versie van de pagina die je nu ziet. Staat hier een oudere versie dan verwacht: ververs met Cmd+Shift+R (Mac) of Ctrl+Shift+R." style="margin-left:auto;color:rgba(255,255,255,0.25);font-size:10px;">versie 21 nov 2026 · 167</span>
   </div>
   <div class="legend" id="legend" style="visibility:hidden;"><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.35)">C</span></div><span class="legend-label">Campus</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(76,175,80,0.55);box-shadow:0 0 5px rgba(76,175,80,0.4)"></div><span class="legend-label">Thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(229,57,53,0.55);box-shadow:0 0 5px rgba(229,57,53,0.4)"></div><span class="legend-label">Vrij</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(150,150,150,0.18);border:1.5px solid rgba(150,150,150,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;font-weight:700;color:rgba(180,180,180,0.8)">—</span></div><span class="legend-label">Ziek</span></div><div class="legend-item"><div style="width:26px;height:15px;border-radius:4px;background:rgba(120,170,120,0.35);border:1.5px solid rgba(120,170,120,0.5);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;font-weight:700;color:rgba(225,240,225,0.95)">ZT</span></div><span class="legend-label">Ziek thuis</span></div><div class="legend-item"><div class="legend-dot" style="background:rgba(255,213,79,0.75);box-shadow:0 0 5px rgba(255,213,79,0.4)"></div><span class="legend-label">Extern</span></div></div>
 <div class="vjb" id="verjaardag-banner" role="region" aria-label="Verjaardag" style="display:none;">
@@ -2517,7 +2517,7 @@ async function maybeBackup(stateJson, opts = {}){
     }
     if(res && res.ok){
       lastBackupJson = stateJson; lastBackupTime = Date.now(); backupPending = null;
-      HEALTH.lastBackup = lastBackupTime; HEALTH.lastBackupOk = true; HEALTH.lastBackupErr = null;
+      HEALTH.lastBackup = lastBackupTime; HEALTH.backupEcht = true; HEALTH.lastBackupOk = true; HEALTH.lastBackupErr = null;
       HEALTH.lastBackupLabel = now_dt.toLocaleDateString("nl-NL",{day:"2-digit",month:"2-digit"})+" "+
                                now_dt.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
     } else {
@@ -2715,7 +2715,7 @@ function hideSyncErrorBanner(){
 }
 
 // ── Health status ─────────────────────────────────────────────────
-const HEALTH = { github: "unknown", data: "unknown", lastSync: null, lastSyncOk: false, lastBackup: null, lastBackupOk: false, lastBackupLabel: null, lastBackupErr: null };
+const HEALTH = { github: "unknown", data: "unknown", lastSync: null, lastSyncOk: false, lastBackup: null, lastBackupOk: false, lastBackupLabel: null, lastBackupErr: null, backupEcht: false };
 
 function updateHealthBar(){
   const el = {
@@ -2755,16 +2755,15 @@ function updateHealthBar(){
   const elBackup = document.getElementById("health-backup");
   if(elBackup){
     if(HEALTH.lastBackup){
-      const bSecAgo = Math.round((Date.now()-HEALTH.lastBackup)/1000);
-      const bState = HEALTH.lastBackupOk ? (bSecAgo < 20*60 ? "ok" : "warn") : "error";
+      const bState = HEALTH.lastBackupOk ? (backupAchter() ? "warn" : "ok") : "error";   // ok = de nieuwste backup bevat de laatste opslag (een oude backup op een rustige dag is gewoon goed)
       elBackup.style.color = dot(bState);
       const bLabel = HEALTH.lastBackupLabel || (() => {
         const bDt = new Date(HEALTH.lastBackup + (SRV_OFFSET || 0));
         return bDt.toLocaleDateString("nl-NL", { timeZone: NLTZ,day:"2-digit",month:"2-digit"})+" "+
                bDt.toLocaleTimeString("nl-NL", { timeZone: NLTZ,hour:"2-digit",minute:"2-digit"});
       })();
-      elBackup.title = HEALTH.lastBackupOk ? `Backup OK — ${bLabel} (klik voor inhoud)` : `Laatste backup mislukt${HEALTH.lastBackupErr ? " (" + HEALTH.lastBackupErr + ")" : ""}; er wordt opnieuw geprobeerd. Laatste geslaagde backup: ${bLabel} (klik voor inhoud)`;
-      el.detail.textContent += HEALTH.lastBackupOk ? "  backup ✓ " + bLabel : "  backup ✗ (laatste geslaagd: " + bLabel + ")";
+      elBackup.title = HEALTH.lastBackupOk ? (bState === "warn" ? `Backup loopt achter: de planning is gewijzigd na de nieuwste backup (${bLabel}). De server maakt er meestal binnen enkele minuten een (klik voor inhoud)` : `Backup OK — ${bLabel} (klik voor inhoud)`) : `Laatste backup mislukt${HEALTH.lastBackupErr ? " (" + HEALTH.lastBackupErr + ")" : ""}; er wordt opnieuw geprobeerd. Laatste geslaagde backup: ${bLabel} (klik voor inhoud)`;
+      el.detail.textContent += HEALTH.lastBackupOk ? (bState === "warn" ? "  backup ⚠ " + bLabel + " (loopt achter)" : "  backup ✓ " + bLabel) : "  backup ✗ (laatste geslaagd: " + bLabel + ")";
       elBackup.style.cursor = "pointer";
       elBackup.onclick = ()=>showBackupContents();
     } else if(backupPending || HEALTH.lastBackupErr){   // een poging is mislukt en er is nog geen eerdere backup bekend: dat niet verstoppen achter "nog geen backup"
@@ -2828,13 +2827,26 @@ function updateHealthBar(){
 setInterval(updateHealthBar, 10000);
 
 // Laad laatste backup-tijd — gebruik prefetch-resultaat
-_prefetchBackupList.then(async r=>{
-  if(!r.ok) return;
+const BACKUP_ACHTERSTAND_MS = 15 * 60 * 1000;   // de server maakt een backup zodra er 5 minuten niets is gewijzigd: pas daarna dat nog een kwartier uitblijft, is de backup 'achter'
+function backupTijdMs(naam){   // het tijdstip uit de bestandsnaam (YYYY-MM-DD_HH-MM, Nederlandse tijd) in echte milliseconden; null als er geen tijd in de naam staat
+  const m = /^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})/.exec(String(naam || "")); if(!m) return null;
+  const wand = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  let ms = wand;
+  for(let i = 0; i < 2; i++){ const p = nlDelen(ms); ms = wand - (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute) - ms); }   // de Nederlandse klok op dat moment: zomertijd en wintertijd
+  return isFinite(ms) ? ms : null;
+}
+function backupAchter(){   // true: de planning is opgeslagen na de nieuwste backup en dat is al langer dan het kwartier geleden
+  if(!HEALTH.lastBackup || !HEALTH.backupEcht) return false;   // zonder echte backuptijd geen oordeel
+  const i = HEALTH.integriteit, opslag = i && i.t ? Date.parse(i.t) : NaN; if(!isFinite(opslag)) return false;
+  return opslag - (SRV_OFFSET || 0) > HEALTH.lastBackup + 60000 && Date.now() - (opslag - (SRV_OFFSET || 0)) > BACKUP_ACHTERSTAND_MS;
+}
+async function backupLijstVerwerken(r){   // het antwoord van GitHub op de lijst met backups: de nieuwste bepaalt het label en de kleur; true als dat gelukt is
+  if(!r || !r.ok) return false;
   const files = await r.json();
-  if(!Array.isArray(files) || !files.length) return;
+  if(!Array.isArray(files) || !files.length) return false;
   const newest = files.filter(f=>f.name.endsWith(".json"))
                       .sort((a,b)=>b.name.localeCompare(a.name))[0];
-  if(!newest) return;
+  if(!newest) return false;
   // Gebruik bestandsnaam direct als leesbare string, geen Date-parsing
   const raw = newest.name.replace(".json",""); // "2026-07-13_12-30" of "2026-07-13"
   const label = raw.length >= 16
@@ -2842,9 +2854,18 @@ _prefetchBackupList.then(async r=>{
     : raw.slice(8,10)+"-"+raw.slice(5,7);
   HEALTH.lastBackupLabel = label;
   if(!backupPending) HEALTH.lastBackupOk = true;   // de lijst zegt niets over een mislukte poging in deze sessie
-  HEALTH.lastBackup = Date.now(); // voor kleur-berekening (groen)
+  const echt = backupTijdMs(newest.name);   // de echte tijd van de backup (niet het moment waarop de pagina laadde)
+  HEALTH.lastBackup = echt !== null ? echt - (SRV_OFFSET || 0) : Date.now();   // in de tijd van dit apparaat
+  HEALTH.backupEcht = echt !== null;
   updateHealthBar();
-}).catch(()=>{});
+  return true;
+}
+let backupLijstAt = 0;
+async function backupLijstVerversen(){   // de lijst opnieuw ophalen (hooguit eens per 3 minuten): na een mislukte eerste keer, of als de backup achterloopt (de server maakt er dan misschien inmiddels een)
+  if(Date.now() - backupLijstAt < 3 * 60 * 1000) return; backupLijstAt = Date.now();
+  try{ await backupLijstVerwerken(await fetch(`https://api.github.com/repos/${GH_REPO}/contents/backups?ref=${GH_BRANCH}&t=`+Date.now(), {headers:{"Authorization":`Bearer ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}})); }catch(e){}
+}
+_prefetchBackupList.then(r=>{ backupLijstAt = Date.now(); return backupLijstVerwerken(r); }).catch(()=>{});
 
 // ── Template ─────────────────────────────────────────────────────
 const template = {};
@@ -3223,6 +3244,7 @@ async function checkForNewVersion(){
         renderAndSync();
       }
       auditFlush();   // audit: wachtrij opnieuw proberen
+      if(!HEALTH.lastBackup || backupAchter()) backupLijstVerversen();   // de backup-indicator: de lijst opnieuw als hij nooit is gelukt of als de backup achterloopt
       checkForNewVersion();
     }finally{ syncBusy = false; }
   }
