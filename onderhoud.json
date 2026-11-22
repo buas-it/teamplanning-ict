@@ -1,6 +1,6 @@
 {
  "v": 1,
- "t": "2026-11-22T10:35:25.000Z",
+ "t": "2026-11-22T15:41:16.000Z",
  "droog": false,
  "acties": [],
  "problemen": [],
@@ -32,7 +32,7 @@
    "groep": 0,
    "naam": "Reactietijd van GitHub (server)",
    "s": "ok",
-   "t": "lezen gemiddeld 420 ms (langzaamst 803 ms, 27 verzoeken); schrijven: geen verzoeken"
+   "t": "lezen gemiddeld 194 ms (langzaamst 593 ms, 27 verzoeken); schrijven: geen verzoeken"
   },
   {
    "id": "token",
