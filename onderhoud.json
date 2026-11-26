@@ -1,11 +1,8 @@
 {
  "v": 1,
- "t": "2026-11-26T04:24:00.000Z",
+ "t": "2026-11-26T07:58:39.000Z",
  "droog": false,
- "acties": [
-  "1 backup ouder dan 14 dagen verwijderd (2026-11-11)",
-  "1 dagbestand van het logboek ouder dan 14 dagen verwijderd (2026-11-11)"
- ],
+ "acties": [],
  "problemen": [],
  "meldingen": [],
  "checks": [
@@ -35,7 +32,7 @@
    "groep": 0,
    "naam": "Reactietijd van GitHub (server)",
    "s": "ok",
-   "t": "lezen gemiddeld 273 ms (langzaamst 761 ms, 27 verzoeken); schrijven gemiddeld 943 ms (langzaamst 952 ms, 2 verzoeken)"
+   "t": "lezen gemiddeld 435 ms (langzaamst 986 ms, 27 verzoeken); schrijven: geen verzoeken"
   },
   {
    "id": "token",
@@ -168,7 +165,7 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; deze ronde: 2 acties"
+   "t": "de server draait; niets te doen"
   },
   {
    "id": "backups",
@@ -224,7 +221,7 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "nog geen regels vandaag"
+   "t": "3 regels, allemaal leesbaar"
   }
  ],
  "weken": 48,
