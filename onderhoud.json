@@ -1,10 +1,12 @@
 {
  "v": 1,
- "t": "2026-11-26T14:28:16.000Z",
+ "t": "2026-11-26T14:38:55.000Z",
  "droog": false,
  "acties": [],
  "problemen": [],
- "meldingen": [],
+ "meldingen": [
+  "de planning is tijdens het wachten gewijzigd: de volgende ronde maakt de backup"
+ ],
  "checks": [
   {
    "id": "github",
@@ -32,7 +34,7 @@
    "groep": 0,
    "naam": "Reactietijd van GitHub (server)",
    "s": "ok",
-   "t": "lezen gemiddeld 214 ms (langzaamst 445 ms, 27 verzoeken); schrijven: geen verzoeken"
+   "t": "lezen gemiddeld 243 ms (langzaamst 1024 ms, 33 verzoeken); schrijven gemiddeld 1181 ms (langzaamst 1181 ms, 1 verzoek)"
   },
   {
    "id": "token",
@@ -53,7 +55,7 @@
    "groep": 1,
    "naam": "Controlegetal",
    "s": "ok",
-   "t": "klopt (opslag 40 door Sam)"
+   "t": "klopt (opslag 44 door Monitor)"
   },
   {
    "id": "weken",
@@ -178,8 +180,8 @@
    "id": "backup_actueel",
    "groep": 3,
    "naam": "Laatste backup bevat de laatste opslag",
-   "s": "ok",
-   "t": "gelijk aan de huidige planning"
+   "s": "let",
+   "t": "de planning is gewijzigd sinds de nieuwste backup"
   },
   {
    "id": "backup_geldig",
@@ -221,13 +223,13 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "6 regels, allemaal leesbaar"
+   "t": "9 regels, allemaal leesbaar"
   }
  ],
  "weken": 48,
  "team": 10,
- "state_sha": "8652d59485b7e5626fce2004ea727b08122a9420",
- "stempel_n": 40,
+ "state_sha": "0d15d8f69f279515711a7fe13b2f60ef430bc588",
+ "stempel_n": 43,
  "stempel_bev": 0,
- "audit_commit": "183b8e6bd54569c35a72b98410700b380948047e"
+ "audit_commit": "b3ccceccdecac64f292d8e7a08ea31d89c32fb95"
 }
