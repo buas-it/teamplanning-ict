@@ -1,12 +1,12 @@
 {
  "v": 1,
- "t": "2026-11-27T05:22:10.000Z",
+ "t": "2026-11-27T15:30:56.000Z",
  "droog": false,
- "acties": [
-  "1 dagbestand van het logboek ouder dan 14 dagen verwijderd (2026-11-12)"
- ],
+ "acties": [],
  "problemen": [],
- "meldingen": [],
+ "meldingen": [
+  "de planning is tijdens het wachten gewijzigd: de volgende ronde maakt de backup"
+ ],
  "checks": [
   {
    "id": "github",
@@ -34,7 +34,7 @@
    "groep": 0,
    "naam": "Reactietijd van GitHub (server)",
    "s": "ok",
-   "t": "lezen gemiddeld 427 ms (langzaamst 986 ms, 27 verzoeken); schrijven gemiddeld 1111 ms (langzaamst 1111 ms, 1 verzoek)"
+   "t": "lezen gemiddeld 419 ms (langzaamst 998 ms, 34 verzoeken); schrijven gemiddeld 1080 ms (langzaamst 1225 ms, 2 verzoeken)"
   },
   {
    "id": "token",
@@ -55,7 +55,7 @@
    "groep": 1,
    "naam": "Controlegetal",
    "s": "ok",
-   "t": "klopt (opslag 44 door Monitor)"
+   "t": "klopt (opslag 48 door Monitor)"
   },
   {
    "id": "weken",
@@ -167,7 +167,7 @@
    "groep": 3,
    "naam": "Serveronderhoud (taak op GitHub)",
    "s": "ok",
-   "t": "de server draait; deze ronde: 1 actie"
+   "t": "de server draait; niets te doen"
   },
   {
    "id": "backups",
@@ -181,7 +181,7 @@
    "groep": 3,
    "naam": "Laatste backup bevat de laatste opslag",
    "s": "ok",
-   "t": "gelijk aan de huidige planning"
+   "t": "loopt iets achter op de laatste opslag (normaal: de server maakt een backup zodra er 5 minuten niets is gewijzigd)"
   },
   {
    "id": "backup_geldig",
@@ -223,13 +223,13 @@
    "groep": 3,
    "naam": "Logboek van vandaag is leesbaar",
    "s": "ok",
-   "t": "nog geen regels vandaag"
+   "t": "3 regels, allemaal leesbaar"
   }
  ],
  "weken": 48,
  "team": 10,
- "state_sha": "21adbae87929bf4b2886227eacc514813eb264f4",
- "stempel_n": 44,
+ "state_sha": "bc7413295f981275cc5a152b600f98e8bc181574",
+ "stempel_n": 47,
  "stempel_bev": 0,
- "audit_commit": "e58fbf1370a94660aff1f699837efc7bbec0d2cb"
+ "audit_commit": "10035a19ffa74e175b250cc7fb5429b927bd5119"
 }
